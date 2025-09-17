@@ -1,0 +1,305 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ quiz.title }} - Quiz Details{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <div class="container-fluid py-4">
+                                                <div>
+                                            {% if attempt.score is not None %}
+                                                <div class="score-display">{{ attempt.score }}%</div>
+                                            {% else %}
+                                                <div style="color: var(--text-secondary);">In Progress</div>
+                                            {% endif %}
+                                        </div>eadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'rag_app:dashboard' %}" style="color: var(--text-secondary);">Dashboard</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'rag_app:quiz_list' %}" style="color: var(--text-secondary);">Quizzes</a></li>
+                <li class="breadcrumb-item active" style="color: var(--text-primary);">{{ quiz.title }}</li>
+            </ol>
+        </nav>
+
+        <div class="row">
+            <!-- Quiz Information -->
+            <div class="col-lg-8">
+                <div class="card mb-4" style="border: none; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); background: var(--chat-bg);">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-start justify-content-between mb-4">
+                            <div class="d-flex align-items-start">
+                                <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border-radius: 1rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.5rem; margin-right: 1rem;">
+                                    <i class="fas fa-question-circle"></i>
+                                </div>
+                                <div>
+                                    <h1 class="h3 mb-2" style="color: var(--text-primary); font-weight: 700;">{{ quiz.title }}</h1>
+                                    {% if quiz.subject %}
+                                        <span class="badge" style="background: var(--primary-color); color: white; margin-right: 0.5rem;">{{ quiz.subject.name }}</span>
+                                    {% endif %}
+                                    <span class="badge badge-outline-{{ quiz.difficulty }}">{{ quiz.difficulty|title }}</span>
+                                </div>
+                            </div>
+                            <div class="dropdown">
+                                <button class="btn btn-outline-secondary" type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_edit' quiz.id %}"><i class="fas fa-edit me-2"></i>Edit Quiz</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_share' quiz.id %}"><i class="fas fa-share me-2"></i>Share</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item text-danger" href="{% url 'rag_app:quiz_delete' quiz.id %}"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        {% if quiz.description %}
+                            <p style="color: var(--text-secondary); line-height: 1.6; margin-bottom: 2rem;">{{ quiz.description }}</p>
+                        {% endif %}
+
+                        <!-- Quiz Actions -->
+                        <div class="d-flex gap-3 mb-4">
+                            {% if quiz.is_active %}
+                                <a href="{% url 'rag_app:quiz_take' quiz.id %}" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-play me-2"></i>Take Quiz
+                                </a>
+                            {% endif %}
+                            <a href="{% url 'rag_app:quiz_edit' quiz.id %}" class="btn btn-outline-primary btn-lg">
+                                <i class="fas fa-edit me-2"></i>Edit
+                            </a>
+                            <button class="btn btn-outline-secondary btn-lg" onclick="shareQuiz()">
+                                <i class="fas fa-share me-2"></i>Share
+                            </button>
+                        </div>
+
+                        <!-- Quiz Metadata -->
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 style="color: var(--text-primary); font-weight: 600; margin-bottom: 1rem;">Quiz Information</h6>
+                                <ul class="list-unstyled" style="color: var(--text-secondary);">
+                                    <li class="mb-2"><i class="fas fa-clock me-2"></i>Created {{ quiz.created_at|date:"M d, Y" }}</li>
+                                    <li class="mb-2"><i class="fas fa-user me-2"></i>Created by {{ quiz.created_by.get_full_name|default:quiz.created_by.username }}</li>
+                                    {% if quiz.time_limit %}
+                                        <li class="mb-2"><i class="fas fa-hourglass-half me-2"></i>Time Limit: {{ quiz.time_limit }} minutes</li>
+                                    {% endif %}
+                                    <li class="mb-2">
+                                        <i class="fas fa-{{ quiz.is_active|yesno:'check-circle,pause-circle' }} me-2"></i>
+                                        Status: {{ quiz.is_active|yesno:"Active,Inactive" }}
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Questions List -->
+                <div class="card" style="border: none; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); background: var(--chat-bg);">
+                    <div class="card-header" style="background: transparent; border-bottom: 1px solid var(--border-color); padding: 1.5rem 1.5rem 1rem;">
+                        <h5 style="color: var(--text-primary); font-weight: 600; margin: 0;">Questions ({{ quiz.questions.count }})</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        {% if quiz.questions.exists %}
+                            {% for question in quiz.questions.all %}
+                                <div class="question-item p-3 mb-3" style="background: var(--background-light); border-radius: 0.75rem; border-left: 4px solid var(--primary-color);">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <span class="badge badge-light">Question {{ forloop.counter }}</span>
+                                        <span class="badge badge-outline-{{ question.question_type }}">{{ question.get_question_type_display }}</span>
+                                    </div>
+                                    <h6 style="color: var(--text-primary); font-weight: 600; margin-bottom: 1rem;">{{ question.question_text }}</h6>
+                                    
+                                    {% if question.question_type == 'multiple_choice' %}
+                                        <div class="options">
+                                            {% for option in question.options.all %}
+                                                <div class="option mb-2 p-2 {% if option.is_correct %}correct-option{% endif %}" style="background: var(--chat-bg); border-radius: 0.5rem;">
+                                                    <div class="d-flex align-items-center">
+                                                        {% if option.is_correct %}
+                                                            <i class="fas fa-check-circle text-success me-2"></i>
+                                                        {% else %}
+                                                            <div class="me-2" style="width: 16px; height: 16px; border: 2px solid var(--text-secondary); border-radius: 50%;"></div>
+                                                        {% endif %}
+                                                        <span style="color: var(--text-primary);">{{ option.option_text }}</span>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    {% elif question.question_type == 'true_false' %}
+                                        <div class="options">
+                                            <div class="option mb-2 p-2 {% if question.correct_answer == 'True' %}correct-option{% endif %}" style="background: var(--chat-bg); border-radius: 0.5rem;">
+                                                {% if question.correct_answer == 'True' %}
+                                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                                {% else %}
+                                                    <div class="me-2" style="width: 16px; height: 16px; border: 2px solid var(--text-secondary); border-radius: 50%; display: inline-block;"></div>
+                                                {% endif %}
+                                                True
+                                            </div>
+                                            <div class="option mb-2 p-2 {% if question.correct_answer == 'False' %}correct-option{% endif %}" style="background: var(--chat-bg); border-radius: 0.5rem;">
+                                                {% if question.correct_answer == 'False' %}
+                                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                                {% else %}
+                                                    <div class="me-2" style="width: 16px; height: 16px; border: 2px solid var(--text-secondary); border-radius: 50%; display: inline-block;"></div>
+                                                {% endif %}
+                                                False
+                                            </div>
+                                        </div>
+                                    {% elif question.question_type == 'short_answer' %}
+                                        <div style="background: var(--chat-bg); border-radius: 0.5rem; padding: 0.75rem; border-left: 3px solid #10b981;">
+                                            <strong style="color: var(--text-primary);">Expected Answer:</strong>
+                                            <p style="color: var(--text-secondary); margin: 0.5rem 0 0;">{{ question.correct_answer|default:"Open-ended question" }}</p>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-question-circle" style="font-size: 3rem; color: var(--text-secondary); margin-bottom: 1rem;"></i>
+                                <h6 style="color: var(--text-primary);">No questions added yet</h6>
+                                <p style="color: var(--text-secondary);">Add questions to make this quiz available for taking.</p>
+                                <a href="{% url 'rag_app:quiz_edit' quiz.id %}" class="btn btn-primary">
+                                    <i class="fas fa-plus me-2"></i>Add Questions
+                                </a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sidebar -->
+            <div class="col-lg-4">
+                <!-- Quiz Statistics -->
+                <div class="card mb-4" style="border: none; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); background: var(--chat-bg);">
+                    <div class="card-header" style="background: transparent; border-bottom: 1px solid var(--border-color); padding: 1.5rem 1.5rem 1rem;">
+                        <h6 style="color: var(--text-primary); font-weight: 600; margin: 0;">Quiz Statistics</h6>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="stat-item mb-3">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--primary-color);">{{ quiz.questions.count }}</div>
+                            <small style="color: var(--text-secondary);">Total Questions</small>
+                        </div>
+                        <div class="stat-item mb-3">
+                            <div style="font-size: 2rem; font-weight: 700; color: #10b981;">{{ quiz.attempts.count }}</div>
+                            <small style="color: var(--text-secondary);">Total Attempts</small>
+                        </div>
+                        {% if quiz.average_score %}
+                            <div class="stat-item mb-3">
+                                <div style="font-size: 2rem; font-weight: 700; color: #f59e0b;">{{ quiz.average_score|floatformat:1 }}%</div>
+                                <small style="color: var(--text-secondary);">Average Score</small>
+                            </div>
+                        {% endif %}
+                        {% if quiz.completion_rate %}
+                            <div class="stat-item">
+                                <div style="font-size: 2rem; font-weight: 700; color: #8b5cf6;">{{ quiz.completion_rate|floatformat:1 }}%</div>
+                                <small style="color: var(--text-secondary);">Completion Rate</small>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Recent Attempts -->
+                {% if quiz.attempts.exists %}
+                    <div class="card" style="border: none; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); background: var(--chat-bg);">
+                        <div class="card-header" style="background: transparent; border-bottom: 1px solid var(--border-color); padding: 1.5rem 1.5rem 1rem;">
+                            <h6 style="color: var(--text-primary); font-weight: 600; margin: 0;">Recent Attempts</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            {% for attempt in quiz.attempts.all|slice:":5" %}
+                                <div class="attempt-item p-3" style="border-bottom: 1px solid var(--border-color);">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div style="font-weight: 600; color: var(--text-primary);">{{ attempt.user.get_full_name|default:attempt.user.username }}</div>
+                                            <small style="color: var(--text-secondary);">{{ attempt.completed_at|timesince }} ago</small>
+                                        </div>
+                                        <div class="text-end">
+                                            {% if attempt.score is not None %}
+                                                <div class="score-display">{{ attempt.score }}%</div>
+                                            {% else %}
+                                                <div style="color: var(--text-secondary);">In Progress</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function shareQuiz() {
+    const url = window.location.href;
+    if (navigator.share) {
+        navigator.share({
+            title: '{{ quiz.title }}',
+            url: url
+        });
+    } else {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Quiz link copied to clipboard!');
+        });
+    }
+}
+</script>
+
+<style>
+.badge-outline-easy {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.badge-outline-medium {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.badge-outline-hard {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.badge-outline-multiple_choice {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+}
+
+.badge-outline-true_false {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.badge-outline-short_answer {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.correct-option {
+    border-left: 3px solid #10b981 !important;
+}
+
+.score-display {
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.dropdown-menu {
+    background: var(--chat-bg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item {
+    color: var(--text-primary);
+}
+
+.dropdown-item:hover {
+    background-color: var(--background-light);
+    color: var(--text-primary);
+}
+</style>
+{% endblock %}

@@ -1,9 +1,70 @@
+# Core Django framework
+django==4.2.23
+djangorestframework==3.14.0
+django-cors-headers==4.0.0
+
+# Supabase integration
+supabase==2.3.4
+postgrest==0.16.2
+python-dotenv==1.0.1
+
+# Database (PostgreSQL for local development)
+psycopg2-binary==2.9.7
+
+# File storage and handling
+django-storages==1.14.2
+boto3==1.34.34  # For S3-compatible storage
+Pillow==10.0.0
+
+# AI and ML libraries
 langchain==0.3.27
 langchain-community==0.3.29
 langchain-huggingface==0.3.1
 huggingface-hub==0.34.4
 sentence-transformers==5.1.0
 faiss-cpu==1.12.0
-django==4.2.23
+openai==1.12.0
+
+# File processing
+PyPDF2==3.0.1
+python-docx==0.8.11
+python-pptx==0.6.21
+
+# Web scraping and utilities
+requests==2.31.0
+beautifulsoup4==4.12.2
 numpy==2.0.2
-python-dotenv==1.0.1
+
+# Authentication and security
+django-allauth==0.54.0
+pyjwt==2.8.0
+
+# API and serialization
+marshmallow==3.20.1
+drf-spectacular==0.27.0  # For API documentation
+
+# Background tasks
+celery==5.3.4
+redis==5.0.1
+
+# Email
+django-ses==3.5.0
+
+# Environment and configuration
+django-environ==0.11.2
+
+# Testing
+pytest==7.4.0
+pytest-django==4.5.2
+factory-boy==3.3.0
+
+# Development tools
+django-debug-toolbar==4.2.0
+django-extensions==3.2.3
+
+# Production utilities
+gunicorn==21.2.0
+whitenoise==6.5.0
+
+# Monitoring and logging
+sentry-sdk==1.40.6

@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Subjects - EduMentorAI{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <!-- Header Section -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h1 class="h3 mb-1" style="color: var(--text-primary); font-weight: 700;">My Subjects</h1>
+                        <p class="text-muted mb-0">Organize your study materials by subject</p>
+                    </div>
+                    <a href="{% url 'rag_app:subject_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Add Subject
+                    </a>
+                </div>
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                {% if subjects %}
+                    <!-- Subjects Grid -->
+                    <div class="row g-4">
+                        {% for subject in subjects %}
+                            <div class="col-lg-4 col-md-6">
+                                <div class="card h-100" style="border: none; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); transition: all 0.3s ease; background: var(--chat-bg);">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex align-items-start justify-content-between mb-3">
+                                            <div style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%); border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.25rem;">
+                                                <i class="fas fa-book"></i>
+                                            </div>
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm" type="button" data-bs-toggle="dropdown" style="color: var(--text-secondary);">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    <li><a class="dropdown-item" href="{% url 'rag_app:subject_detail' subject.id %}"><i class="fas fa-eye me-2"></i>View</a></li>
+                                                    <li><a class="dropdown-item" href="{% url 'rag_app:subject_edit' subject.id %}"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li><a class="dropdown-item text-danger" href="{% url 'rag_app:subject_delete' subject.id %}"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        
+                                        <h5 class="card-title mb-2" style="color: var(--text-primary); font-weight: 600;">{{ subject.name }}</h5>
+                                        {% if subject.description %}
+                                            <p class="card-text text-muted mb-3" style="font-size: 0.9rem; line-height: 1.5;">{{ subject.description|truncatewords:15 }}</p>
+                                        {% endif %}
+                                        
+                                        <!-- Subject Stats -->
+                                        <div class="row text-center mb-3">
+                                            <div class="col-4">
+                                                <div style="font-size: 1.25rem; font-weight: 700; color: var(--primary-color);">{{ subject.documents.count }}</div>
+                                                <small style="color: var(--text-secondary);">Documents</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <div style="font-size: 1.25rem; font-weight: 700; color: var(--primary-color);">{{ subject.quizzes.count }}</div>
+                                                <small style="color: var(--text-secondary);">Quizzes</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <div style="font-size: 1.25rem; font-weight: 700; color: var(--primary-color);">{{ subject.chat_sessions.count }}</div>
+                                                <small style="color: var(--text-secondary);">Chats</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Quick Actions -->
+                                        <div class="d-grid gap-2">
+                                            <a href="{% url 'rag_app:subject_detail' subject.id %}" class="btn btn-outline-primary btn-sm">
+                                                <i class="fas fa-arrow-right me-2"></i>Open Subject
+                                            </a>
+                                        </div>
+                                        
+                                        <small class="text-muted d-block mt-2">
+                                            <i class="fas fa-clock me-1"></i>Updated {{ subject.updated_at|timesince }} ago
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <!-- Empty State -->
+                    <div class="text-center py-5">
+                        <div style="width: 120px; height: 120px; background: var(--background-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 2rem; color: var(--text-secondary); font-size: 3rem;">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <h3 style="color: var(--text-primary); font-weight: 600; margin-bottom: 1rem;">No subjects yet</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 2rem; max-width: 400px; margin-left: auto; margin-right: auto;">
+                            Start organizing your learning by creating your first subject. Group related documents and materials together for better study sessions.
+                        </p>
+                        <a href="{% url 'rag_app:subject_create' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-plus me-2"></i>Create Your First Subject
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+.dropdown-menu {
+    background: var(--chat-bg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item {
+    color: var(--text-primary);
+}
+
+.dropdown-item:hover {
+    background-color: var(--background-light);
+    color: var(--text-primary);
+}
+</style>
+{% endblock %}
