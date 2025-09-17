@@ -183,6 +183,45 @@
             margin-bottom: 1rem;
         }
     }
+    
+    .feature-item {
+        animation-delay: 0.2s;
+    }
+    
+    .feature-preview {
+        animation: slideUp 0.8s ease-out 0.5s both;
+    }
+    
+    .step-number {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+    
+    .step-number::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 100%;
+        width: 50px;
+        height: 2px;
+        background: var(--gray-300);
+        transform: translateY(-50%);
+    }
+    
+    .col-md-4:last-child .step-number::after {
+        display: none;
+    }
+    
+    @media (max-width: 768px) {
+        .step-number::after {
+            display: none;
+        }
+    }
+    
+    .chat-preview {
+        max-width: 300px;
+        margin: 0 auto;
+    }
 </style>
 {% endblock %}
 
@@ -430,32 +469,22 @@
                 <div class="card-body">
                     {% if recent_subjects %}
                         {% for subject in recent_subjects %}
-                        <div class="d-flex align-items-center mb-3">
-                            <div class="bg-light rounded p-2 me-3">
-                                <i class="fas fa-book text-primary"></i>
-                            </div>
-                            <div class="flex-grow-1">
-                                <a href="{% url 'rag_app:subject_detail' subject.pk %}" class="text-decoration-none">
-                                    <h6 class="mb-0">{{ subject.name }}</h6>
-                                    <small class="text-muted">{{ subject.code }}</small>
-                <div style="background: var(--background-light); border-radius: 1rem; padding: 1.5rem;">
-                    <h5 style="font-weight: 600; margin-bottom: 1rem; color: var(--text-primary);">Recent Activity</h5>
-                    {% if recent_subjects %}
-                        {% for subject in recent_subjects %}
-                            <div style="display: flex; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid var(--border-color);">
-                                <div style="width: 40px; height: 40px; background: var(--primary-color); border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; margin-right: 0.75rem; color: white;">
-                                    <i class="fas fa-book"></i>
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-light rounded p-2 me-3">
+                                    <i class="fas fa-book text-primary"></i>
                                 </div>
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 500; color: var(--text-primary);">{{ subject.name }}</div>
-                                    <small style="color: var(--text-secondary);">{{ subject.documents.count }} documents</small>
+                                <div class="flex-grow-1">
+                                    <a href="{% url 'rag_app:subject_detail' subject.pk %}" class="text-decoration-none">
+                                        <h6 class="mb-0">{{ subject.name }}</h6>
+                                        <small class="text-muted">{{ subject.code }} - {{ subject.documents.count }} documents</small>
+                                    </a>
                                 </div>
                             </div>
                         {% endfor %}
                     {% else %}
-                        <div style="text-align: center; color: var(--text-secondary); padding: 2rem 0;">
-                            <i class="fas fa-plus-circle" style="font-size: 2rem; margin-bottom: 0.75rem; display: block;"></i>
-                            <p style="margin-bottom: 1rem;">No subjects yet</p>
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-plus-circle fs-2 mb-3 d-block"></i>
+                            <p class="mb-3">No subjects yet</p>
                             <a href="{% url 'rag_app:subject_create' %}" class="btn btn-primary">Create First Subject</a>
                         </div>
                     {% endif %}
@@ -478,43 +507,4 @@
     </div>
 </section>
 {% endif %}
-{% endblock %}
-        animation-delay: 0.2s;
-    }
-    
-    .feature-preview {
-        animation: slideUp 0.8s ease-out 0.5s both;
-    }
-    
-    .step-number {
-        position: relative;
-        margin-bottom: 1rem;
-    }
-    
-    .step-number::after {
-        content: '';
-        position: absolute;
-        top: 50%;
-        left: 100%;
-        width: 50px;
-        height: 2px;
-        background: var(--gray-300);
-        transform: translateY(-50%);
-    }
-    
-    .col-md-4:last-child .step-number::after {
-        display: none;
-    }
-    
-    @media (max-width: 768px) {
-        .step-number::after {
-            display: none;
-        }
-    }
-    
-    .chat-preview {
-        max-width: 300px;
-        margin: 0 auto;
-    }
-</style>
 {% endblock %}

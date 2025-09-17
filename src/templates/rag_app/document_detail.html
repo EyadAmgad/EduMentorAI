@@ -1,0 +1,277 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ document.title }} - EduMentorAI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .document-header {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        border-radius: 1rem;
+        padding: 2rem;
+        margin-bottom: 2rem;
+    }
+    
+    .document-meta {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .meta-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    
+    .meta-item:last-child {
+        border-bottom: none;
+    }
+    
+    .meta-label {
+        font-weight: 600;
+        color: #374151;
+    }
+    
+    .meta-value {
+        color: #6b7280;
+    }
+    
+    .chunks-container {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+    }
+    
+    .chunk-item {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .chunk-item:last-child {
+        margin-bottom: 0;
+    }
+    
+    .chunk-header {
+        display: flex;
+        justify-content: between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    .chunk-number {
+        background: #f59e0b;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .chunk-content {
+        color: #374151;
+        line-height: 1.6;
+        font-size: 0.875rem;
+    }
+    
+    .btn-group .btn {
+        margin-right: 0.5rem;
+    }
+    
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-processed {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .status-pending {
+        background: #fef3c7;
+        color: #92400e;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Header -->
+    <div class="document-header">
+        <div class="row align-items-center">
+            <div class="col-lg-8">
+                <h1 class="mb-2">
+                    <i class="fas fa-file-alt me-3"></i>{{ document.title }}
+                </h1>
+                <p class="mb-0 opacity-90">
+                    <i class="fas fa-book me-2"></i>{{ document.subject.name }}
+                </p>
+            </div>
+            <div class="col-lg-4 text-lg-end">
+                <div class="btn-group">
+                    <a href="{{ document.file.url }}" target="_blank" class="btn btn-light">
+                        <i class="fas fa-download me-2"></i>Download
+                    </a>
+                    <a href="{% url 'rag_app:document_list' %}" class="btn btn-outline-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Documents
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Document Information -->
+        <div class="col-lg-4">
+            <div class="document-meta">
+                <h5 class="mb-3">
+                    <i class="fas fa-info-circle me-2"></i>Document Information
+                </h5>
+                
+                <div class="meta-item">
+                    <span class="meta-label">Status</span>
+                    <span class="meta-value">
+                        {% if document.processed %}
+                            <span class="status-badge status-processed">
+                                <i class="fas fa-check me-1"></i>Processed
+                            </span>
+                        {% else %}
+                            <span class="status-badge status-pending">
+                                <i class="fas fa-clock me-1"></i>Pending
+                            </span>
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="meta-item">
+                    <span class="meta-label">Type</span>
+                    <span class="meta-value">{{ document.get_document_type_display }}</span>
+                </div>
+                
+                <div class="meta-item">
+                    <span class="meta-label">Size</span>
+                    <span class="meta-value">{{ document.file_size|filesizeformat }}</span>
+                </div>
+                
+                {% if document.page_count %}
+                <div class="meta-item">
+                    <span class="meta-label">Pages</span>
+                    <span class="meta-value">{{ document.page_count }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="meta-item">
+                    <span class="meta-label">Uploaded</span>
+                    <span class="meta-value">{{ document.uploaded_at|date:"M d, Y H:i" }}</span>
+                </div>
+                
+                {% if document.processed_at %}
+                <div class="meta-item">
+                    <span class="meta-label">Processed</span>
+                    <span class="meta-value">{{ document.processed_at|date:"M d, Y H:i" }}</span>
+                </div>
+                {% endif %}
+                
+                <div class="meta-item">
+                    <span class="meta-label">Chunks</span>
+                    <span class="meta-value">{{ total_chunks }}</span>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="document-meta">
+                <h5 class="mb-3">
+                    <i class="fas fa-cogs me-2"></i>Actions
+                </h5>
+                
+                <div class="d-grid gap-2">
+                    {% if not document.processed %}
+                        <form method="post" action="{% url 'rag_app:document_process' document.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-play me-2"></i>Process Document
+                            </button>
+                        </form>
+                    {% endif %}
+                    
+                    <a href="{% url 'rag_app:chat' %}?document={{ document.pk }}" class="btn btn-outline-primary">
+                        <i class="fas fa-comments me-2"></i>Chat about this Document
+                    </a>
+                    
+                    <a href="{% url 'rag_app:quiz_create' %}?document={{ document.pk }}" class="btn btn-outline-success">
+                        <i class="fas fa-question-circle me-2"></i>Generate Quiz
+                    </a>
+                    
+                    <a href="{% url 'rag_app:document_delete' document.pk %}" class="btn btn-outline-danger">
+                        <i class="fas fa-trash me-2"></i>Delete Document
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Document Chunks -->
+        <div class="col-lg-8">
+            <div class="chunks-container">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-puzzle-piece me-2"></i>Content Preview
+                    </h5>
+                    <span class="text-muted">
+                        Showing {{ chunks|length }} of {{ total_chunks }} chunks
+                    </span>
+                </div>
+                
+                {% if chunks %}
+                    {% for chunk in chunks %}
+                        <div class="chunk-item">
+                            <div class="chunk-header">
+                                <span class="chunk-number">Chunk {{ chunk.chunk_index }}</span>
+                                {% if chunk.page_number %}
+                                    <span class="text-muted small">Page {{ chunk.page_number }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="chunk-content">
+                                {{ chunk.content|truncatewords:50|linebreaks }}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    
+                    {% if total_chunks > chunks|length %}
+                        <div class="text-center mt-3">
+                            <p class="text-muted">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Showing first {{ chunks|length }} chunks. 
+                                {{ total_chunks|add:"-10" }} more chunks are available.
+                            </p>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-5">
+                        {% if document.processed %}
+                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">No content chunks found</h6>
+                            <p class="text-muted">This document may be empty or failed to process properly.</p>
+                        {% else %}
+                            <i class="fas fa-hourglass-half fa-3x text-muted mb-3"></i>
+                            <h6 class="text-muted">Document not processed yet</h6>
+                            <p class="text-muted">Process this document to view its content chunks.</p>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

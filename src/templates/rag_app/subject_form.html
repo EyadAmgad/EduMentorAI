@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+    {% if object %}Edit Subject{% else %}Create Subject{% endif %} - EduMentorAI
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin: 2rem 0;
+    }
+    
+    .form-header {
+        border-bottom: 2px solid #f8fafc;
+        padding-bottom: 1rem;
+        margin-bottom: 2rem;
+    }
+    
+    .form-header h2 {
+        color: #1e293b;
+        font-weight: 700;
+        margin: 0;
+    }
+    
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-label {
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    .form-control {
+        border: 2px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        width: 100%;
+        font-size: 1rem;
+        transition: border-color 0.2s ease;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: #f59e0b;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        color: white;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+    }
+    
+    .btn-secondary {
+        background: #6b7280;
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 0.5rem;
+        font-weight: 600;
+        color: white;
+        text-decoration: none;
+        display: inline-block;
+        transition: background-color 0.2s ease;
+    }
+    
+    .btn-secondary:hover {
+        background: #4b5563;
+        color: white;
+        text-decoration: none;
+    }
+    
+    .help-text {
+        color: #6b7280;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+    
+    .error-message {
+        color: #dc2626;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="form-container">
+                <div class="form-header">
+                    <h2>
+                        <i class="fas fa-book me-2"></i>
+                        {% if object %}Edit Subject{% else %}Create New Subject{% endif %}
+                    </h2>
+                </div>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="form-group">
+                        <label for="{{ form.name.id_for_label }}" class="form-label">
+                            Subject Name <span class="text-danger">*</span>
+                        </label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="error-message">
+                                {{ form.name.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="help-text">
+                            Enter the full name of the subject (e.g., "Introduction to Computer Science")
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="{{ form.code.id_for_label }}" class="form-label">
+                            Subject Code <span class="text-danger">*</span>
+                        </label>
+                        {{ form.code }}
+                        {% if form.code.errors %}
+                            <div class="error-message">
+                                {{ form.code.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="help-text">
+                            Enter a unique code for the subject (e.g., "CS101", "MATH201")
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="{{ form.description.id_for_label }}" class="form-label">
+                            Description
+                        </label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="error-message">
+                                {{ form.description.errors.0 }}
+                            </div>
+                        {% endif %}
+                        <div class="help-text">
+                            Optional description of the subject content and objectives
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-3 mt-4">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>
+                            {% if object %}Update Subject{% else %}Create Subject{% endif %}
+                        </button>
+                        <a href="{% url 'rag_app:subject_list' %}" class="btn btn-secondary">
+                            <i class="fas fa-times me-2"></i>Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

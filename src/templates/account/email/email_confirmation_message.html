@@ -1,0 +1,175 @@
+{% load account %}
+{% user_display user as user_display %}
+{% load i18n %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify Your Email - EduMentorAI</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f8fafc;
+            color: #334155;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .header p {
+            margin: 10px 0 0 0;
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #1e293b;
+        }
+        .message {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+            color: #475569;
+        }
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 16px 32px;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+        .cta-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+        .alternative-link {
+            background-color: #f1f5f9;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 30px;
+        }
+        .alternative-link p {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            color: #64748b;
+        }
+        .alternative-link a {
+            color: #f59e0b;
+            word-break: break-all;
+            font-size: 14px;
+        }
+        .footer {
+            background-color: #f8fafc;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+        .footer p {
+            margin: 0;
+            font-size: 14px;
+            color: #64748b;
+        }
+        .footer a {
+            color: #f59e0b;
+            text-decoration: none;
+        }
+        .security-notice {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 0 4px 4px 0;
+        }
+        .security-notice p {
+            margin: 0;
+            font-size: 14px;
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 EduMentorAI</h1>
+            <p>Verify Your Email Address</p>
+        </div>
+        
+        <div class="content">
+            <div class="greeting">
+                Hello{% if user_display %} {{ user_display }}{% endif %}!
+            </div>
+            
+            <div class="message">
+                Welcome to EduMentorAI! We're excited to have you join our learning community.
+                To complete your registration and start using our platform, please verify your email address by clicking the button below.
+            </div>
+            
+            <div style="text-align: center;">
+                <a href="{{ activate_url }}" class="cta-button">
+                    ✅ Verify Email Address
+                </a>
+            </div>
+            
+            <div class="alternative-link">
+                <p><strong>Button not working?</strong> Copy and paste this link into your browser:</p>
+                <a href="{{ activate_url }}">{{ activate_url }}</a>
+            </div>
+            
+            <div class="message">
+                Once verified, you'll be able to:
+                <ul>
+                    <li>📚 Upload and analyze your study materials</li>
+                    <li>💬 Chat with AI about your documents</li>
+                    <li>📝 Generate custom quizzes</li>
+                    <li>🎯 Track your learning progress</li>
+                </ul>
+            </div>
+            
+            <div class="security-notice">
+                <p>
+                    <strong>Security Note:</strong> This verification link will expire in 3 days. 
+                    If you didn't create an account with EduMentorAI, please ignore this email.
+                </p>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>
+                Need help? Contact us at 
+                <a href="mailto:support@edumetorai.com">support@edumetorai.com</a>
+            </p>
+            <p style="margin-top: 10px;">
+                © 2024 EduMentorAI. All rights reserved.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

@@ -3,7 +3,214 @@ Django forms for EduMentorAI
 """
 from django import forms
 from django.contrib.auth.models import User
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordResetForm
+from django.core.exceptions import ValidationError
+import logging
 from .models import Subject, Document, Quiz, UserProfile, ChatMessage
+from .supabase_client import get_supabase_client
+
+logger = logging.getLogger(__name__)
+
+
+class SupabaseSignUpForm(UserCreationForm):
+    """Custom signup form that works with Supabase"""
+    email = forms.EmailField(
+        required=True,
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your email address',
+            'autocomplete': 'email'
+        })
+    )
+    first_name = forms.CharField(
+        max_length=30,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'First name',
+            'autocomplete': 'given-name'
+        })
+    )
+    last_name = forms.CharField(
+        max_length=30,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Last name',
+            'autocomplete': 'family-name'
+        })
+    )
+    
+    class Meta:
+        model = User
+        fields = ('email', 'first_name', 'last_name', 'password1', 'password2')
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Remove username field
+        if 'username' in self.fields:
+            del self.fields['username']
+        
+        # Update password field styles
+        self.fields['password1'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Enter password',
+            'autocomplete': 'new-password'
+        })
+        self.fields['password2'].widget.attrs.update({
+            'class': 'form-control',
+            'placeholder': 'Confirm password',
+            'autocomplete': 'new-password'
+        })
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise ValidationError("A user with this email already exists.")
+        return email
+    
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.email = self.cleaned_data['email']
+        user.username = self.cleaned_data['email']  # Use email as username
+        user.is_active = False  # Set to False until email is verified
+        
+        if commit:
+            user.save()
+            
+            # Create user in Supabase and send verification email
+            try:
+                supabase_client = get_supabase_client()
+                if supabase_client.is_available():
+                    response = supabase_client.create_user(
+                        email=user.email,
+                        password=self.cleaned_data['password1'],
+                        email_confirm=True,  # This triggers email verification
+                        data={
+                            'first_name': self.cleaned_data.get('first_name', ''),
+                            'last_name': self.cleaned_data.get('last_name', ''),
+                        }
+                    )
+                    logger.info(f"User created in Supabase with email verification: {user.email}")
+                else:
+                    # Fallback: activate user immediately if Supabase is not available
+                    user.is_active = True
+                    user.save()
+                    logger.warning("Supabase not available, activating user immediately")
+            except Exception as e:
+                # If Supabase creation fails, still keep Django user but activate them
+                logger.warning(f"Failed to create user in Supabase: {str(e)}")
+                user.is_active = True
+                user.save()
+        
+        return user
+
+
+class SupabaseLoginForm(AuthenticationForm):
+    """Custom login form that works with Supabase"""
+    username = forms.EmailField(
+        label="Email",
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your email address',
+            'autocomplete': 'email'
+        })
+    )
+    password = forms.CharField(
+        widget=forms.PasswordInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your password',
+            'autocomplete': 'current-password'
+        })
+    )
+    
+    def clean(self):
+        username = self.cleaned_data.get('username')
+        password = self.cleaned_data.get('password')
+        
+        if username and password:
+            # Check if user exists and is active
+            try:
+                user = User.objects.get(email=username)
+                if not user.is_active:
+                    raise ValidationError(
+                        "Your account is not yet verified. Please check your email for a verification link, "
+                        "or request a new verification email."
+                    )
+                
+                # Try to authenticate with Supabase first
+                try:
+                    supabase_client = get_supabase_client()
+                    if supabase_client.is_available():
+                        response = supabase_client.sign_in_user(username, password)
+                        
+                        if response and 'user' in response:
+                            # Check if email is verified in Supabase
+                            if not response['user'].get('email_confirmed_at'):
+                                raise ValidationError(
+                                    "Please verify your email address before logging in. "
+                                    "Check your inbox for a verification link."
+                                )
+                            
+                            # Update Django user if needed
+                            if user.check_password(password):
+                                self.user_cache = user
+                            else:
+                                # Update Django password to match Supabase
+                                user.set_password(password)
+                                user.save()
+                                self.user_cache = user
+                        else:
+                            raise ValidationError("Invalid email or password.")
+                    else:
+                        # Fallback to Django authentication
+                        if user.check_password(password):
+                            self.user_cache = user
+                        else:
+                            raise ValidationError("Invalid email or password.")
+                except Exception as e:
+                    logger.warning(f"Supabase authentication failed: {str(e)}")
+                    # Fallback to Django authentication
+                    if user.check_password(password):
+                        self.user_cache = user
+                    else:
+                        raise ValidationError("Invalid email or password.")
+                        
+            except User.DoesNotExist:
+                raise ValidationError("Invalid email or password.")
+        
+        return self.cleaned_data
+
+
+class SupabasePasswordResetForm(PasswordResetForm):
+    """Custom password reset form that works with Supabase"""
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Enter your email address',
+            'autocomplete': 'email'
+        })
+    )
+    
+    def send_mail(self, subject_template_name, email_template_name,
+                  context, from_email, to_email, html_email_template_name=None):
+        """Override to use Supabase for password reset"""
+        try:
+            supabase_client = get_supabase_client()
+            if supabase_client.is_available():
+                # Use Supabase password reset
+                response = supabase_client.client.auth.reset_password_email(to_email)
+                return
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to send reset email via Supabase: {str(e)}")
+        
+        # Fallback to Django email
+        super().send_mail(
+            subject_template_name, email_template_name, context, 
+            from_email, to_email, html_email_template_name
+        )
 
 
 class MultipleFileInput(forms.ClearableFileInput):
@@ -378,3 +585,89 @@ class BulkDocumentUploadForm(forms.Form):
         
         if user:
             self.fields['subject'].queryset = Subject.objects.filter(created_by=user)
+
+
+class UserProfileForm(forms.ModelForm):
+    """Form for user profile management"""
+    
+    # Add user fields that can be edited
+    first_name = forms.CharField(
+        max_length=30,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'First name'
+        })
+    )
+    
+    last_name = forms.CharField(
+        max_length=30,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Last name'
+        })
+    )
+    
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Email address',
+            'readonly': True  # Email changes should go through AllAuth
+        })
+    )
+    
+    class Meta:
+        model = UserProfile
+        fields = ['bio', 'university', 'major', 'year_of_study', 'avatar']
+        widgets = {
+            'bio': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4,
+                'placeholder': 'Tell us about yourself...'
+            }),
+            'university': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'University or Institution'
+            }),
+            'major': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Major or Field of Study'
+            }),
+            'year_of_study': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Year of Study (e.g., 1, 2, 3, 4)',
+                'min': 1,
+                'max': 10
+            }),
+            'avatar': forms.FileInput(attrs={
+                'class': 'form-control',
+                'accept': 'image/*'
+            })
+        }
+    
+    def __init__(self, *args, **kwargs):
+        self.user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        if self.user:
+            self.fields['first_name'].initial = self.user.first_name
+            self.fields['last_name'].initial = self.user.last_name
+            self.fields['email'].initial = self.user.email
+    
+    def save(self, commit=True):
+        profile = super().save(commit=False)
+        
+        if self.user:
+            # Update user fields
+            self.user.first_name = self.cleaned_data['first_name']
+            self.user.last_name = self.cleaned_data['last_name']
+            if commit:
+                self.user.save()
+            
+            profile.user = self.user
+        
+        if commit:
+            profile.save()
+        
+        return profile

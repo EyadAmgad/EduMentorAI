@@ -1,0 +1,25 @@
+{% load account %}
+{% user_display user as user_display %}
+{% load i18n %}
+
+🎓 EduMentorAI - Verify Your Email Address
+
+Hello{% if user_display %} {{ user_display }}{% endif %}!
+
+Welcome to EduMentorAI! We're excited to have you join our learning community.
+
+To complete your registration and start using our platform, please verify your email address by clicking the link below or copying it into your browser:
+
+{{ activate_url }}
+
+Once verified, you'll be able to:
+• 📚 Upload and analyze your study materials
+• 💬 Chat with AI about your documents  
+• 📝 Generate custom quizzes
+• 🎯 Track your learning progress
+
+SECURITY NOTE: This verification link will expire in 3 days. If you didn't create an account with EduMentorAI, please ignore this email.
+
+Need help? Contact us at support@edumetorai.com
+
+© 2024 EduMentorAI. All rights reserved.

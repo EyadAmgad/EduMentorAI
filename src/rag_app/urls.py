@@ -45,7 +45,6 @@ urlpatterns = [
     
     # User profile
     path('profile/', views.ProfileView.as_view(), name='profile'),
-    path('profile/edit/', views.ProfileEditView.as_view(), name='profile_edit'),
     
     # Study sessions
     path('study-sessions/', views.StudySessionListView.as_view(), name='study_session_list'),
