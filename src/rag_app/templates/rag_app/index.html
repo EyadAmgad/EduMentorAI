@@ -1,0 +1,132 @@
+{% extends "rag_app/layout.html" %}
+{% load static %}
+
+{%block body%}
+<div class="container">
+    <div class="alert alert-info">
+        <strong>Knowledge Base Status:</strong> Currently using only uploaded documents. 
+        Documents in knowledge base: <span id="doc-count">{{ total_documents|default:0 }}</span>
+        {% if total_documents == 0 %}
+        <br><em>Upload documents below to start building your knowledge base.</em>
+        {% endif %}
+    </div>
+    
+    <!-- Navigation to Chatbot -->
+    <div class="text-center mb-4">
+        <a href="{% url 'chatbot' %}" class="btn btn-success btn-lg">
+            🤖 Go to AI Chatbot Interface
+        </a>
+    </div>
+    
+    <div class="row">
+        <div class="col-md-6">
+            <h2>Upload Documents</h2>
+            <p class="text-muted">Upload PDF or TXT files to build your knowledge base</p>
+            <form method="post" enctype="multipart/form-data" id="upload-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="title">Document Title:</label>
+                    <input type="text" id="title" name="title" required class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="file">Choose File (PDF or TXT):</label>
+                    <input type="file" id="file" name="file" accept=".pdf,.txt" required class="form-control">
+                </div>
+                <button type="submit" class="btn btn-primary">Upload Document</button>
+            </form>
+            
+            <div id="upload-message" style="margin-top: 20px;"></div>
+        </div>
+        
+        <div class="col-md-6">
+            <h2>Ask Questions</h2>
+            <p class="text-muted">Ask questions about your uploaded documents</p>
+            <form id="query-form">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="query">Your Question:</label>
+                    <textarea id="query" name="query" required class="form-control" rows="3" placeholder="Ask a question about the uploaded documents..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-success">Ask Question</button>
+            </form>
+            
+            <div id="query-message" style="margin-top: 20px;"></div>
+            <div id="answer-container" style="margin-top: 20px;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Upload form handler
+document.getElementById('upload-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const messageDiv = document.getElementById('upload-message');
+    
+    fetch('', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            messageDiv.innerHTML = '<div class="alert alert-danger">' + data.error + '</div>';
+        } else {
+            messageDiv.innerHTML = '<div class="alert alert-success">' + data.message + '<br>' +
+                'Chunks created: ' + data.chunks_count + '<br>' +
+                'Added to knowledge base: ' + data.chunks_added_to_pipeline + '<br>' +
+                'Total documents in knowledge base: ' + data.total_documents_in_knowledge_base + '</div>';
+            
+            // Update document count in header
+            document.getElementById('doc-count').textContent = data.total_documents_in_knowledge_base;
+            
+            document.getElementById('upload-form').reset();
+        }
+    })
+    .catch(error => {
+        messageDiv.innerHTML = '<div class="alert alert-danger">An error occurred: ' + error.message + '</div>';
+    });
+});
+
+// Query form handler
+document.getElementById('query-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const messageDiv = document.getElementById('query-message');
+    const answerDiv = document.getElementById('answer-container');
+    
+    messageDiv.innerHTML = '<div class="alert alert-info">Processing your question...</div>';
+    
+    fetch('/query/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            messageDiv.innerHTML = '<div class="alert alert-danger">' + data.error + '</div>';
+            answerDiv.innerHTML = '';
+        } else {
+            messageDiv.innerHTML = '<div class="alert alert-success">Question processed successfully! (Using ' + 
+                data.total_documents_used + ' document chunks)</div>';
+            answerDiv.innerHTML = '<div class="card"><div class="card-header"><strong>Question:</strong></div>' +
+                '<div class="card-body">' + data.query + '</div></div>' +
+                '<div class="card mt-2"><div class="card-header"><strong>Answer:</strong></div>' +
+                '<div class="card-body">' + data.answer + '</div></div>';
+        }
+    })
+    .catch(error => {
+        messageDiv.innerHTML = '<div class="alert alert-danger">An error occurred: ' + error.message + '</div>';
+        answerDiv.innerHTML = '';
+    });
+});
+</script>
+{%endblock%}
