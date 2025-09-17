@@ -5,6 +5,7 @@ from django.views.generic import (
     TemplateView, ListView, DetailView, CreateView, 
     UpdateView, DeleteView, FormView
 )
+from django.views import View
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from django.urls import reverse_lazy, reverse
@@ -21,11 +22,12 @@ from .models import (
     Quiz, Question, QuizAttempt, QuizResponse, UserProfile, StudySession
 )
 from .forms import (
-    SubjectForm, DocumentUploadForm, QuizCreateForm, ProfileForm,
+    SubjectForm, DocumentUploadForm, QuizCreateForm, UserProfileForm,
     ChatMessageForm
 )
 from .pipeline.model import EduMentorRAG
 from .pipeline.data_processor import DocumentProcessor
+from .auth_backends import get_supabase_user_from_session
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +201,11 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
         kwargs['user'] = self.request.user
         return kwargs
     
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['user_subjects'] = Subject.objects.filter(created_by=self.request.user)
+        return context
+    
     def form_valid(self, form):
         form.instance.uploaded_by = self.request.user
         response = super().form_valid(form)
@@ -246,16 +253,15 @@ def process_document(request, pk):
 
 
 # Chat Views
-class ChatView(LoginRequiredMixin, TemplateView):
+class ChatView(LoginRequiredMixin, View):
     """Chat interface view"""
     template_name = 'rag_app/chat.html'
     
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        user = self.request.user
+    def get(self, request, session_id=None):
+        """Handle GET requests - show chat interface"""
+        user = request.user
         
         # Get or create chat session
-        session_id = kwargs.get('session_id')
         if session_id:
             session = get_object_or_404(ChatSession, id=session_id, user=user)
         else:
@@ -263,14 +269,73 @@ class ChatView(LoginRequiredMixin, TemplateView):
             if not session:
                 session = ChatSession.objects.create(user=user, title="New Chat")
         
-        context.update({
+        context = {
             'session': session,
+            'current_session': session,  # For template compatibility
             'messages': session.messages.all() if session else [],
+            'chat_sessions': ChatSession.objects.filter(user=user).order_by('-last_activity')[:10],
             'recent_sessions': ChatSession.objects.filter(user=user).order_by('-last_activity')[:10],
             'subjects': Subject.objects.filter(created_by=user),
             'form': ChatMessageForm(),
-        })
-        return context
+        }
+        return render(request, self.template_name, context)
+    
+    def post(self, request, session_id=None):
+        """Handle POST requests - send message"""
+        try:
+            user = request.user
+            message_text = request.POST.get('message', '').strip()
+            
+            if not message_text:
+                return JsonResponse({'error': 'Message cannot be empty'}, status=400)
+            
+            # Get or create session
+            if session_id:
+                session = get_object_or_404(ChatSession, id=session_id, user=user)
+            else:
+                session = ChatSession.objects.create(
+                    user=user,
+                    title=message_text[:50] + "..." if len(message_text) > 50 else message_text
+                )
+            
+            # Save user message
+            user_message = ChatMessage.objects.create(
+                session=session,
+                message=message_text,
+                is_user=True
+            )
+            
+            # Generate AI response (ECHO MODE - for testing)
+            start_time = timezone.now()
+            ai_response = f"Echo: {message_text}"
+            response_time = (timezone.now() - start_time).total_seconds()
+            
+            # Save AI message
+            ai_message = ChatMessage.objects.create(
+                session=session,
+                message=ai_response,
+                is_user=False,
+                response_time=response_time
+            )
+            
+            # Update session activity
+            session.last_activity = timezone.now()
+            session.save()
+            
+            return JsonResponse({
+                'success': True,
+                'response': ai_response,
+                'session_id': str(session.id),
+                'ai_message': {
+                    'id': str(ai_message.id),
+                    'message': ai_message.message,
+                    'timestamp': ai_message.timestamp.isoformat(),
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in chat POST: {str(e)}")
+            return JsonResponse({'error': 'An error occurred while processing your message'}, status=500)
 
 
 @login_required
@@ -304,23 +369,11 @@ def send_message(request):
                 is_user=True
             )
             
-            # Generate AI response
+            # Generate AI response (ECHO MODE - for testing)
             start_time = timezone.now()
-            rag_model = EduMentorRAG()
             
-            # Get relevant documents for context
-            documents = Document.objects.filter(
-                uploaded_by=request.user,
-                processed=True
-            )
-            if session.subject:
-                documents = documents.filter(subject=session.subject)
-            
-            # Generate response
-            ai_response, relevant_chunks = rag_model.generate_response(
-                message_text, 
-                list(documents)
-            )
+            # Simple echo response for testing
+            ai_response = f"Echo: {message_text}"
             
             response_time = (timezone.now() - start_time).total_seconds()
             
@@ -331,10 +384,6 @@ def send_message(request):
                 is_user=False,
                 response_time=response_time
             )
-            
-            # Add relevant chunks
-            if relevant_chunks:
-                ai_message.relevant_chunks.set(relevant_chunks)
             
             # Update session activity
             session.last_activity = timezone.now()
@@ -608,7 +657,7 @@ class ProfileView(LoginRequiredMixin, DetailView):
 class ProfileEditView(LoginRequiredMixin, UpdateView):
     """Edit user profile"""
     model = UserProfile
-    form_class = ProfileForm
+    form_class = UserProfileForm
     template_name = 'rag_app/profile_edit.html'
     success_url = reverse_lazy('rag_app:profile')
     
@@ -681,3 +730,54 @@ class SlideGenerationView(LoginRequiredMixin, TemplateView):
                 'success': False,
                 'error': 'Error generating slides. Please try again.'
             })
+
+
+class ProfileView(LoginRequiredMixin, View):
+    """User profile view for viewing and updating profile"""
+    
+    def get(self, request):
+        """Display user profile"""
+        try:
+            profile = request.user.userprofile
+        except UserProfile.DoesNotExist:
+            # Create profile if it doesn't exist
+            profile = UserProfile.objects.create(user=request.user)
+        
+        form = UserProfileForm(instance=profile, user=request.user)
+        
+        context = {
+            'form': form,
+            'profile': profile,
+            'user': request.user
+        }
+        
+        return render(request, 'rag_app/profile.html', context)
+    
+    def post(self, request):
+        """Update user profile"""
+        try:
+            profile = request.user.userprofile
+        except UserProfile.DoesNotExist:
+            profile = UserProfile.objects.create(user=request.user)
+        
+        form = UserProfileForm(
+            request.POST, 
+            request.FILES, 
+            instance=profile, 
+            user=request.user
+        )
+        
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated successfully!')
+            return redirect('rag_app:profile')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+        
+        context = {
+            'form': form,
+            'profile': profile,
+            'user': request.user
+        }
+        
+        return render(request, 'rag_app/profile.html', context)

@@ -40,17 +40,32 @@ class SupabaseClient:
         """Check if Supabase client is available"""
         return self.client is not None
     
-    def create_user(self, email: str, password: str, **kwargs) -> Dict[str, Any]:
+    def create_user(self, email: str, password: str, email_confirm: bool = True, data: dict = None) -> Dict[str, Any]:
         """Create a new user via Supabase Auth"""
         if not self.is_available():
             raise Exception("Supabase client not available")
         
         try:
-            response = self.client.auth.sign_up({
+            # Prepare signup data according to Supabase Python client API
+            signup_data = {
                 'email': email,
-                'password': password,
-                **kwargs
-            })
+                'password': password
+            }
+            
+            # Add user metadata if provided
+            if data:
+                signup_data['options'] = {
+                    'data': data  # This goes to user_metadata
+                }
+            
+            logger.info(f"Creating user with email: {email}")
+            response = self.client.auth.sign_up(signup_data)
+            
+            if response.user:
+                logger.info(f"User created successfully: {response.user.id}")
+            else:
+                logger.error(f"User creation failed: {response}")
+            
             return response
         except Exception as e:
             logger.error(f"Error creating user: {str(e)}")
@@ -83,17 +98,83 @@ class SupabaseClient:
             logger.error(f"Error signing out user: {str(e)}")
             raise
     
+    def reset_password_email(self, email: str) -> Dict[str, Any]:
+        """Send password reset email"""
+        if not self.is_available():
+            raise Exception("Supabase client not available")
+        
+        try:
+            response = self.client.auth.reset_password_email(email)
+            return response
+        except Exception as e:
+            logger.error(f"Error sending reset password email: {str(e)}")
+            raise
+    
+    def resend_verification_email(self, email: str) -> Dict[str, Any]:
+        """Resend email verification"""
+        if not self.is_available():
+            raise Exception("Supabase client not available")
+        
+        try:
+            response = self.client.auth.resend({
+                'type': 'signup',
+                'email': email
+            })
+            return response
+        except Exception as e:
+            logger.error(f"Error resending verification email: {str(e)}")
+            raise
+    
+    def verify_otp(self, token: str, token_type: str = 'signup') -> Dict[str, Any]:
+        """Verify OTP token"""
+        if not self.is_available():
+            raise Exception("Supabase client not available")
+        
+        try:
+            response = self.client.auth.verify_otp({
+                'token': token,
+                'type': token_type
+            })
+            return response
+        except Exception as e:
+            logger.error(f"Error verifying OTP: {str(e)}")
+            raise
+    
     def get_user(self) -> Optional[Dict[str, Any]]:
         """Get current user"""
         if not self.is_available():
             return None
         
         try:
-            user = self.client.auth.get_user()
-            return user
+            response = self.client.auth.get_user()
+            return response
         except Exception as e:
             logger.error(f"Error getting user: {str(e)}")
             return None
+    
+    def get_session(self) -> Optional[Dict[str, Any]]:
+        """Get current session"""
+        if not self.is_available():
+            return None
+        
+        try:
+            session = self.client.auth.get_session()
+            return session
+        except Exception as e:
+            logger.error(f"Error getting session: {str(e)}")
+            return None
+    
+    def set_session(self, access_token: str, refresh_token: str) -> Dict[str, Any]:
+        """Set session with tokens"""
+        if not self.is_available():
+            raise Exception("Supabase client not available")
+        
+        try:
+            response = self.client.auth.set_session(access_token, refresh_token)
+            return response
+        except Exception as e:
+            logger.error(f"Error setting session: {str(e)}")
+            raise
     
     def upload_file(self, bucket: str, path: str, file_content: bytes, 
                    content_type: str = 'application/octet-stream') -> Dict[str, Any]:

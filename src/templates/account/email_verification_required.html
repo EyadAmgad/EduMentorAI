@@ -1,0 +1,113 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Email Verification Required - EduMentorAI{% endblock %}
+
+{% block body_class %}auth-page{% endblock %}
+
+{% block extra_css %}
+<style>
+    .auth-container {
+        min-height: calc(100vh - 80px);
+        display: flex;
+        align-items: center;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    }
+    
+    .auth-card {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        max-width: 500px;
+        width: 100%;
+    }
+    
+    .auth-header {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        border-radius: 1rem 1rem 0 0;
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    .auth-body {
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    .verification-icon {
+        font-size: 4rem;
+        color: #f59e0b;
+        margin-bottom: 1.5rem;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        border: none;
+        color: white;
+        font-weight: 600;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.5rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-5">
+                <div class="auth-card">
+                    <div class="auth-header">
+                        <h2 class="mb-0">
+                            <i class="fas fa-envelope-open-text me-2"></i>
+                            Verify Your Email
+                        </h2>
+                        <p class="mt-2 mb-0 opacity-90">Check your inbox to get started</p>
+                    </div>
+                    <div class="auth-body">
+                        <div class="verification-icon">
+                            <i class="fas fa-mail-bulk"></i>
+                        </div>
+                        
+                        <h4 class="mb-3">Email Verification Required</h4>
+                        
+                        <p class="text-muted mb-4">
+                            We've sent a verification email to <strong>{{ user.email }}</strong>. 
+                            Please check your inbox and click the verification link to activate your account.
+                        </p>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Account Access Limited</strong><br>
+                            You must verify your email before you can access EduMentorAI features.
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Didn't receive the email?</strong><br>
+                            Check your spam folder or contact support if you continue having issues.
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <a href="{% url 'account_email' %}" class="btn btn-primary">
+                                <i class="fas fa-envelope me-2"></i>Resend Verification Email
+                            </a>
+                            <a href="{% url 'account_logout' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-sign-out-alt me-2"></i>Sign Out
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

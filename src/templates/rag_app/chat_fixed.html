@@ -349,18 +349,18 @@
         <div class="chat-messages" id="chatMessages">
             {% if messages %}
                 {% for message in messages %}
-                    <div class="message {{ message.role }}">
+                    <div class="message {% if message.is_user %}user{% else %}ai{% endif %}">
                         <div class="message-avatar">
-                            {% if message.role == 'user' %}
+                            {% if message.is_user %}
                                 {{ request.user.username|first|upper }}
                             {% else %}
                                 <i class="fas fa-robot"></i>
                             {% endif %}
                         </div>
                         <div class="message-content">
-                            {{ message.content|linebreaks }}
+                            {{ message.message|linebreaks }}
                             <div class="message-time">
-                                {{ message.created_at|date:"M d, H:i" }}
+                                {{ message.timestamp|date:"M d, H:i" }}
                             </div>
                         </div>
                     </div>
@@ -466,8 +466,10 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            if (data.response) {
+            if (data.success) {
                 addMessage('ai', data.response);
+            } else {
+                addMessage('ai', data.error || 'Sorry, I encountered an error. Please try again.');
             }
         })
         .catch(error => {
