@@ -1,0 +1,319 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - EduMentorAI{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 fw-bold mb-1">Welcome back, {{ user.first_name|default:user.username }}!</h1>
+                    <p class="text-muted mb-0">Here's what's happening with your learning journey</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{% url 'rag_app:document_upload' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Upload Document
+                    </a>
+                    <a href="{% url 'rag_app:chat' %}" class="btn btn-outline-primary">
+                        <i class="fas fa-comments me-2"></i>Start Chat
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card bg-gradient-primary text-white">
+                <div class="stat-number">{{ total_subjects }}</div>
+                <div class="stat-label">
+                    <i class="fas fa-book me-2"></i>Subjects
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+                <div class="stat-number">{{ total_documents }}</div>
+                <div class="stat-label">
+                    <i class="fas fa-file-alt me-2"></i>Documents
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #d97706 0%, #b45309 100%);">
+                <div class="stat-number">{{ total_quizzes }}</div>
+                <div class="stat-label">
+                    <i class="fas fa-question-circle me-2"></i>Quizzes
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-sm-6 col-xl-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);">
+                <div class="stat-number">{{ average_quiz_score }}%</div>
+                <div class="stat-label">
+                    <i class="fas fa-chart-line me-2"></i>Avg Score
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Recent Activity -->
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-custom h-100">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0">
+                            <i class="fas fa-clock text-primary me-2"></i>Recent Activity
+                        </h5>
+                        <a href="{% url 'rag_app:study_session_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="activity-tabs">
+                        <ul class="nav nav-pills mb-3" id="activityTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="documents-tab" data-bs-toggle="pill" data-bs-target="#documents" type="button" role="tab">
+                                    <i class="fas fa-file-alt me-1"></i>Documents
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="quizzes-tab" data-bs-toggle="pill" data-bs-target="#quizzes" type="button" role="tab">
+                                    <i class="fas fa-question-circle me-1"></i>Quizzes
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="chats-tab" data-bs-toggle="pill" data-bs-target="#chats" type="button" role="tab">
+                                    <i class="fas fa-comments me-1"></i>Chats
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <div class="tab-content" id="activityTabsContent">
+                            <!-- Recent Documents -->
+                            <div class="tab-pane fade show active" id="documents" role="tabpanel">
+                                {% if recent_documents %}
+                                    {% for document in recent_documents %}
+                                    <div class="activity-item d-flex align-items-center p-3 border-bottom">
+                                        <div class="document-icon {{ document.document_type }} me-3">
+                                            <i class="fas fa-file{% if document.document_type == 'pdf' %}-pdf{% elif document.document_type == 'docx' %}-word{% elif document.document_type == 'pptx' %}-powerpoint{% endif %}"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                <a href="{% url 'rag_app:document_detail' document.pk %}" class="text-decoration-none">
+                                                    {{ document.title }}
+                                                </a>
+                                            </h6>
+                                            <p class="text-muted small mb-0">
+                                                {{ document.subject.name }} • Uploaded {{ document.uploaded_at|timesince }} ago
+                                            </p>
+                                        </div>
+                                        <div class="text-end">
+                                            {% if document.processed %}
+                                                <span class="badge bg-success">Processed</span>
+                                            {% else %}
+                                                <span class="badge bg-warning">Processing</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-file-alt fa-3x mb-3"></i>
+                                        <h6>No documents yet</h6>
+                                        <p class="mb-3">Upload your first document to get started</p>
+                                        <a href="{% url 'rag_app:document_upload' %}" class="btn btn-primary">Upload Document</a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Recent Quizzes -->
+                            <div class="tab-pane fade" id="quizzes" role="tabpanel">
+                                {% if recent_quizzes %}
+                                    {% for quiz in recent_quizzes %}
+                                    <div class="activity-item d-flex align-items-center p-3 border-bottom">
+                                        <div class="quiz-icon bg-warning text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px; background: var(--warning-color) !important;">
+                                            <i class="fas fa-question"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                <a href="{% url 'rag_app:quiz_detail' quiz.pk %}" class="text-decoration-none">
+                                                    {{ quiz.title }}
+                                                </a>
+                                            </h6>
+                                            <p class="text-muted small mb-0">
+                                                {{ quiz.subject.name }} • {{ quiz.total_questions }} questions • {{ quiz.time_limit }} min
+                                            </p>
+                                        </div>
+                                        <div class="text-end">
+                                            <a href="{% url 'rag_app:quiz_take' quiz.pk %}" class="btn btn-sm btn-outline-primary">Take Quiz</a>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-question-circle fa-3x mb-3"></i>
+                                        <h6>No quizzes yet</h6>
+                                        <p class="mb-3">Create your first quiz to test your knowledge</p>
+                                        <a href="{% url 'rag_app:quiz_create' %}" class="btn btn-primary">Create Quiz</a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Recent Chats -->
+                            <div class="tab-pane fade" id="chats" role="tabpanel">
+                                {% if recent_chat_sessions %}
+                                    {% for session in recent_chat_sessions %}
+                                    <div class="activity-item d-flex align-items-center p-3 border-bottom">
+                                        <div class="chat-icon bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px; background: var(--primary-color) !important;">
+                                            <i class="fas fa-comment"></i>
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                <a href="{% url 'rag_app:chat_session' session.pk %}" class="text-decoration-none">
+                                                    {{ session.title|default:"Chat Session" }}
+                                                </a>
+                                            </h6>
+                                            <p class="text-muted small mb-0">
+                                                {% if session.subject %}{{ session.subject.name }} • {% endif %}
+                                                Last activity {{ session.last_activity|timesince }} ago
+                                            </p>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-secondary">{{ session.messages.count }} messages</span>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-center text-muted py-4">
+                                        <i class="fas fa-comments fa-3x mb-3"></i>
+                                        <h6>No chat sessions yet</h6>
+                                        <p class="mb-3">Start chatting with AI to get help with your studies</p>
+                                        <a href="{% url 'rag_app:chat' %}" class="btn btn-primary">Start Chat</a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Quick Actions -->
+            <div class="card border-0 shadow-custom mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="fw-bold mb-0">
+                        <i class="fas fa-bolt text-primary me-2"></i>Quick Actions
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'rag_app:subject_create' %}" class="btn btn-outline-primary text-start">
+                            <i class="fas fa-plus-circle me-2"></i>Create New Subject
+                        </a>
+                        <a href="{% url 'rag_app:document_upload' %}" class="btn btn-outline-success text-start">
+                            <i class="fas fa-upload me-2"></i>Upload Document
+                        </a>
+                        <a href="{% url 'rag_app:quiz_create' %}" class="btn btn-outline-warning text-start">
+                            <i class="fas fa-plus me-2"></i>Create Quiz
+                        </a>
+                        <a href="{% url 'rag_app:slide_generate' %}" class="btn btn-outline-info text-start">
+                            <i class="fas fa-presentation me-2"></i>Generate Slides
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Quiz Attempts -->
+            <div class="card border-0 shadow-custom">
+                <div class="card-header bg-white">
+                    <h6 class="fw-bold mb-0">
+                        <i class="fas fa-chart-bar text-primary me-2"></i>Recent Quiz Results
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if quiz_attempts %}
+                        {% for attempt in quiz_attempts %}
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ attempt.quiz.title|truncatechars:30 }}</h6>
+                                <small class="text-muted">{{ attempt.completed_at|date:"M d, Y" }}</small>
+                            </div>
+                            <div class="quiz-score">
+                                {{ attempt.score|floatformat:0 }}%
+                            </div>
+                        </div>
+                        {% endfor %}
+                        <div class="text-center mt-3">
+                            <a href="{% url 'rag_app:quiz_list' %}" class="btn btn-sm btn-outline-primary">View All Results</a>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-chart-bar fa-2x mb-2"></i>
+                            <p class="mb-0">No quiz attempts yet</p>
+                            <small>Take your first quiz to see results here</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .activity-item {
+        transition: all 0.2s ease;
+        border-radius: var(--border-radius-sm);
+    }
+    
+    .activity-item:hover {
+        background-color: var(--gray-50);
+    }
+    
+    .activity-item:last-child {
+        border-bottom: none !important;
+    }
+    
+    .nav-pills .nav-link {
+        color: var(--gray-600);
+        border-radius: var(--border-radius-sm);
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+    
+    .nav-pills .nav-link.active {
+        background-color: var(--primary-color);
+    }
+    
+    .stat-card {
+        animation: slideUp 0.6s ease-out;
+    }
+    
+    .stat-card:nth-child(1) { animation-delay: 0.1s; }
+    .stat-card:nth-child(2) { animation-delay: 0.2s; }
+    .stat-card:nth-child(3) { animation-delay: 0.3s; }
+    .stat-card:nth-child(4) { animation-delay: 0.4s; }
+    
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+{% endblock %}

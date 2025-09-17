@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Quizzes - EduMentorAI{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <!-- Header Section -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h1 class="h3 mb-1" style="color: var(--text-primary); font-weight: 700;">My Quizzes</h1>
+                        <p class="text-muted mb-0">Test your knowledge with AI-generated quizzes</p>
+                    </div>
+                    <a href="{% url 'rag_app:quiz_create' %}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>Create Quiz
+                    </a>
+                </div>
+
+                {% if quizzes %}
+                    <!-- Quizzes Grid -->
+                    <div class="row g-4">
+                        {% for quiz in quizzes %}
+                            <div class="col-lg-4 col-md-6">
+                                <div class="card h-100" style="border: none; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); transition: all 0.3s ease; background: var(--chat-bg);">
+                                    <div class="card-body p-4">
+                                        <div class="d-flex align-items-start justify-content-between mb-3">
+                                            <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.25rem;">
+                                                <i class="fas fa-question-circle"></i>
+                                            </div>
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm" type="button" data-bs-toggle="dropdown" style="color: var(--text-secondary);">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_take' quiz.id %}"><i class="fas fa-play me-2"></i>Take Quiz</a></li>
+                                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_detail' quiz.id %}"><i class="fas fa-eye me-2"></i>View Details</a></li>
+                                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_edit' quiz.id %}"><i class="fas fa-edit me-2"></i>Edit</a></li>
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li><a class="dropdown-item text-danger" href="{% url 'rag_app:quiz_delete' quiz.id %}"><i class="fas fa-trash me-2"></i>Delete</a></li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        
+                                        <h5 class="card-title mb-2" style="color: var(--text-primary); font-weight: 600;">{{ quiz.title }}</h5>
+                                        
+                                        {% if quiz.subject %}
+                                            <span class="badge" style="background: var(--primary-color); color: white; margin-bottom: 0.75rem;">{{ quiz.subject.name }}</span>
+                                        {% endif %}
+                                        
+                                        {% if quiz.description %}
+                                            <p class="card-text text-muted mb-3" style="font-size: 0.9rem; line-height: 1.5;">{{ quiz.description|truncatewords:15 }}</p>
+                                        {% endif %}
+                                        
+                                        <!-- Quiz Stats -->
+                                        <div class="row text-center mb-3">
+                                            <div class="col-4">
+                                                <div style="font-size: 1.25rem; font-weight: 700; color: #8b5cf6;">{{ quiz.questions.count }}</div>
+                                                <small style="color: var(--text-secondary);">Questions</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <div style="font-size: 1.25rem; font-weight: 700; color: #8b5cf6;">{{ quiz.attempts.count }}</div>
+                                                <small style="color: var(--text-secondary);">Attempts</small>
+                                            </div>
+                                            <div class="col-4">
+                                                <div style="font-size: 1.25rem; font-weight: 700; color: #8b5cf6;">{{ quiz.difficulty|title }}</div>
+                                                <small style="color: var(--text-secondary);">Difficulty</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Quiz Status -->
+                                        {% if quiz.is_active %}
+                                            <div class="alert alert-success py-2 mb-3" style="font-size: 0.875rem;">
+                                                <i class="fas fa-check-circle me-1"></i>Active
+                                            </div>
+                                        {% else %}
+                                            <div class="alert alert-secondary py-2 mb-3" style="font-size: 0.875rem;">
+                                                <i class="fas fa-pause-circle me-1"></i>Inactive
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Recent Performance -->
+                                        {% if quiz.user_best_score %}
+                                            <div style="background: var(--background-light); border-radius: 0.5rem; padding: 0.75rem; margin-bottom: 1rem;">
+                                                <small style="color: var(--text-secondary);">Your Best Score:</small>
+                                                <div style="font-weight: 600; color: var(--primary-color);">{{ quiz.user_best_score }}%</div>
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Quick Actions -->
+                                        <div class="d-grid gap-2">
+                                            {% if quiz.is_active %}
+                                                <a href="{% url 'rag_app:quiz_take' quiz.id %}" class="btn btn-primary btn-sm">
+                                                    <i class="fas fa-play me-2"></i>Take Quiz
+                                                </a>
+                                            {% else %}
+                                                <a href="{% url 'rag_app:quiz_detail' quiz.id %}" class="btn btn-outline-primary btn-sm">
+                                                    <i class="fas fa-eye me-2"></i>View Details
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                        
+                                        <small class="text-muted d-block mt-2">
+                                            <i class="fas fa-clock me-1"></i>Created {{ quiz.created_at|timesince }} ago
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <!-- Empty State -->
+                    <div class="text-center py-5">
+                        <div style="width: 120px; height: 120px; background: var(--background-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 2rem; color: var(--text-secondary); font-size: 3rem;">
+                            <i class="fas fa-question-circle"></i>
+                        </div>
+                        <h3 style="color: var(--text-primary); font-weight: 600; margin-bottom: 1rem;">No quizzes yet</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 2rem; max-width: 400px; margin-left: auto; margin-right: auto;">
+                            Create your first quiz to test your knowledge. Generate questions from your uploaded documents or create custom quizzes.
+                        </p>
+                        <a href="{% url 'rag_app:quiz_create' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-plus me-2"></i>Create Your First Quiz
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+.dropdown-menu {
+    background: var(--chat-bg);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dropdown-item {
+    color: var(--text-primary);
+}
+
+.dropdown-item:hover {
+    background-color: var(--background-light);
+    color: var(--text-primary);
+}
+</style>
+{% endblock %}
