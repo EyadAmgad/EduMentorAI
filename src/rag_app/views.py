@@ -27,7 +27,6 @@ from .forms import (
     ChatMessageForm
 )
 from .pipeline.data_processor import DocumentProcessor
-from .auth_backends import get_supabase_user_from_session
 
 logger = logging.getLogger(__name__)
 
