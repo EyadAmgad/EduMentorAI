@@ -78,6 +78,11 @@
                                             <a href="{% url 'rag_app:subject_detail' subject.id %}" class="btn btn-outline-primary btn-sm">
                                                 <i class="fas fa-arrow-right me-2"></i>Open Subject
                                             </a>
+                                            {% if subject.documents.count > 0 %}
+                                                <a href="{% url 'rag_app:chat' %}?subject={{ subject.id }}" class="btn btn-outline-success btn-sm">
+                                                    <i class="fas fa-comments me-2"></i>Chat with Documents
+                                                </a>
+                                            {% endif %}
                                         </div>
                                         
                                         <small class="text-muted d-block mt-2">

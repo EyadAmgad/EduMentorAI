@@ -1,239 +1,536 @@
-# Placeholder for RAG model implementation
-# This will be implemented later with the actual AI/ML functionality
-
 """
-RAG Model implementation for EduMentorAI
-
-This module will contain the RAG implementation using LangChain and vector stores.
-For now, it contains placeholder classes that will be implemented later.
+Professional RAG Model Integration
+Integrates document retrieval with LLM for question answering
 """
+
+import os
 import logging
-from typing import List, Tuple, Optional, Dict, Any
+import json
+import requests
+from typing import Dict, List, Any, Optional
+from django.utils import timezone
+from dotenv import load_dotenv
+from .retriever import DocumentRetriever
+from .vectorstore import VectorStore
+from ..models import ChatSession, ChatMessage, DocumentChunk, TempDocument, TempDocument
+
+# Load environment variables
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../.env"))
 
 logger = logging.getLogger(__name__)
 
 
-class EduMentorRAG:
+class RAGModelError(Exception):
+    """Custom exception for RAG model operations"""
+    pass
+
+
+class RAGModel:
     """
-    Main RAG (Retrieval-Augmented Generation) class for EduMentorAI
+    Professional RAG model for question answering
     
-    This class handles:
-    - Document embedding and indexing
-    - Semantic search and retrieval
-    - Response generation using LLMs
+    Features:
+    - Document retrieval with multiple strategies
+    - LLM integration with OpenRouter
+    - Chat history management
+    - Subject-specific context
+    - Comprehensive error handling
     """
     
-    def __init__(self):
-        """Initialize the RAG model"""
-        self.vector_store = None
-        self.embeddings = None
-        self.llm = None
-        logger.info("EduMentorRAG initialized (placeholder)")
-    
-    def generate_response(self, query: str, documents: List[Any]) -> Tuple[str, List[Any]]:
+    def __init__(self, 
+                 embedding_model: str = 'all-MiniLM-L6-v2',
+                 llm_model: str = 'openrouter/sonoma-sky-alpha',
+                 max_context_length: int = 4000):
         """
-        Generate response for user query using RAG
+        Initialize the RAG model
         
         Args:
-            query: User's question
-            documents: List of relevant documents
-            
-        Returns:
-            Tuple of (AI response, relevant chunks)
+            embedding_model: Embedding model for retrieval
+            llm_model: LLM model for generation
+            max_context_length: Maximum context length
         """
-        # Placeholder implementation
-        response = f"This is a placeholder response for: '{query}'. RAG functionality will be implemented once the basic app structure is complete."
-        relevant_chunks = []
+        # Initialize retriever
+        self.retriever = DocumentRetriever(embedding_model, max_context_length)
         
-        logger.info(f"Generated placeholder response for query: {query}")
-        return response, relevant_chunks
+        # LLM configuration
+        self.llm_model = llm_model
+        self.api_key = os.getenv("OPEN_ROUTER_API_KEY")
+        
+        if not self.api_key:
+            raise RAGModelError("OPEN_ROUTER_API_KEY not found in environment variables")
+        
+        self.api_url = "https://openrouter.ai/api/v1/chat/completions"
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
     
-    def index_documents(self, documents: List[Any]) -> bool:
+    def query(self,
+              question: str,
+              subject_id: Optional[int] = None,
+              chat_session: Optional[ChatSession] = None,
+              retrieval_strategy: str = 'hybrid',
+              max_chunks: int = 5) -> Dict[str, Any]:
         """
-        Index documents in the vector store
+        Process a query using RAG
         
         Args:
-            documents: List of documents to index
+            question: User question
+            subject_id: Optional subject ID for filtering
+            chat_session: Optional chat session for history
+            retrieval_strategy: Retrieval strategy to use
+            max_chunks: Maximum chunks to retrieve
             
         Returns:
-            True if successful, False otherwise
+            Dict with answer and metadata
         """
-        logger.info(f"Placeholder: Would index {len(documents)} documents")
-        return True
+        start_time = timezone.now()
+        
+        try:
+            logger.info(f"Processing RAG query: {question[:50]}...")
+            
+            # Retrieve relevant documents
+            retrieval_result = self.retriever.retrieve_for_query(
+                query=question,
+                subject_id=subject_id,
+                retrieval_strategy=retrieval_strategy,
+                max_chunks=max_chunks
+            )
+            
+            if not retrieval_result['success']:
+                return {
+                    'success': False,
+                    'answer': "I couldn't find any relevant documents to answer your question. Please make sure documents are uploaded and processed.",
+                    'error': 'No relevant documents found',
+                    'metadata': retrieval_result['metadata']
+                }
+            
+            # Build chat messages with context
+            messages = self._build_chat_messages(
+                question=question,
+                context=retrieval_result['context'],
+                chat_session=chat_session,
+                subject_id=subject_id
+            )
+            
+            # Generate response using LLM
+            llm_response = self._generate_llm_response(messages)
+            
+            if not llm_response['success']:
+                return {
+                    'success': False,
+                    'answer': "I'm sorry, I encountered an error while generating a response. Please try again.",
+                    'error': llm_response['error'],
+                    'metadata': retrieval_result['metadata']
+                }
+            
+            processing_time = (timezone.now() - start_time).total_seconds()
+            
+            # Prepare result
+            result = {
+                'success': True,
+                'answer': llm_response['answer'],
+                'sources': retrieval_result['chunks'],
+                'metadata': {
+                    **retrieval_result['metadata'],
+                    'llm_model': self.llm_model,
+                    'processing_time': processing_time,
+                    'tokens_used': llm_response.get('tokens_used'),
+                    'response_time': llm_response.get('response_time')
+                }
+            }
+            
+            logger.info(f"Successfully processed RAG query in {processing_time:.2f}s")
+            return result
+            
+        except Exception as e:
+            error_msg = f"Error processing RAG query: {str(e)}"
+            logger.error(error_msg)
+            
+            return {
+                'success': False,
+                'answer': "I apologize, but I encountered an error while processing your question. Please try again.",
+                'error': str(e),
+                'metadata': {
+                    'processing_time': (timezone.now() - start_time).total_seconds()
+                }
+            }
     
-    def search_documents(self, query: str, top_k: int = 5) -> List[Any]:
+    def chat_with_subject(self,
+                         question: str,
+                         subject_id: int,
+                         chat_session: ChatSession) -> Dict[str, Any]:
         """
-        Search for relevant documents
+        Chat with documents from a specific subject
         
         Args:
-            query: Search query
-            top_k: Number of top results to return
+            question: User question
+            subject_id: Subject ID
+            chat_session: Chat session for context
             
         Returns:
-            List of relevant document chunks
+            Dict with answer and metadata
         """
-        logger.info(f"Placeholder: Would search for '{query}' with top_k={top_k}")
+        return self.query(
+            question=question,
+            subject_id=subject_id,
+            chat_session=chat_session,
+            retrieval_strategy='hybrid'
+        )
+    
+    def query_temp_document(self,
+                           question: str,
+                           temp_document: 'TempDocument',
+                           chat_session: Optional[ChatSession] = None) -> Dict[str, Any]:
+        """
+        Query a temporary document for anonymous chat
+        
+        Args:
+            question: User question
+            temp_document: Temporary document instance
+            chat_session: Optional chat session for history
+            
+        Returns:
+            Dict with answer and metadata
+        """
+        start_time = timezone.now()
+        
+        try:
+            logger.info(f"Processing temp document query: {question[:50]}...")
+            
+            # Get the actual document content from cache
+            from django.core.cache import cache
+            cache_key = f"temp_doc_content_{temp_document.id}"
+            document_content = cache.get(cache_key)
+            
+            if not document_content:
+                # If not in cache, try to extract again
+                from .data_processor import DocumentProcessor
+                processor = DocumentProcessor()
+                document_content = processor._extract_temp_document_text(temp_document)
+                
+                # Cache for future use
+                cache.set(cache_key, document_content, timeout=86400)  # 24 hours
+            
+            # Limit context length to avoid token limits
+            max_context_length = 8000  # Increased for better content coverage
+            if len(document_content) > max_context_length:
+                # Take the beginning and end, or use more sophisticated chunking
+                document_content = document_content[:max_context_length] + "\n\n[Document content truncated...]"
+            
+            # Build context with actual document content
+            context = f"Document: {temp_document.title}\n\n"
+            context += f"Content:\n{document_content}"
+            
+            # Build messages
+            messages = self._build_chat_messages(
+                question=question,
+                context=context,
+                chat_session=chat_session,
+                subject_id=None
+            )
+            
+            # Generate response
+            llm_response = self._generate_llm_response(messages)
+            
+            if not llm_response['success']:
+                return {
+                    'success': False,
+                    'answer': "I'm sorry, I encountered an error while processing your question about the document.",
+                    'error': llm_response['error']
+                }
+            
+            processing_time = (timezone.now() - start_time).total_seconds()
+            
+            return {
+                'success': True,
+                'answer': llm_response['answer'],
+                'sources': [{'title': temp_document.title, 'type': 'temp_document'}],
+                'metadata': {
+                    'temp_document': temp_document.title,
+                    'processing_time': processing_time,
+                    'llm_model': self.llm_model,
+                    'content_length': len(document_content)
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error in temp document query: {str(e)}")
+            return {
+                'success': False,
+                'answer': "I encountered an error while processing your question about the document.",
+                'error': str(e)
+            }
+    
+    def _build_chat_messages(self,
+                            question: str,
+                            context: str,
+                            chat_session: Optional[ChatSession] = None,
+                            subject_id: Optional[int] = None) -> List[Dict[str, str]]:
+        """
+        Build messages for LLM chat completion
+        """
+        messages = []
+        
+        # System message with instructions
+        system_prompt = self._get_system_prompt(subject_id)
+        messages.append({"role": "system", "content": system_prompt})
+        
+        # Add chat history if available
+        if chat_session:
+            history_messages = list(ChatMessage.objects.filter(
+                session=chat_session
+            ).order_by('timestamp'))
+            
+            # Get last 6 messages (3 exchanges) safely
+            if len(history_messages) > 6:
+                history_messages = history_messages[-6:]
+            
+            for msg in history_messages:
+                role = "user" if msg.is_user else "assistant"
+                messages.append({"role": role, "content": msg.message})
+        
+        # Add current question with context
+        user_message = f"""Context from relevant documents:
+{context}
+
+Question: {question}
+
+Please answer based on the provided context. If the context doesn't contain enough information to answer the question, please say so clearly. Do not introduce yourself by name - just provide the educational content directly."""
+        
+        messages.append({"role": "user", "content": user_message})
+        
+        return messages
+    
+    def _get_system_prompt(self, subject_id: Optional[int] = None) -> str:
+        """Get system prompt for the LLM"""
+        base_prompt = """You are an intelligent educational assistant that helps students learn by answering questions based on their uploaded documents. 
+
+IMPORTANT: Never introduce yourself by name or mention any specific AI assistant names like "Sonoma", "Claude", "GPT", etc. Simply provide helpful educational responses without personal identification.
+
+Your responsibilities:
+1. Answer questions accurately based ONLY on the provided document context
+2. Clearly indicate when information is not available in the documents
+3. Provide detailed explanations when possible
+4. Help students understand concepts by breaking down complex topics
+5. Suggest related topics they might want to explore
+6. Be encouraging and supportive in your responses
+
+Guidelines:
+- Always base your answers on the provided context
+- If the context is insufficient, clearly state this limitation
+- Use clear, educational language appropriate for students
+- Provide examples when they help clarify concepts
+- Never make up information not in the documents
+- Do not introduce yourself by name or mention any specific AI assistant names
+- Focus entirely on helping the student understand the content
+- Start responses directly with the educational content, not personal introductions"""
+        
+        if subject_id:
+            try:
+                from ..models import Subject
+                subject = Subject.objects.get(id=subject_id)
+                subject_prompt = f"\n\nYou are currently helping with the subject: {subject.name}"
+                if subject.description:
+                    subject_prompt += f"\nSubject description: {subject.description}"
+                base_prompt += subject_prompt
+            except:
+                pass
+        
+        return base_prompt
+    
+    def _generate_llm_response(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
+        """
+        Generate response using OpenRouter LLM
+        """
+        try:
+            start_time = timezone.now()
+            
+            payload = {
+                "model": self.llm_model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 4000,  # Further increased for longer responses
+                "top_p": 0.9
+            }
+            
+            response = requests.post(
+                self.api_url,
+                headers=self.headers,
+                json=payload,
+                timeout=60  # Increased timeout for longer responses
+            )
+            
+            response_time = (timezone.now() - start_time).total_seconds()
+            
+            if response.status_code != 200:
+                logger.error(f"LLM API error: {response.status_code} - {response.text}")
+                return {
+                    'success': False,
+                    'error': f"API request failed with status {response.status_code}",
+                    'response_time': response_time
+                }
+            
+            response_data = response.json()
+            
+            # Extract answer
+            try:
+                answer = response_data["choices"][0]["message"]["content"]
+                tokens_used = response_data.get("usage", {}).get("total_tokens", 0)
+                
+                return {
+                    'success': True,
+                    'answer': answer,
+                    'tokens_used': tokens_used,
+                    'response_time': response_time
+                }
+                
+            except (KeyError, IndexError) as e:
+                logger.error(f"Error parsing LLM response: {e}")
+                logger.error(f"Response data: {response_data}")
+                return {
+                    'success': False,
+                    'error': f"Error parsing LLM response: {str(e)}",
+                    'response_time': response_time
+                }
+            
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'error': "Request timeout - please try again",
+                'response_time': 30.0
+            }
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error: {e}")
+            return {
+                'success': False,
+                'error': f"Network error: {str(e)}",
+                'response_time': 0
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error in LLM generation: {e}")
+            return {
+                'success': False,
+                'error': f"Unexpected error: {str(e)}",
+                'response_time': 0
+            }
+    
+    def get_model_stats(self) -> Dict[str, Any]:
+        """Get RAG model statistics"""
+        try:
+            # Get retrieval stats
+            retrieval_stats = self.retriever.get_retrieval_stats()
+            
+            # Add model-specific stats
+            stats = {
+                'llm_model': self.llm_model,
+                'embedding_model': self.retriever.vector_store.embedding_model_name,
+                'max_context_length': self.retriever.max_context_length,
+                'api_configured': bool(self.api_key),
+                'retrieval_system': retrieval_stats
+            }
+            
+            return stats
+            
+        except Exception as e:
+            logger.error(f"Error getting model stats: {e}")
+            return {'error': str(e)}
+    
+    def clear_cache(self):
+        """Clear any caches"""
+        self.retriever.vector_store.clear_index()
+        logger.info("RAG model caches cleared")
+
+
+# Global RAG model instance
+_rag_model = None
+
+def get_rag_model() -> RAGModel:
+    """Get or create global RAG model instance"""
+    global _rag_model
+    if _rag_model is None:
+        _rag_model = RAGModel()
+    return _rag_model
+
+
+# Legacy functions for backward compatibility
+def rag_query(user_query: str, subject_id: Optional[int] = None) -> str:
+    """
+    Legacy function for backward compatibility
+    """
+    try:
+        rag_model = get_rag_model()
+        result = rag_model.query(user_query, subject_id=subject_id)
+        
+        if result['success']:
+            return result['answer']
+        else:
+            return f"I apologize, but I encountered an error: {result.get('error', 'Unknown error')}"
+            
+    except Exception as e:
+        logger.error(f"Error in legacy rag_query: {e}")
+        return "I'm sorry, I encountered an error while processing your question. Please try again."
+
+
+def update_documents_with_chunks(chunks):
+    """
+    Legacy function for backward compatibility
+    This is now handled by the DocumentProcessor
+    """
+    logger.warning("update_documents_with_chunks is deprecated. Use DocumentProcessor instead.")
+    return len(chunks) if chunks else 0
+
+
+def get_current_documents():
+    """
+    Legacy function for backward compatibility
+    """
+    try:
+        from ..models import Document
+        return [doc.title for doc in Document.objects.filter(processed=True)]
+    except Exception as e:
+        logger.error(f"Error getting current documents: {e}")
         return []
 
 
-class QuizGenerator:
+def clear_documents():
     """
-    Quiz generation class using AI
-    
-    This class handles automatic generation of quiz questions from documents
+    Legacy function for backward compatibility
     """
-    
-    def __init__(self):
-        """Initialize the quiz generator"""
-        self.llm = None
-        logger.info("QuizGenerator initialized (placeholder)")
-    
-    def generate_questions_from_document(self, document: Any, num_questions: int = 10) -> List[Dict[str, Any]]:
-        """
-        Generate quiz questions from a single document
-        
-        Args:
-            document: Document to generate questions from
-            num_questions: Number of questions to generate
-            
-        Returns:
-            List of question dictionaries
-        """
-        # Placeholder implementation
-        questions = []
-        for i in range(min(num_questions, 5)):  # Generate max 5 placeholder questions
-            questions.append({
-                'question': f'Placeholder question {i+1} from document: {getattr(document, "title", "Unknown")}',
-                'type': 'mcq',
-                'choices': [
-                    {'text': 'Option A (placeholder)', 'is_correct': True},
-                    {'text': 'Option B (placeholder)', 'is_correct': False},
-                    {'text': 'Option C (placeholder)', 'is_correct': False},
-                    {'text': 'Option D (placeholder)', 'is_correct': False},
-                ],
-                'explanation': 'This is a placeholder explanation for the correct answer.'
-            })
-        
-        logger.info(f"Generated {len(questions)} placeholder questions from document")
-        return questions
-    
-    def generate_questions_from_documents(self, documents: List[Any], num_questions: int = 10) -> List[Dict[str, Any]]:
-        """
-        Generate quiz questions from multiple documents
-        
-        Args:
-            documents: List of documents to generate questions from
-            num_questions: Number of questions to generate
-            
-        Returns:
-            List of question dictionaries
-        """
-        # Placeholder implementation
-        questions = []
-        questions_per_doc = max(1, num_questions // len(documents)) if documents else 0
-        
-        for doc in documents[:min(len(documents), num_questions)]:
-            doc_questions = self.generate_questions_from_document(doc, questions_per_doc)
-            questions.extend(doc_questions)
-            
-            if len(questions) >= num_questions:
-                break
-        
-        logger.info(f"Generated {len(questions)} placeholder questions from {len(documents)} documents")
-        return questions[:num_questions]
+    try:
+        rag_model = get_rag_model()
+        rag_model.clear_cache()
+        logger.info("RAG system cleared")
+    except Exception as e:
+        logger.error(f"Error clearing documents: {e}")
 
 
-class SlideGenerator:
+# Interactive mode (only for testing)
+def start_terminal_chat():
     """
-    Slide generation class using AI
-    
-    This class handles automatic generation of presentation slides from documents
+    Start an interactive terminal chat session for testing
     """
+    print("RAG Chatbot (type 'exit' to quit)")
     
-    def __init__(self):
-        """Initialize the slide generator"""
-        self.llm = None
-        logger.info("SlideGenerator initialized (placeholder)")
+    rag_model = get_rag_model()
     
-    def generate_slides(self, document: Any, topic: str = "", slide_count: int = 10) -> List[Dict[str, Any]]:
-        """
-        Generate presentation slides from document
+    while True:
+        user_input = input("\nYou: ")
+        if user_input.lower() in ["exit", "quit"]:
+            print("Ending chat.")
+            break
         
-        Args:
-            document: Document to generate slides from
-            topic: Specific topic to focus on (optional)
-            slide_count: Number of slides to generate
-            
-        Returns:
-            List of slide dictionaries
-        """
-        # Placeholder implementation
-        slides = []
-        doc_title = getattr(document, 'title', 'Unknown Document')
-        
-        # Title slide
-        slides.append({
-            'type': 'title',
-            'title': topic if topic else doc_title,
-            'subtitle': f'Generated from: {doc_title}',
-            'content': ''
-        })
-        
-        # Content slides
-        for i in range(min(slide_count - 1, 9)):  # Max 9 content slides + 1 title
-            slides.append({
-                'type': 'content',
-                'title': f'Topic {i+1}' + (f' - {topic}' if topic else ''),
-                'content': f'This is placeholder content for slide {i+2}. Actual content will be generated from the document using AI.',
-                'bullet_points': [
-                    f'Key point {j+1} from the document' for j in range(3)
-                ]
-            })
-        
-        logger.info(f"Generated {len(slides)} placeholder slides")
-        return slides
+        try:
+            result = rag_model.query(user_input)
+            if result['success']:
+                print(f"Bot: {result['answer']}")
+                if result.get('sources'):
+                    print(f"\nSources: {len(result['sources'])} documents")
+            else:
+                print(f"Error: {result.get('error', 'Unknown error')}")
+        except Exception as e:
+            print(f"Error: {e}")
 
 
-class QuizGenerator:
-    """Placeholder quiz generator"""
-    
-    def generate_questions_from_document(self, document, num_questions=10):
-        """Generate mock quiz questions"""
-        # Placeholder implementation
-        questions = []
-        for i in range(min(num_questions, 5)):  # Generate max 5 questions for now
-            questions.append({
-                'question': f'Sample question {i+1} based on {document.title}?',
-                'type': 'mcq',
-                'choices': [
-                    {'text': 'Option A', 'is_correct': True},
-                    {'text': 'Option B', 'is_correct': False},
-                    {'text': 'Option C', 'is_correct': False},
-                    {'text': 'Option D', 'is_correct': False},
-                ],
-                'explanation': 'This is a sample explanation for the correct answer.'
-            })
-        return questions
-    
-    def generate_questions_from_documents(self, documents, num_questions=10):
-        """Generate questions from multiple documents"""
-        if documents:
-            return self.generate_questions_from_document(documents[0], num_questions)
-        return []
-
-
-class SlideGenerator:
-    """Placeholder slide generator"""
-    
-    def generate_slides(self, document, topic="", slide_count=10):
-        """Generate mock slides"""
-        slides = []
-        for i in range(min(slide_count, 5)):  # Generate max 5 slides for now
-            slides.append({
-                'title': f'Slide {i+1}: {topic or "Topic from " + document.title}',
-                'content': f'This is placeholder content for slide {i+1}. The actual implementation will generate meaningful slides based on the document content.',
-                'bullet_points': [
-                    f'Point {j+1} about the topic' for j in range(3)
-                ]
-            })
-        return slides
+if __name__ == "__main__":
+    start_terminal_chat()

@@ -266,7 +266,7 @@ class DocumentUploadForm(forms.ModelForm):
             }),
             'file': forms.FileInput(attrs={
                 'class': 'form-control',
-                'accept': '.pdf,.docx,.txt,.pptx'
+                'accept': '.pdf,.docx,.txt,.pptx,.doc,.ppt'
             }),
             'subject': forms.Select(attrs={
                 'class': 'form-control'
@@ -281,18 +281,21 @@ class DocumentUploadForm(forms.ModelForm):
             self.fields['subject'].queryset = Subject.objects.filter(created_by=user)
         
         # Add help text
-        self.fields['file'].help_text = 'Supported formats: PDF, DOCX, TXT, PPTX (Max 10MB)'
+        self.fields['file'].help_text = 'Supported formats: PDF, DOCX, TXT, PPTX (Max 50MB)'
+        
+        # Make title optional and auto-generate from filename if not provided
+        self.fields['title'].required = False
     
     def clean_file(self):
         file = self.cleaned_data.get('file')
         
         if file:
-            # Check file size (10MB limit)
-            if file.size > 10 * 1024 * 1024:
-                raise forms.ValidationError('File size must be less than 10MB')
+            # Check file size (50MB limit to match template)
+            if file.size > 50 * 1024 * 1024:
+                raise forms.ValidationError('File size must be less than 50MB')
             
             # Check file extension
-            allowed_extensions = ['.pdf', '.docx', '.txt', '.pptx']
+            allowed_extensions = ['.pdf', '.docx', '.txt', '.pptx', '.doc', '.ppt']
             file_extension = '.' + file.name.split('.')[-1].lower()
             
             if file_extension not in allowed_extensions:
@@ -301,6 +304,16 @@ class DocumentUploadForm(forms.ModelForm):
                 )
         
         return file
+    
+    def clean_title(self):
+        title = self.cleaned_data.get('title')
+        file = self.cleaned_data.get('file')
+        
+        # Auto-generate title from filename if not provided
+        if not title and file:
+            title = file.name.rsplit('.', 1)[0]  # Remove file extension
+        
+        return title
 
 
 class QuizCreateForm(forms.ModelForm):

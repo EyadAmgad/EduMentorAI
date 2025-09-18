@@ -86,7 +86,14 @@ class ChatSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, null=True, blank=True)
+    # For anonymous document chat
+    temp_document = models.ForeignKey('TempDocument', on_delete=models.CASCADE, null=True, blank=True)
     title = models.CharField(max_length=255, blank=True)
+    chat_type = models.CharField(max_length=20, choices=[
+        ('subject', 'Subject Chat'),
+        ('document', 'Document Chat'),
+        ('anonymous', 'Anonymous Chat')
+    ], default='subject')
     created_at = models.DateTimeField(auto_now_add=True)
     last_activity = models.DateTimeField(auto_now=True)
     
@@ -95,6 +102,33 @@ class ChatSession(models.Model):
     
     class Meta:
         ordering = ['-last_activity']
+
+
+class TempDocument(models.Model):
+    """Temporary document for anonymous chat sessions"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title = models.CharField(max_length=255)
+    file = models.FileField(upload_to='temp_documents/')
+    uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    processed = models.BooleanField(default=False)
+    file_size = models.PositiveIntegerField()  # in bytes
+    # Auto-delete after 24 hours
+    expires_at = models.DateTimeField()
+    
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            from django.utils import timezone
+            self.expires_at = timezone.now() + timezone.timedelta(hours=24)
+        if self.file:
+            self.file_size = self.file.size
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"Temp: {self.title}"
+    
+    class Meta:
+        ordering = ['-uploaded_at']
 
 
 class ChatMessage(models.Model):

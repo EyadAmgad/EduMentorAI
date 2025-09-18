@@ -19,13 +19,13 @@ import logging
 
 from .models import (
     Subject, Document, DocumentChunk, ChatSession, ChatMessage,
-    Quiz, Question, QuizAttempt, QuizResponse, UserProfile, StudySession
+    Quiz, Question, QuizAttempt, QuizResponse, UserProfile, StudySession,
+    TempDocument
 )
 from .forms import (
     SubjectForm, DocumentUploadForm, QuizCreateForm, UserProfileForm,
     ChatMessageForm
 )
-from .pipeline.model import EduMentorRAG
 from .pipeline.data_processor import DocumentProcessor
 from .auth_backends import get_supabase_user_from_session
 
@@ -261,9 +261,43 @@ class ChatView(LoginRequiredMixin, View):
         """Handle GET requests - show chat interface"""
         user = request.user
         
+        # Check if a subject parameter is provided for starting a new subject chat
+        subject_id = request.GET.get('subject')
+        
         # Get or create chat session
         if session_id:
             session = get_object_or_404(ChatSession, id=session_id, user=user)
+        elif subject_id:
+            # Create a new chat session for the specified subject
+            try:
+                subject = get_object_or_404(Subject, id=subject_id, created_by=user)
+                
+                # Check if the subject has any processed documents
+                has_documents = Document.objects.filter(
+                    subject=subject, 
+                    processed=True
+                ).exists()
+                
+                if not has_documents:
+                    messages.warning(
+                        request, 
+                        f'No processed documents found in "{subject.name}". Please upload and process some documents first.'
+                    )
+                    return redirect('rag_app:subject_detail', pk=subject.id)
+                
+                session = ChatSession.objects.create(
+                    user=user,
+                    subject=subject,
+                    title=f"Chat with {subject.name}",
+                    chat_type='subject'
+                )
+                # Redirect to the new session to avoid confusion with URL parameters
+                return redirect('rag_app:chat_session', session_id=session.id)
+            except (Subject.DoesNotExist, ValueError):
+                # If subject doesn't exist or invalid ID, fall back to general chat
+                session = ChatSession.objects.filter(user=user).order_by('-last_activity').first()
+                if not session:
+                    session = ChatSession.objects.create(user=user, title="New Chat")
         else:
             session = ChatSession.objects.filter(user=user).order_by('-last_activity').first()
             if not session:
@@ -293,10 +327,18 @@ class ChatView(LoginRequiredMixin, View):
             if session_id:
                 session = get_object_or_404(ChatSession, id=session_id, user=user)
             else:
-                session = ChatSession.objects.create(
-                    user=user,
-                    title=message_text[:50] + "..." if len(message_text) > 50 else message_text
-                )
+                # Get the most recent session for this user or create a new one
+                session = ChatSession.objects.filter(user=user).order_by('-last_activity').first()
+                if not session:
+                    session = ChatSession.objects.create(
+                        user=user,
+                        title=message_text[:50] + "..." if len(message_text) > 50 else message_text
+                    )
+                else:
+                    # Update the session title if it's still "New Chat" and this is the first user message
+                    if session.title == "New Chat" and not session.messages.filter(is_user=True).exists():
+                        session.title = message_text[:50] + "..." if len(message_text) > 50 else message_text
+                        session.save()
             
             # Save user message
             user_message = ChatMessage.objects.create(
@@ -305,9 +347,76 @@ class ChatView(LoginRequiredMixin, View):
                 is_user=True
             )
             
-            # Generate AI response (ECHO MODE - for testing)
+            # Generate AI response using RAG pipeline
             start_time = timezone.now()
-            ai_response = f"Echo: {message_text}"
+            
+            try:
+                # Import RAG model
+                from .pipeline.model import get_rag_model
+                
+                # Get RAG model instance
+                rag_model = get_rag_model()
+                
+                # Check if user has any documents before allowing chat
+                user_has_documents = Document.objects.filter(uploaded_by=user).exists()
+                user_has_subjects_with_docs = Subject.objects.filter(
+                    created_by=user, documents__isnull=False
+                ).exists()
+                
+                # Process query based on session type
+                if session.chat_type == 'anonymous' and session.temp_document:
+                    # Anonymous document chat
+                    rag_result = rag_model.query_temp_document(
+                        question=message_text,
+                        temp_document=session.temp_document,
+                        chat_session=session
+                    )
+                elif session.subject:
+                    # Subject-based chat with all documents from the subject
+                    subject_has_docs = Document.objects.filter(subject=session.subject).exists()
+                    if not subject_has_docs:
+                        ai_response = f"No documents have been uploaded to the '{session.subject.name}' subject yet. Please upload some documents to this subject before starting a chat."
+                    else:
+                        rag_result = rag_model.query(
+                            question=message_text,
+                            subject_id=session.subject.id,
+                            chat_session=session,
+                            retrieval_strategy='hybrid',
+                            max_chunks=5
+                        )
+                elif user_has_documents or user_has_subjects_with_docs:
+                    # General chat with user's documents
+                    rag_result = rag_model.query(
+                        question=message_text,
+                        subject_id=None,
+                        chat_session=session,
+                        retrieval_strategy='hybrid',
+                        max_chunks=5
+                    )
+                else:
+                    # No documents available - provide helpful guidance
+                    ai_response = """Hello! I'm your AI study assistant. To get started, you'll need to upload some documents first. Here's how:
+
+1. **Create a Subject**: Go to the Subjects section and create a new subject for your study material
+2. **Upload Documents**: Add PDF, Word, PowerPoint, or text files to your subject
+3. **Start Chatting**: Once documents are uploaded and processed, you can ask me questions about them
+
+Alternatively, you can use the "Chat with Document" feature to quickly upload a single document and start chatting about it immediately.
+
+What would you like to do first?"""
+                
+                # Only process RAG result if we didn't set a custom response
+                if 'ai_response' not in locals() and 'rag_result' in locals():
+                    if rag_result['success']:
+                        ai_response = rag_result['answer']
+                    else:
+                        ai_response = rag_result.get('answer', 'I apologize, but I encountered an error while processing your question.')
+                        logger.warning(f"RAG query failed: {rag_result.get('error')}")
+                    
+            except Exception as e:
+                logger.error(f"Error using RAG model: {e}")
+                # Fallback to simple response
+                ai_response = "I'm having trouble accessing the document knowledge base right now. Please make sure documents are uploaded and try again."
             response_time = (timezone.now() - start_time).total_seconds()
             
             # Save AI message
@@ -356,11 +465,19 @@ def send_message(request):
             if session_id:
                 session = get_object_or_404(ChatSession, id=session_id, user=request.user)
             else:
-                session = ChatSession.objects.create(
-                    user=request.user,
-                    title=message_text[:50] + "..." if len(message_text) > 50 else message_text,
-                    subject_id=subject_id if subject_id else None
-                )
+                # Get the most recent session for this user or create a new one
+                session = ChatSession.objects.filter(user=request.user).order_by('-last_activity').first()
+                if not session:
+                    session = ChatSession.objects.create(
+                        user=request.user,
+                        title=message_text[:50] + "..." if len(message_text) > 50 else message_text,
+                        subject_id=subject_id if subject_id else None
+                    )
+                else:
+                    # Update the session title if it's still "New Chat" and this is the first user message
+                    if session.title == "New Chat" and not session.messages.filter(is_user=True).exists():
+                        session.title = message_text[:50] + "..." if len(message_text) > 50 else message_text
+                        session.save()
             
             # Save user message
             user_message = ChatMessage.objects.create(
@@ -369,11 +486,81 @@ def send_message(request):
                 is_user=True
             )
             
-            # Generate AI response (ECHO MODE - for testing)
+            # Generate AI response using RAG pipeline
             start_time = timezone.now()
             
-            # Simple echo response for testing
-            ai_response = f"Echo: {message_text}"
+            try:
+                # Import RAG model
+                from .pipeline.model import get_rag_model
+                
+                # Get RAG model instance
+                rag_model = get_rag_model()
+                
+                # Check if user has any documents before allowing chat
+                user_has_documents = Document.objects.filter(uploaded_by=request.user).exists()
+                user_has_subjects_with_docs = Subject.objects.filter(
+                    created_by=request.user, documents__isnull=False
+                ).exists()
+                
+                # Process query based on session type
+                if session.chat_type == 'anonymous' and session.temp_document:
+                    # Anonymous document chat
+                    rag_result = rag_model.query_temp_document(
+                        question=message_text,
+                        temp_document=session.temp_document,
+                        chat_session=session
+                    )
+                elif session.subject:
+                    # Subject-based chat with all documents from the subject
+                    subject_has_docs = Document.objects.filter(subject=session.subject).exists()
+                    if not subject_has_docs:
+                        ai_response = f"No documents have been uploaded to the '{session.subject.name}' subject yet. Please upload some documents to this subject before starting a chat."
+                    else:
+                        rag_result = rag_model.query(
+                            question=message_text,
+                            subject_id=session.subject.id,
+                            chat_session=session,
+                            retrieval_strategy='hybrid',
+                            max_chunks=5
+                        )
+                elif user_has_documents or user_has_subjects_with_docs:
+                    # General chat with user's documents
+                    rag_result = rag_model.query(
+                        question=message_text,
+                        subject_id=None,
+                        chat_session=session,
+                        retrieval_strategy='hybrid',
+                        max_chunks=5
+                    )
+                else:
+                    # No documents available - provide helpful guidance
+                    ai_response = """Hello! I'm your AI study assistant. To get started, you'll need to upload some documents first. Here's how:
+
+1. **Create a Subject**: Go to the Subjects section and create a new subject for your study material
+2. **Upload Documents**: Add PDF, Word, PowerPoint, or text files to your subject
+3. **Start Chatting**: Once documents are uploaded and processed, you can ask me questions about them
+
+Alternatively, you can use the "Chat with Document" feature to quickly upload a single document and start chatting about it immediately.
+
+What would you like to do first?"""
+                
+                # Only process RAG result if we didn't set a custom response
+                if 'ai_response' not in locals() and 'rag_result' in locals():
+                    if rag_result['success']:
+                        ai_response = rag_result['answer']
+                        
+                        # Store relevant chunks for this message
+                        if rag_result.get('sources'):
+                            chunk_ids = [chunk['chunk_id'] for chunk in rag_result['sources']]
+                            # Note: Will link chunks after saving the message
+                    else:
+                        ai_response = rag_result.get('answer', 'I apologize, but I encountered an error while processing your question.')
+                        logger.warning(f"RAG query failed: {rag_result.get('error')}")
+                    
+            except Exception as e:
+                logger.error(f"Error using RAG model: {e}")
+                # Fallback to simple response
+                ai_response = "I'm having trouble accessing the document knowledge base right now. Please make sure documents are uploaded and try again."
             
             response_time = (timezone.now() - start_time).total_seconds()
             
@@ -385,11 +572,21 @@ def send_message(request):
                 response_time=response_time
             )
             
+            # Link relevant chunks if available
+            try:
+                if 'rag_result' in locals() and rag_result.get('success') and rag_result.get('sources'):
+                    chunk_ids = [chunk['chunk_id'] for chunk in rag_result['sources']]
+                    chunks = DocumentChunk.objects.filter(id__in=chunk_ids)
+                    ai_message.relevant_chunks.set(chunks)
+            except Exception as e:
+                logger.warning(f"Error linking chunks to message: {e}")
+            
             # Update session activity
             session.last_activity = timezone.now()
             session.save()
             
-            return JsonResponse({
+            # Prepare response data
+            response_data = {
                 'success': True,
                 'session_id': str(session.id),
                 'user_message': {
@@ -403,13 +600,133 @@ def send_message(request):
                     'timestamp': ai_message.timestamp.isoformat(),
                     'response_time': response_time
                 }
-            })
+            }
+            
+            # Add source information if available
+            if 'rag_result' in locals() and rag_result.get('success') and rag_result.get('sources'):
+                response_data['sources'] = [
+                    {
+                        'document_title': chunk['document_title'],
+                        'document_type': chunk['document_type'],
+                        'page_number': chunk['page_number'],
+                        'relevance_score': round(chunk['score'], 3)
+                    }
+                    for chunk in rag_result['sources'][:3]  # Limit to top 3 sources
+                ]
+            
+            return JsonResponse(response_data)
             
         except Exception as e:
             logger.error(f"Error in chat: {str(e)}")
             return JsonResponse({'error': 'An error occurred while processing your message'}, status=500)
     
     return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+class AnonymousDocumentChatView(LoginRequiredMixin, View):
+    """Anonymous document chat - upload a document and chat about it"""
+    template_name = 'rag_app/anonymous_chat.html'
+    
+    def get(self, request):
+        """Show anonymous chat upload form"""
+        return render(request, self.template_name)
+    
+    def post(self, request):
+        """Handle document upload and start chat session"""
+        try:
+            file = request.FILES.get('file')
+            initial_question = request.POST.get('initial_question', '').strip()
+            
+            if not file:
+                messages.error(request, 'Please select a file to upload.')
+                return render(request, self.template_name)
+            
+            # Validate file
+            if file.size > 50 * 1024 * 1024:  # 50MB limit
+                messages.error(request, 'File size must be less than 50MB.')
+                return render(request, self.template_name)
+            
+            # Create temporary document
+            from django.utils import timezone
+            temp_doc = TempDocument.objects.create(
+                title=file.name.rsplit('.', 1)[0],  # Remove extension
+                file=file,
+                uploaded_by=request.user,
+                expires_at=timezone.now() + timezone.timedelta(hours=24)
+            )
+            
+            # Process document immediately for chat
+            try:
+                from .pipeline.data_processor import DocumentProcessor
+                processor = DocumentProcessor()
+                
+                # Process the temporary document (adapt processor for temp docs)
+                processor.process_temp_document(temp_doc)
+                temp_doc.processed = True
+                temp_doc.save()
+                
+            except Exception as e:
+                logger.error(f"Error processing temp document {temp_doc.id}: {str(e)}")
+                messages.error(request, 'Error processing document. Please try again.')
+                return render(request, self.template_name)
+            
+            # Create chat session
+            session_title = f"Chat about {temp_doc.title}"
+            if initial_question:
+                session_title = initial_question[:50] + "..." if len(initial_question) > 50 else initial_question
+            
+            chat_session = ChatSession.objects.create(
+                user=request.user,
+                temp_document=temp_doc,
+                title=session_title,
+                chat_type='anonymous'
+            )
+            
+            # If there's an initial question, process it
+            if initial_question:
+                try:
+                    # Save user message
+                    user_message = ChatMessage.objects.create(
+                        session=chat_session,
+                        message=initial_question,
+                        is_user=True
+                    )
+                    
+                    # Generate AI response
+                    from .pipeline.model import get_rag_model
+                    rag_model = get_rag_model()
+                    
+                    # Process query with temp document
+                    rag_result = rag_model.query_temp_document(
+                        question=initial_question,
+                        temp_document=temp_doc,
+                        chat_session=chat_session
+                    )
+                    
+                    if rag_result['success']:
+                        ai_response = rag_result['answer']
+                    else:
+                        ai_response = "I've processed your document. What would you like to know about it?"
+                    
+                    # Save AI message
+                    ChatMessage.objects.create(
+                        session=chat_session,
+                        message=ai_response,
+                        is_user=False
+                    )
+                    
+                except Exception as e:
+                    logger.error(f"Error processing initial question: {str(e)}")
+                    # Continue without the initial response
+            
+            # Redirect to chat session
+            messages.success(request, 'Document uploaded successfully! You can now chat about it.')
+            return redirect('rag_app:chat_session', session_id=chat_session.id)
+            
+        except Exception as e:
+            logger.error(f"Error in anonymous chat upload: {str(e)}")
+            messages.error(request, 'An error occurred while processing your document.')
+            return render(request, self.template_name)
 
 
 @login_required
@@ -425,6 +742,172 @@ def new_chat_session(request):
         return redirect('rag_app:chat_session', session_id=session.id)
     
     return redirect('rag_app:chat')
+
+
+@login_required
+@csrf_exempt
+def chat_with_subject(request):
+    """Chat with documents from a specific subject"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            message_text = data.get('message', '').strip()
+            subject_id = data.get('subject_id')
+            session_id = data.get('session_id')
+            
+            if not message_text:
+                return JsonResponse({'error': 'Message cannot be empty'}, status=400)
+            
+            if not subject_id:
+                return JsonResponse({'error': 'Subject ID is required'}, status=400)
+            
+            # Verify user has access to the subject
+            try:
+                subject = Subject.objects.get(id=subject_id, created_by=request.user)
+            except Subject.DoesNotExist:
+                return JsonResponse({'error': 'Subject not found or access denied'}, status=403)
+            
+            # Get or create session
+            if session_id:
+                try:
+                    session = ChatSession.objects.get(id=session_id, user=request.user, subject_id=subject_id)
+                except ChatSession.DoesNotExist:
+                    return JsonResponse({'error': 'Chat session not found'}, status=404)
+            else:
+                session = ChatSession.objects.create(
+                    user=request.user,
+                    subject=subject,
+                    title=f"{subject.name}: {message_text[:30]}..." if len(message_text) > 30 else f"{subject.name}: {message_text}"
+                )
+            
+            # Save user message
+            user_message = ChatMessage.objects.create(
+                session=session,
+                message=message_text,
+                is_user=True
+            )
+            
+            # Generate AI response using RAG pipeline with subject filtering
+            start_time = timezone.now()
+            
+            try:
+                from .pipeline.model import get_rag_model
+                
+                rag_model = get_rag_model()
+                
+                # Use chat_with_subject method for better subject integration
+                rag_result = rag_model.chat_with_subject(
+                    question=message_text,
+                    subject_id=subject_id,
+                    chat_session=session
+                )
+                
+                if rag_result['success']:
+                    ai_response = rag_result['answer']
+                    sources = rag_result.get('sources', [])
+                else:
+                    ai_response = rag_result.get('answer', f'I apologize, but I couldn\'t find relevant information in the {subject.name} documents to answer your question.')
+                    sources = []
+                    logger.warning(f"RAG query failed for subject {subject_id}: {rag_result.get('error')}")
+                    
+            except Exception as e:
+                logger.error(f"Error using RAG model for subject {subject_id}: {e}")
+                ai_response = f"I'm having trouble accessing the {subject.name} documents right now. Please make sure documents are uploaded for this subject and try again."
+                sources = []
+            
+            response_time = (timezone.now() - start_time).total_seconds()
+            
+            # Save AI message
+            ai_message = ChatMessage.objects.create(
+                session=session,
+                message=ai_response,
+                is_user=False,
+                response_time=response_time
+            )
+            
+            # Link relevant chunks if available
+            try:
+                if sources:
+                    chunk_ids = [chunk['chunk_id'] for chunk in sources]
+                    chunks = DocumentChunk.objects.filter(id__in=chunk_ids)
+                    ai_message.relevant_chunks.set(chunks)
+            except Exception as e:
+                logger.warning(f"Error linking chunks to message: {e}")
+            
+            # Update session activity
+            session.last_activity = timezone.now()
+            session.save()
+            
+            # Prepare response
+            response_data = {
+                'success': True,
+                'session_id': str(session.id),
+                'subject': {
+                    'id': subject.id,
+                    'name': subject.name,
+                    'code': subject.code
+                },
+                'user_message': {
+                    'id': str(user_message.id),
+                    'message': user_message.message,
+                    'timestamp': user_message.timestamp.isoformat()
+                },
+                'ai_message': {
+                    'id': str(ai_message.id),
+                    'message': ai_message.message,
+                    'timestamp': ai_message.timestamp.isoformat(),
+                    'response_time': response_time
+                }
+            }
+            
+            # Add source information
+            if sources:
+                response_data['sources'] = [
+                    {
+                        'document_title': chunk['document_title'],
+                        'document_type': chunk['document_type'],
+                        'page_number': chunk['page_number'],
+                        'relevance_score': round(chunk['score'], 3)
+                    }
+                    for chunk in sources[:5]  # Limit to top 5 sources
+                ]
+                response_data['documents_used'] = len(set(chunk['document_id'] for chunk in sources))
+            
+            return JsonResponse(response_data)
+            
+        except Exception as e:
+            logger.error(f"Error in subject chat: {str(e)}")
+            return JsonResponse({'error': 'An error occurred while processing your message'}, status=500)
+    
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
+
+
+@login_required
+def get_subject_documents(request, subject_id):
+    """Get documents available for a subject"""
+    try:
+        subject = Subject.objects.get(id=subject_id, created_by=request.user)
+        documents = Document.objects.filter(
+            subject=subject,
+            processed=True
+        ).values('id', 'title', 'document_type', 'page_count', 'uploaded_at')
+        
+        return JsonResponse({
+            'success': True,
+            'subject': {
+                'id': subject.id,
+                'name': subject.name,
+                'code': subject.code
+            },
+            'documents': list(documents),
+            'total_documents': len(documents)
+        })
+        
+    except Subject.DoesNotExist:
+        return JsonResponse({'error': 'Subject not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error getting subject documents: {e}")
+        return JsonResponse({'error': 'An error occurred'}, status=500)
 
 
 # Quiz Views
