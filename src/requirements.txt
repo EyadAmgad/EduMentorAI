@@ -3,12 +3,12 @@ django==4.2.23
 djangorestframework==3.14.0
 django-cors-headers==4.0.0
 
-# Supabase integration
-supabase==2.3.4
+# Database and Supabase integration
+supabase==2.3.4  # For database and storage
 postgrest==0.16.2
 python-dotenv==1.0.1
 
-# Database (PostgreSQL for local development)
+# Database (PostgreSQL)
 psycopg2-binary==2.9.7
 
 # File storage and handling

@@ -91,28 +91,21 @@ SITE_ID = 1
 # --- Database Configuration ---
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-USE_SUPABASE = config('USE_SUPABASE', default=False, cast=bool)
+# Using Supabase PostgreSQL database
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config('SUPABASE_DB_NAME', default='postgres'),
+        'USER': config('SUPABASE_DB_USER', default='postgres'),
+        'PASSWORD': config('SUPABASE_DB_PASSWORD', default=''),
+        'HOST': config('SUPABASE_DB_HOST', default=''),
+        'PORT': config('SUPABASE_DB_PORT', default='5432'),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
+    }
+}
 
-if USE_SUPABASE:
-    # Connect to Supabase PostgreSQL using connection pooler variables
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME'),
-            'USER': config('DB_USER'),
-            'PASSWORD': config('DB_PASSWORD'),
-            'HOST': config('DB_HOST'),
-            'PORT': config('DB_PORT', cast=int),
-        }
-    }
-else:
-    # Fallback to a local SQLite database for development
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
 
 
 # --- Password and Authentication ---

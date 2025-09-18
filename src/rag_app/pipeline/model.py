@@ -12,7 +12,7 @@ from django.utils import timezone
 from dotenv import load_dotenv
 from .retriever import DocumentRetriever
 from .vectorstore import VectorStore
-from ..models import ChatSession, ChatMessage, DocumentChunk, TempDocument, TempDocument
+from ..models import ChatSession, ChatMessage, DocumentChunk, TempDocument
 
 # Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../.env"))
