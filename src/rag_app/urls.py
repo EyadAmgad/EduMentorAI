@@ -27,9 +27,12 @@ urlpatterns = [
     
     # Chat interface
     path('chat/', views.ChatView.as_view(), name='chat'),
+    path('chat/anonymous/', views.AnonymousDocumentChatView.as_view(), name='anonymous_chat'),
     path('chat/<uuid:session_id>/', views.ChatView.as_view(), name='chat_session'),
     path('chat/ajax/send/', views.send_message, name='chat_send'),
     path('chat/ajax/new-session/', views.new_chat_session, name='new_chat_session'),
+    path('chat/ajax/subject/', views.chat_with_subject, name='chat_with_subject'),
+    path('ajax/subjects/<int:subject_id>/documents/', views.get_subject_documents, name='subject_documents'),
     
     # Quiz management
     path('quizzes/', views.QuizListView.as_view(), name='quiz_list'),

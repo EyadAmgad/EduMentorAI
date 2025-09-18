@@ -1,0 +1,261 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Anonymous Document Chat - EduMentorAI{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <div class="container-fluid py-4">
+        <!-- Breadcrumb -->
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'rag_app:dashboard' %}" style="color: var(--text-secondary);">Dashboard</a></li>
+                <li class="breadcrumb-item active" style="color: var(--text-primary);">Anonymous Chat</li>
+            </ol>
+        </nav>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card" style="border: none; border-radius: 1rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); background: var(--chat-bg);">
+                    <div class="card-header" style="background: transparent; border-bottom: 1px solid var(--border-color); padding: 2rem 2rem 1rem;">
+                        <div class="text-center">
+                            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; color: white; font-size: 2rem;">
+                                <i class="fas fa-comments"></i>
+                            </div>
+                            <h3 style="color: var(--text-primary); font-weight: 700; margin-bottom: 0.5rem;">Anonymous Document Chat</h3>
+                            <p style="color: var(--text-secondary); margin: 0;">Upload a document and start chatting about it instantly</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body p-4">
+                        <form method="post" enctype="multipart/form-data" id="anonymous-chat-form">
+                            {% csrf_token %}
+                            
+                            <!-- File Upload Area -->
+                            <div class="mb-4">
+                                <label class="form-label" style="color: var(--text-primary); font-weight: 600;">Upload Document</label>
+                                <div id="drop-area" class="drop-area" style="border: 2px dashed var(--border-color); border-radius: 1rem; padding: 3rem; text-align: center; transition: all 0.3s ease; background: var(--background-light);">
+                                    <div class="drop-content">
+                                        <i class="fas fa-cloud-upload-alt" style="font-size: 3rem; color: var(--text-secondary); margin-bottom: 1rem;"></i>
+                                        <h5 style="color: var(--text-primary); margin-bottom: 0.5rem;">Drop a document here or click to browse</h5>
+                                        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Supports PDF, Word documents, PowerPoint, and text files</p>
+                                        <input type="file" id="file-input" name="file" class="d-none" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt" required>
+                                        <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('file-input').click();">
+                                            <i class="fas fa-folder-open me-2"></i>Choose File
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="file-preview" class="mt-3" style="display: none;">
+                                    <div class="d-flex align-items-center p-3" style="background: var(--chat-bg); border-radius: 0.75rem; border: 1px solid var(--border-color);">
+                                        <div id="file-icon" class="me-3" style="width: 40px; height: 40px; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.25rem;"></div>
+                                        <div class="flex-1">
+                                            <div id="file-name" style="color: var(--text-primary); font-weight: 600;"></div>
+                                            <small id="file-size" style="color: var(--text-secondary);"></small>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFile()">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Optional initial question -->
+                            <div class="mb-4">
+                                <label for="initial_question" class="form-label" style="color: var(--text-primary); font-weight: 600;">Initial Question (Optional)</label>
+                                <textarea class="form-control" id="initial_question" name="initial_question" rows="3" placeholder="What would you like to know about this document?" style="background: var(--chat-bg); border: 1px solid var(--border-color); color: var(--text-primary);"></textarea>
+                                <small style="color: var(--text-secondary);">You can also ask questions after uploading</small>
+                            </div>
+
+                            <!-- Submit Buttons -->
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="{% url 'rag_app:chat' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Back to Chat
+                                </a>
+                                <button type="submit" class="btn btn-primary" id="start-chat-btn">
+                                    <i class="fas fa-comments me-2"></i>Start Chatting
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropArea = document.getElementById('drop-area');
+    const fileInput = document.getElementById('file-input');
+    const filePreview = document.getElementById('file-preview');
+    const form = document.getElementById('anonymous-chat-form');
+
+    if (!dropArea || !fileInput || !filePreview || !form) {
+        console.warn('Some upload elements not found');
+        return;
+    }
+
+    // Prevent default drag behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+    });
+
+    // Highlight drop area when item is dragged over it
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    // Handle dropped files
+    dropArea.addEventListener('drop', handleDrop, false);
+
+    // Click to upload functionality
+    dropArea.addEventListener('click', function(e) {
+        if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'I') {
+            fileInput.click();
+        }
+    });
+
+    // Handle file input change
+    fileInput.addEventListener('change', function(e) {
+        handleFiles(e.target.files);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    function highlight() {
+        dropArea.style.borderColor = 'var(--primary-color)';
+        dropArea.style.backgroundColor = 'rgba(139, 92, 246, 0.05)';
+    }
+
+    function unhighlight() {
+        dropArea.style.borderColor = 'var(--border-color)';
+        dropArea.style.backgroundColor = 'var(--background-light)';
+    }
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles(files);
+    }
+
+    function handleFiles(files) {
+        if (files.length > 0) {
+            const file = files[0];
+            
+            // Validate file type
+            const allowedTypes = ['application/pdf', 'application/msword', 
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-powerpoint',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'text/plain'];
+            
+            const allowedExtensions = ['.pdf', '.doc', '.docx', '.ppt', '.pptx', '.txt'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+            
+            if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+                alert('Please select a valid file type (PDF, Word, PowerPoint, or Text)');
+                return;
+            }
+            
+            // Check file size (50MB limit)
+            if (file.size > 50 * 1024 * 1024) {
+                alert('File size must be less than 50MB');
+                return;
+            }
+            
+            showFilePreview(file);
+        }
+    }
+
+    function showFilePreview(file) {
+        const fileIcon = document.getElementById('file-icon');
+        const fileName = document.getElementById('file-name');
+        const fileSize = document.getElementById('file-size');
+        
+        if (!fileIcon || !fileName || !fileSize) return;
+        
+        // Get file extension
+        const extension = file.name.split('.').pop().toLowerCase();
+        
+        // Set icon and color based on file type
+        let iconClass = 'fas fa-file';
+        let iconColor = '#6b7280';
+        
+        switch(extension) {
+            case 'pdf':
+                iconClass = 'fas fa-file-pdf';
+                iconColor = '#ef4444';
+                break;
+            case 'doc':
+            case 'docx':
+                iconClass = 'fas fa-file-word';
+                iconColor = '#3b82f6';
+                break;
+            case 'ppt':
+            case 'pptx':
+                iconClass = 'fas fa-file-powerpoint';
+                iconColor = '#f59e0b';
+                break;
+            case 'txt':
+                iconClass = 'fas fa-file-alt';
+                iconColor = '#10b981';
+                break;
+        }
+        
+        fileIcon.innerHTML = `<i class="${iconClass}"></i>`;
+        fileIcon.style.background = iconColor;
+        fileName.textContent = file.name;
+        fileSize.textContent = formatFileSize(file.size);
+        
+        filePreview.style.display = 'block';
+    }
+
+    window.removeFile = function() {
+        fileInput.value = '';
+        filePreview.style.display = 'none';
+    };
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        const startChatBtn = document.getElementById('start-chat-btn');
+        const fileInputValue = fileInput.value;
+        
+        // Check if file is selected
+        if (!fileInputValue) {
+            e.preventDefault();
+            alert('Please select a file to upload');
+            return false;
+        }
+        
+        // Show loading state
+        const originalText = startChatBtn.innerHTML;
+        startChatBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+        startChatBtn.disabled = true;
+        
+        // Re-enable after timeout (failsafe)
+        setTimeout(() => {
+            startChatBtn.innerHTML = originalText;
+            startChatBtn.disabled = false;
+        }, 30000);
+    });
+});
+</script>
+{% endblock %}

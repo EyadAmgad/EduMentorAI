@@ -304,13 +304,18 @@
             <a href="#" class="new-chat-btn" id="newChatBtn">
                 <i class="fas fa-plus me-2"></i>New Chat
             </a>
+            <div class="mt-3">
+                <a href="{% url 'rag_app:anonymous_chat' %}" class="btn btn-outline-primary btn-sm w-100">
+                    <i class="fas fa-file-upload me-2"></i>Chat with Document
+                </a>
+            </div>
         </div>
         
         <div class="sidebar-content">
             {% if chat_sessions %}
                 {% for session in chat_sessions %}
                     <div class="chat-session {% if session.id == current_session.id %}active{% endif %}" 
-                         onclick="loadChatSession({{ session.id }})">
+                         onclick="loadChatSession('{{ session.id }}')">>
                         <div class="session-title">
                             {{ session.title|default:"New Chat" }}
                         </div>
@@ -406,8 +411,18 @@
     </div>
 </div>
 
+<!-- Markdown library for rendering formatted text -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Configure marked for safe rendering
+    marked.setOptions({
+        breaks: true,
+        gfm: true,
+        sanitize: false,
+        silent: false
+    });
+    
     const chatInput = document.getElementById('chatInput');
     const chatForm = document.getElementById('chatForm');
     const sendBtn = document.getElementById('sendBtn');
@@ -415,6 +430,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
     const chatSidebar = document.getElementById('chatSidebar');
     const chatOverlay = document.getElementById('chatOverlay');
+    
+    // Track current session ID
+    let currentSessionId = {% if session %}'{{ session.id }}'{% else %}null{% endif %};
 
     // Auto-resize textarea
     chatInput.addEventListener('input', function() {
@@ -453,8 +471,14 @@ document.addEventListener('DOMContentLoaded', function() {
         chatInput.value = '';
         chatInput.style.height = 'auto';
 
+        // Prepare URL based on session
+        let url = '{% url "rag_app:chat" %}';
+        if (currentSessionId) {
+            url = '/chat/' + currentSessionId + '/';
+        }
+
         // Send message to server
-        fetch('{% url "rag_app:chat" %}', {
+        fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -468,6 +492,13 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 addMessage('ai', data.response);
+                // Update session ID if we got one back
+                if (data.session_id) {
+                    currentSessionId = data.session_id;
+                    // Update browser URL without reloading
+                    const newUrl = '/chat/' + data.session_id + '/';
+                    window.history.replaceState({}, '', newUrl);
+                }
             } else {
                 addMessage('ai', data.error || 'Sorry, I encountered an error. Please try again.');
             }
@@ -504,7 +535,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
-        messageContent.innerHTML = content.replace(/\n/g, '<br>');
+        
+        if (role === 'user') {
+            // For user messages, just convert newlines to <br>
+            messageContent.innerHTML = content.replace(/\n/g, '<br>');
+        } else {
+            // For AI messages, render markdown
+            try {
+                messageContent.innerHTML = marked.parse(content);
+            } catch (error) {
+                console.warn('Markdown parsing failed, using plain text:', error);
+                messageContent.innerHTML = content.replace(/\n/g, '<br>');
+            }
+        }
 
         const timeDiv = document.createElement('div');
         timeDiv.className = 'message-time';
@@ -530,7 +573,7 @@ function setSuggestedPrompt(prompt) {
 
 // Load chat session
 function loadChatSession(sessionId) {
-    window.location.href = `{% url "rag_app:chat" %}?session=${sessionId}`;
+    window.location.href = '/chat/' + sessionId + '/';
 }
 
 // Start new chat

@@ -249,6 +249,10 @@
     // File upload functionality
     const FileUpload = {
         init: function() {
+            // Only initialize if we're not on the document upload page (which has its own handling)
+            if (document.getElementById('upload-form')) {
+                return; // Skip initialization on upload page
+            }
             this.bindEvents();
         },
 
@@ -256,6 +260,10 @@
             // File input change
             const fileInputs = document.querySelectorAll('input[type="file"]');
             fileInputs.forEach(input => {
+                // Skip if parent has upload-form id (handled by upload page script)
+                if (input.closest('#upload-form')) {
+                    return;
+                }
                 input.addEventListener('change', (e) => {
                     this.handleFileSelect(e);
                 });
@@ -278,19 +286,15 @@
                     zone.classList.remove('dragover');
                     this.handleFileDrop(e, zone);
                 });
-
-                zone.addEventListener('click', () => {
-                    const fileInput = zone.querySelector('input[type="file"]');
-                    if (fileInput) {
-                        fileInput.click();
-                    }
-                });
             });
         },
 
         handleFileSelect: function(event) {
             const files = event.target.files;
-            this.processFiles(files, event.target.closest('.dropzone'));
+            const dropzone = event.target.closest('.dropzone');
+            if (dropzone) {
+                this.processFiles(files, dropzone);
+            }
         },
 
         handleFileDrop: function(event, dropzone) {
@@ -303,7 +307,7 @@
         },
 
         processFiles: function(files, dropzone) {
-            if (!files.length) return;
+            if (!files.length || !dropzone) return;
 
             const fileList = dropzone.querySelector('.file-list');
             if (fileList) {
