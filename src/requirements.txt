@@ -2,10 +2,12 @@
 django
 djangorestframework
 django-cors-headers
-python-decouple
 django-allauth
 
-# Database and Caching
+# Configuration
+python-decouple
+
+# Database and Caching  
 psycopg2-binary
 django-redis
 redis
@@ -29,6 +31,5 @@ supabase
 requests
 
 # Production utilities
-gunicorn
 whitenoise
 python-dotenv
