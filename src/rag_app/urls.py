@@ -54,5 +54,6 @@ urlpatterns = [
     path('study-sessions/<uuid:pk>/', views.StudySessionDetailView.as_view(), name='study_session_detail'),
     
     # Slide generation
-    path('slides/generate/', views.SlideGenerationView.as_view(), name='slide_generate'),
+    path('slides/generate/', views.SlideGeneratorView.as_view(), name='slide_generate'),
+    path('slides/download/<str:filename>/', views.SlideDownloadView.as_view(), name='slide_download'),
 ]
