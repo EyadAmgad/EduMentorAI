@@ -19,6 +19,7 @@ from io import BytesIO
 import json
 import logging
 import os
+import re
 
 from .models import (
     Subject, Document, DocumentChunk, ChatSession, ChatMessage,
@@ -1482,7 +1483,7 @@ class SlideProcessor:
             - Language: {language}
             - Presentation Title: {title or 'Document Analysis'}
             - Additional Instructions: {instructions}
-            - Each slide should have a clear title and 3-5 bullet points
+            - Each slide should have a clear title and 4-6 bullet points
             - Make the content educational and well-structured
             - Focus on key concepts and important information
             
@@ -1594,29 +1595,18 @@ class SlideProcessor:
             # Define template colors
             template_colors = self._get_template_colors(template)
             
-            # Load background and logo from media/images
+            # Load background from media/images
             # Try multiple possible filenames for flexibility
             bg_image_paths = [
                 os.path.join(settings.MEDIA_ROOT, 'images', 'ppt_background.jpg'),
                 os.path.join(settings.MEDIA_ROOT, 'images', 'ppt.jpg'),
                 os.path.join(settings.MEDIA_ROOT, 'images', 'background.jpg')
             ]
-            logo_paths = [
-                os.path.join(settings.MEDIA_ROOT, 'images', 'logo.png'),
-                os.path.join(settings.MEDIA_ROOT, 'images', 'logoejust.png'),
-                os.path.join(settings.MEDIA_ROOT, 'images', 'logo.jpg')
-            ]
             
             bg_stream = None
             for bg_path in bg_image_paths:
                 bg_stream = self._load_image_stream(bg_path)
                 if bg_stream:
-                    break
-                    
-            logo_stream = None
-            for logo_path in logo_paths:
-                logo_stream = self._load_image_stream(logo_path)
-                if logo_stream:
                     break
             
             # Split content into slides
@@ -1628,6 +1618,14 @@ class SlideProcessor:
                     
                 lines = slide.strip().split("\n")
                 slide_title = lines[0].strip()
+                
+                # Clean up slide title - remove "Slide" prefix and numbers
+                slide_title = slide_title.replace("Slide", "").strip()
+                # Remove leading numbers and dots/colons
+                slide_title = re.sub(r'^\d+[.:]\s*', '', slide_title).strip()
+                # Remove any remaining "Slide i" patterns
+                slide_title = re.sub(r'^Slide\s+\d+\s*[-:.]?\s*', '', slide_title, flags=re.IGNORECASE).strip()
+                
                 body_lines = [l.strip() for l in lines[1:] if l.strip() and l.strip().startswith('•')]
                 
                 slide_obj = prs.slides.add_slide(slide_layout)
@@ -1643,49 +1641,87 @@ class SlideProcessor:
                     fill.solid()
                     fill.fore_color.rgb = template_colors['background']
                 
-                # Add title
+                # Add title - smaller font, positioned higher, and centered with spaces
                 title_box = slide_obj.shapes.add_textbox(
-                    Inches(0.5), Inches(0.3), 
-                    slide_width - Inches(1), Inches(1.2)
+                    Inches(0), Inches(0.1),  # Start from left edge for perfect centering
+                    slide_width, Inches(0.8)  # Full width for true center alignment
                 )
                 title_tf = title_box.text_frame
                 title_tf.word_wrap = True
+                title_tf.margin_left = Inches(0.5)  # Add margin for better appearance
+                title_tf.margin_right = Inches(0.5)
+                
+                # Calculate spaces needed to center the title
+                max_chars_per_line = 80  # Approximate characters that fit in the title box
+                title_length = len(slide_title)
+                if title_length < max_chars_per_line:
+                    spaces_needed = (max_chars_per_line - title_length) // 2
+                    centered_title = " " * spaces_needed + slide_title
+                else:
+                    centered_title = slide_title
+                
                 p = title_tf.add_paragraph()
-                p.text = slide_title
+                p.text = centered_title
+                # Use proper PowerPoint alignment enumeration
+                from pptx.enum.text import PP_ALIGN
+                p.alignment = PP_ALIGN.LEFT  # Left alignment since we're using spaces for centering
                 run = p.runs[0]
-                run.font.size = Pt(36)
+                run.font.size = Pt(28)  # Larger title font size (was 24)
                 run.font.bold = True
                 run.font.color.rgb = template_colors['title']
                 
-                # Add content
+                # Add content - adjusted position since title is now smaller and higher
                 if body_lines:
                     content_box = slide_obj.shapes.add_textbox(
-                        Inches(0.8), Inches(1.8), 
-                        slide_width - Inches(1.6), slide_height - Inches(2.5)
+                        Inches(0.8), Inches(1.4),  # Moved down slightly for better spacing
+                        slide_width - Inches(1.6), slide_height - Inches(2.0)  # More space for content
                     )
                     content_tf = content_box.text_frame
                     content_tf.word_wrap = True
+                    content_tf.margin_left = Inches(0.2)  # Add left margin
+                    content_tf.margin_right = Inches(0.2)  # Add right margin
+                    content_tf.margin_top = Inches(0.1)   # Add top margin
+                    content_tf.margin_bottom = Inches(0.1) # Add bottom margin
                     
-                    for line in body_lines:
+                    for i, line in enumerate(body_lines):
                         p = content_tf.add_paragraph()
-                        # Remove bullet symbol if present and add it back for consistency
+                        
+                        # Remove bullet symbol if present for processing
                         clean_line = line.replace('•', '').strip()
-                        p.text = clean_line
+                        
                         p.level = 0
-                        run = p.runs[0]
-                        run.font.size = Pt(20)
-                        run.font.color.rgb = template_colors['content']
-                
-                # Add logo (bottom-right corner)
-                if logo_stream:
-                    logo_stream.seek(0)
-                    logo_height = Inches(0.8)
-                    slide_obj.shapes.add_picture(
-                        logo_stream,
-                        slide_width - Inches(1.5),  # x position
-                        Inches(0.1),   # y position
-                        height=logo_height
-                    )
+                        p.space_after = Pt(8)  # Add space after each bullet point
+                        
+                        # Handle colon definitions specially
+                        if ':' in clean_line:
+                            # Split at the first colon
+                            parts = clean_line.split(':', 1)
+                            definition_term = parts[0].strip()
+                            definition_explanation = parts[1].strip() if len(parts) > 1 else ""
+                            
+                            # Add bullet and definition term in red
+                            p.text = "• " + definition_term + ":"
+                            run = p.runs[0]
+                            run.font.size = Pt(24)
+                            run.font.color.rgb = RGBColor(204, 0, 0)  # Red color for definition term
+                            run.font.bold = False
+                            
+                            # Add explanation in normal color if it exists
+                            if definition_explanation:
+                                explanation_run = p.add_run()
+                                explanation_run.text = " " + definition_explanation
+                                explanation_run.font.size = Pt(24)
+                                explanation_run.font.color.rgb = template_colors['content']  # Normal color
+                                explanation_run.font.bold = False
+                        else:
+                            # Regular content without colon
+                            bullet_text = "• " + clean_line
+                            p.text = bullet_text
+                            
+                            run = p.runs[0]
+                            run.font.size = Pt(24)  # Larger font size (was 20)
+                            run.font.color.rgb = template_colors['content']  # Normal content color
+                            run.font.bold = False
             
             # Save presentation
             filename = f"{title or 'Generated_Presentation'}_{user.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pptx"
@@ -1699,8 +1735,6 @@ class SlideProcessor:
             # Close streams
             if bg_stream:
                 bg_stream.close()
-            if logo_stream:
-                logo_stream.close()
             
             return filename
             
