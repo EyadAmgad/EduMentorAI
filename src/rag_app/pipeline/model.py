@@ -39,7 +39,7 @@ class RAGModel:
     
     def __init__(self, 
                  embedding_model: str = 'all-MiniLM-L6-v2',
-                 llm_model: str = 'openrouter/sonoma-sky-alpha',
+                 llm_model: str = "x-ai/grok-4-fast:free",
                  max_context_length: int = 4000):
         """
         Initialize the RAG model

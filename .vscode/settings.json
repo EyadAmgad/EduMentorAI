@@ -1,0 +1,9 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
+    "python-envs.pythonProjects": [],
+    "python.defaultInterpreterPath": "\\\\wsl.localhost\\Ubuntu\\home\\eyada\\miniconda3\\envs\\edu-mentor\\bin\\python",
+    "python.terminal.activateEnvironment": true,
+    "terminal.integrated.defaultProfile.windows": "Ubuntu (WSL)",
+    "remote.WSL.fileWatcher.polling": true
+}
