@@ -38,22 +38,25 @@ class RAGModel:
     """
     
     def __init__(self, 
-                 embedding_model: str = 'all-MiniLM-L6-v2',
-                 llm_model: str = "x-ai/grok-4-fast:free",
+                 embedding_model: str = None,
+                 llm_model: str = None,
                  max_context_length: int = 4000):
         """
         Initialize the RAG model
         
         Args:
-            embedding_model: Embedding model for retrieval
-            llm_model: LLM model for generation
+            embedding_model: Embedding model for retrieval (defaults to env var EMBEDDING_MODEL)
+            llm_model: LLM model for generation (defaults to env var LLM_MODEL)
             max_context_length: Maximum context length
         """
-        # Initialize retriever
-        self.retriever = DocumentRetriever(embedding_model, max_context_length)
+        # Get models from environment variables if not provided
+        self.embedding_model = embedding_model or os.getenv("EMBEDDING_MODEL", 'all-MiniLM-L6-v2')
+        self.llm_model = llm_model or os.getenv("LLM_MODEL", "x-ai/grok-4-fast:free")
+        
+        # Initialize retriever with embedding model from env
+        self.retriever = DocumentRetriever(self.embedding_model, max_context_length)
         
         # LLM configuration
-        self.llm_model = llm_model
         self.api_key = os.getenv("OPEN_ROUTER_API_KEY")
         
         if not self.api_key:
