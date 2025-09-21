@@ -2,8 +2,8 @@
 django
 djangorestframework
 django-cors-headers
-python-decouple
 django-allauth
+python-decouple
 
 # Database and Caching
 psycopg2-binary
@@ -11,6 +11,7 @@ django-redis
 redis
 
 # File processing and slide generation
+PyMuPDF
 PyPDF2==3.0.1
 python-docx==0.8.11
 python-pptx==0.6.21
