@@ -61,7 +61,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
+    # 'allauth.account.middleware.AccountMiddleware',  # This middleware doesn't exist in current AllAuth versions
     'rag_app.email_verification_middleware.EmailVerificationMiddleware',  # Email verification
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -91,20 +91,36 @@ SITE_ID = 1
 # --- Database Configuration ---
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-# Using Supabase PostgreSQL database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('SUPABASE_DB_NAME', default='postgres'),
-        'USER': config('SUPABASE_DB_USER', default='postgres'),
-        'PASSWORD': config('SUPABASE_DB_PASSWORD', default=''),
-        'HOST': config('SUPABASE_DB_HOST', default=''),
-        'PORT': config('SUPABASE_DB_PORT', default='5432'),
-        'OPTIONS': {
-            'sslmode': 'require',
-        },
+# Database configuration with SQLite fallback for development
+USE_SQLITE = config('USE_SQLITE', default=True, cast=bool)
+
+print(f"USE_SQLITE setting: {USE_SQLITE}")  # Debug line
+
+if USE_SQLITE:
+    # SQLite database for development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+    print("Using SQLite database")  # Debug line
+else:
+    # PostgreSQL database (Supabase) for production
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('SUPABASE_DB_NAME', default='postgres'),
+            'USER': config('SUPABASE_DB_USER', default='postgres'),
+            'PASSWORD': config('SUPABASE_DB_PASSWORD', default=''),
+            'HOST': config('SUPABASE_DB_HOST', default=''),
+            'PORT': config('SUPABASE_DB_PORT', default='5432'),
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
+        }
+    }
+    print("Using PostgreSQL database")  # Debug line
 
 
 
@@ -222,11 +238,13 @@ LOGOUT_REDIRECT_URL = '/'
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'  # Require email verification
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
-# Updated AllAuth settings (replacing deprecated ones)
-ACCOUNT_LOGIN_METHODS = ['email']  # Use list instead of set
+# Updated AllAuth settings (compatible with current version)
+ACCOUNT_AUTHENTICATION_METHOD = 'email'  # Use email instead of username
+ACCOUNT_USERNAME_REQUIRED = False
+ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
-# Use new AllAuth field configuration (replaces deprecated settings)
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+# Remove deprecated signup fields setting
+# ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 
 
 # --- Production Security Settings ---
