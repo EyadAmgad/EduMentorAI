@@ -31,6 +31,7 @@ from .forms import (
     ChatMessageForm
 )
 from .pipeline.data_processor import DocumentProcessor
+from .pipeline.model import get_rag_model
 
 logger = logging.getLogger(__name__)
 
@@ -355,7 +356,7 @@ class ChatView(LoginRequiredMixin, View):
             
             try:
                 # Import RAG model
-                from .pipeline.model import get_rag_model
+                
                 
                 # Get RAG model instance
                 rag_model = get_rag_model()
@@ -1084,40 +1085,36 @@ def generate_quiz_questions(request, pk):
     quiz = get_object_or_404(Quiz, pk=pk, created_by=request.user)
     
     try:
-        from .pipeline.model import QuizGenerator
+        from .pipeline.quiz_generator import QuizGenerator
         generator = QuizGenerator()
         
-        if quiz.based_on_document:
-            questions = generator.generate_questions_from_document(
-                quiz.based_on_document, 
-                num_questions=quiz.total_questions
-            )
-        else:
-            # Generate from all documents in subject
-            documents = quiz.subject.documents.filter(processed=True)
-            questions = generator.generate_questions_from_documents(
-                list(documents), 
-                num_questions=quiz.total_questions
-            )
+        result = generator.generate_quiz(
+            subject_id=quiz.subject.id,
+            num_questions=quiz.total_questions
+        )
+        
+        if not result['success']:
+            raise Exception(result.get('error', 'Unknown error generating questions'))
+        
+        questions = result['questions']
         
         # Save generated questions
         for i, q_data in enumerate(questions, 1):
             question = Question.objects.create(
                 quiz=quiz,
                 question_text=q_data['question'],
-                question_type=q_data['type'],
+                question_type='mcq',
                 explanation=q_data.get('explanation', ''),
                 order=i
             )
             
-            # Add choices for MCQ
-            if q_data['type'] == 'mcq' and 'choices' in q_data:
-                for j, choice_data in enumerate(q_data['choices'], 1):
-                    question.choices.create(
-                        choice_text=choice_data['text'],
-                        is_correct=choice_data['is_correct'],
-                        order=j
-                    )
+            # Add choices
+            for j, choice_data in enumerate(q_data['choices'], 1):
+                question.choices.create(
+                    choice_text=choice_data['text'],
+                    is_correct=choice_data['is_correct'],
+                    order=j
+                )
         
         messages.success(request, f'Generated {len(questions)} questions successfully!')
         
@@ -1126,6 +1123,118 @@ def generate_quiz_questions(request, pk):
         messages.error(request, 'Error generating questions. Please try again.')
     
     return redirect('rag_app:quiz_detail', pk=pk)
+
+
+@login_required
+def generate_rag_quiz(request):
+    """Generate a new quiz using RAG"""
+    if request.method == 'POST':
+        try:
+            # Get form data
+            subject_id = request.POST.get('subject_id')
+            num_questions = int(request.POST.get('num_questions', 10))
+            topics = request.POST.getlist('topics')  # Optional specific topics
+            title = request.POST.get('title', '')
+            
+            if not subject_id:
+                return JsonResponse({'error': 'Subject is required'}, status=400)
+            
+            # Validate number of questions
+            num_questions = min(max(1, num_questions), 15)
+            
+            # Generate quiz using QuizGenerator
+            from .pipeline.quiz_generator import QuizGenerator
+            generator = QuizGenerator()
+            
+            result = generator.generate_quiz(
+                subject_id=subject_id,
+                num_questions=num_questions,
+                specific_topics=topics if topics else None
+            )
+            
+            if not result['success']:
+                return JsonResponse({
+                    'success': False,
+                    'error': result.get('error', 'Failed to generate quiz')
+                }, status=500)
+            
+            # Create quiz in database
+            quiz = generator.save_quiz(
+                subject_id=subject_id,
+                title=title or f"Quiz on {result['metadata']['subject']}",
+                questions=result['questions'],
+                created_by_id=request.user.id,
+                description=f"Auto-generated quiz covering {', '.join(result['metadata']['topics'])}"
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'quiz_id': str(quiz.id),
+                'questions': result['questions'],
+                'metadata': result['metadata']
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in generate_rag_quiz: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+    
+    # GET request - show form
+    return render(request, 'rag_app/quiz_generate.html', {
+        'subjects': Subject.objects.filter(created_by=request.user)
+    })
+
+
+@login_required
+def generate_quiz_form_link(request):
+    """Generate a Google Form link for a quiz"""
+    if request.method == 'POST':
+        try:
+            quiz_id = request.POST.get('quiz_id')
+            if not quiz_id:
+                return JsonResponse({'error': 'Quiz ID is required'}, status=400)
+            
+            # Get quiz questions
+            quiz = get_object_or_404(Quiz, pk=quiz_id, created_by=request.user)
+            questions = []
+            
+            for question in quiz.questions.all():
+                q_data = {
+                    'question': question.question_text,
+                    'choices': [
+                        {
+                            'text': choice.choice_text,
+                            'is_correct': choice.is_correct
+                        }
+                        for choice in question.choices.all()
+                    ],
+                    'explanation': question.explanation
+                }
+                questions.append(q_data)
+            
+            # Generate form content
+            from .pipeline.quiz_generator import QuizGenerator
+            generator = QuizGenerator()
+            form_content = generator.generate_google_form_content(questions)
+            
+            # In a real implementation, you would use the Google Forms API
+            # to create the actual form. For now, we'll just return the content
+            return JsonResponse({
+                'success': True,
+                'form_content': form_content,
+                'quiz_title': quiz.title
+            })
+            
+        except Exception as e:
+            logger.error(f"Error generating form link: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'error': str(e)
+            }, status=500)
+    
+    return JsonResponse({'error': 'Invalid request method'}, status=405)
 
 
 # Profile Views

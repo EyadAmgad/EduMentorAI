@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Generate Quiz - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Generate Quiz from Documents</h4>
+                </div>
+                <div class="card-body">
+                    <form id="quizGenerateForm">
+                        {% csrf_token %}
+                        
+                        <!-- Subject Selection -->
+                        <div class="mb-4">
+                            <label for="subject" class="form-label">Subject <span class="text-danger">*</span></label>
+                            <select name="subject_id" id="subject" class="form-select" required>
+                                <option value="">Select a subject...</option>
+                                {% for subject in subjects %}
+                                <option value="{{ subject.id }}">{{ subject.code }} - {{ subject.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Select the subject to generate questions from</div>
+                        </div>
+                        
+                        <!-- Quiz Title -->
+                        <div class="mb-4">
+                            <label for="title" class="form-label">Quiz Title</label>
+                            <input type="text" name="title" id="title" class="form-control" placeholder="Enter quiz title (optional)">
+                        </div>
+                        
+                        <!-- Number of Questions -->
+                        <div class="mb-4">
+                            <label for="num_questions" class="form-label">Number of Questions</label>
+                            <select name="num_questions" id="num_questions" class="form-select">
+                                <option value="5">5 questions</option>
+                                <option value="10" selected>10 questions</option>
+                                <option value="15">15 questions</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Specific Topics -->
+                        <div class="mb-4">
+                            <label for="topics" class="form-label">Specific Topics (Optional)</label>
+                            <input type="text" name="topics" id="topics" class="form-control" placeholder="Enter topics separated by commas">
+                            <div class="form-text">Leave empty to cover general content from the subject</div>
+                        </div>
+                        
+                        <!-- Submit Button -->
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-primary" id="generateButton">
+                                <i class="fas fa-magic me-2"></i> Generate Quiz
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Results Section -->
+            <div id="quizResults" class="card shadow mt-4" style="display: none;">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Quiz Generated Successfully!</h5>
+                </div>
+                <div class="card-body">
+                    <div id="quizMetadata" class="mb-4"></div>
+                    
+                    <div class="d-grid gap-2">
+                        <button id="viewQuizButton" class="btn btn-primary">
+                            <i class="fas fa-eye me-2"></i> View Generated Questions
+                        </button>
+                        <button id="generateFormButton" class="btn btn-info">
+                            <i class="fab fa-google me-2"></i> Generate Google Form
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- View Quiz Modal -->
+            <div class="modal fade" id="quizContentModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header bg-primary text-white">
+                            <h5 class="modal-title">Generated Quiz Questions</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="quizQuestions" class="questions-list">
+                                <!-- Questions will be inserted here -->
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Google Form Content Modal -->
+            <div class="modal fade" id="formContentModal" tabindex="-1">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Quiz Content for Google Form</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted">Copy this content to create a Google Form:</p>
+                            <pre id="formContent" class="bg-light p-3" style="white-space: pre-wrap;"></pre>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                            <button type="button" class="btn btn-primary" id="copyContentButton">
+                                <i class="fas fa-copy me-2"></i> Copy to Clipboard
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <style>
+            .questions-list {
+                counter-reset: question;
+            }
+            .question-item {
+                margin-bottom: 2rem;
+                padding: 1rem;
+                border: 1px solid #dee2e6;
+                border-radius: 0.5rem;
+                background-color: #f8f9fa;
+            }
+            .question-item::before {
+                counter-increment: question;
+                content: "Question " counter(question);
+                display: block;
+                font-weight: bold;
+                margin-bottom: 0.5rem;
+                color: #0d6efd;
+            }
+            .question-text {
+                font-size: 1.1rem;
+                margin-bottom: 1rem;
+            }
+            .choices-list {
+                list-style: none;
+                padding-left: 0;
+            }
+            .choice-item {
+                margin-bottom: 0.5rem;
+                padding: 0.5rem;
+                border: 1px solid #dee2e6;
+                border-radius: 0.25rem;
+                background-color: white;
+            }
+            .choice-item.correct {
+                border-color: #198754;
+                background-color: #d1e7dd;
+            }
+            .explanation {
+                margin-top: 1rem;
+                padding: 0.75rem;
+                background-color: #e9ecef;
+                border-radius: 0.25rem;
+                font-style: italic;
+            }
+            </style>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('quizGenerateForm');
+    const results = document.getElementById('quizResults');
+    const metadata = document.getElementById('quizMetadata');
+    const viewQuizButton = document.getElementById('viewQuizButton');
+    const generateFormButton = document.getElementById('generateFormButton');
+    const formContent = document.getElementById('formContent');
+    const copyContentButton = document.getElementById('copyContentButton');
+    const quizQuestions = document.getElementById('quizQuestions');
+    
+    let currentQuizData = null;
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const button = document.getElementById('generateButton');
+        button.disabled = true;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
+        
+        try {
+            const formData = new FormData(form);
+            
+            // Handle topics
+            const topics = formData.get('topics')
+                .split(',')
+                .map(t => t.trim())
+                .filter(t => t);
+            if (topics.length) {
+                formData.delete('topics');
+                topics.forEach(topic => formData.append('topics', topic));
+            }
+            
+            const response = await fetch("{% url 'rag_app:generate_rag_quiz' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                currentQuizData = data;
+                
+                // Show metadata
+                metadata.innerHTML = `
+                    <h6>Quiz Details:</h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Subject:</strong> ${data.metadata.subject}</li>
+                        <li><strong>Questions:</strong> ${data.metadata.num_questions}</li>
+                        <li><strong>Topics:</strong> ${data.metadata.topics.join(', ')}</li>
+                        <li><strong>Sources:</strong> ${data.metadata.sources.length} documents</li>
+                    </ul>
+                `;
+                
+                // Show results
+                results.style.display = 'block';
+                results.scrollIntoView({ behavior: 'smooth' });
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            alert('Error generating quiz: ' + error.message);
+        } finally {
+            button.disabled = false;
+            button.innerHTML = '<i class="fas fa-magic me-2"></i> Generate Quiz';
+        }
+    });
+    
+    // Handle View Quiz button click
+    viewQuizButton.addEventListener('click', function() {
+        if (!currentQuizData || !currentQuizData.questions) return;
+        
+        // Generate HTML for questions
+        const questionsHTML = currentQuizData.questions.map(q => `
+            <div class="question-item">
+                <div class="question-text">${q.question}</div>
+                <ul class="choices-list">
+                    ${q.choices.map(c => `
+                        <li class="choice-item ${c.is_correct ? 'correct' : ''}">
+                            ${c.text}
+                            ${c.is_correct ? ' <i class="fas fa-check text-success"></i>' : ''}
+                        </li>
+                    `).join('')}
+                </ul>
+                <div class="explanation">
+                    <strong>Explanation:</strong> ${q.explanation}
+                </div>
+            </div>
+        `).join('');
+        
+        // Update modal content
+        quizQuestions.innerHTML = questionsHTML;
+        
+        // Show modal
+        new bootstrap.Modal(document.getElementById('quizContentModal')).show();
+    });
+
+    generateFormButton.addEventListener('click', async function() {
+        if (!currentQuizData) return;
+        
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('quiz_id', currentQuizData.quiz_id);
+            
+            const response = await fetch("{% url 'rag_app:generate_form_link' %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                formContent.textContent = data.form_content;
+                new bootstrap.Modal(document.getElementById('formContentModal')).show();
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            alert('Error generating form content: ' + error.message);
+        } finally {
+            this.disabled = false;
+            this.innerHTML = '<i class="fab fa-google me-2"></i> Generate Google Form';
+        }
+    });
+    
+    copyContentButton.addEventListener('click', function() {
+        navigator.clipboard.writeText(formContent.textContent).then(() => {
+            this.innerHTML = '<i class="fas fa-check me-2"></i> Copied!';
+            setTimeout(() => {
+                this.innerHTML = '<i class="fas fa-copy me-2"></i> Copy to Clipboard';
+            }, 2000);
+        });
+    });
+});
+</script>
+{% endblock %}

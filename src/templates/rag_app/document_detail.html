@@ -6,7 +6,9 @@
 {% block extra_css %}
 <style>
     .document-header {
-        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        background: linear-gradient(135deg, #f5                    <a href="{% url 'rag_app:generate_rag_quiz' %}?document={{ document.pk }}" class="btn btn-outline-success">
+                        <i class="fas fa-plus-circle me-2"></i>Generate Quiz
+                    </a>b 0%, #d97706 100%);
         color: white;
         border-radius: 1rem;
         padding: 2rem;
