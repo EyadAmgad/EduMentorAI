@@ -43,7 +43,7 @@
                                 <ul class="dropdown-menu">
                                     <li><a class="dropdown-item" href="{% url 'rag_app:subject_edit' subject.id %}"><i class="fas fa-edit me-2"></i>Edit Subject</a></li>
                                     <li><a class="dropdown-item" href="{% url 'rag_app:document_upload' %}?subject={{ subject.id }}"><i class="fas fa-upload me-2"></i>Upload Document</a></li>
-                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_create' %}?subject={{ subject.id }}"><i class="fas fa-question-circle me-2"></i>Create Quiz</a></li>
+                                    <li><a class="dropdown-item" href="{% url 'rag_app:generate_rag_quiz' %}?subject={{ subject.id }}"><i class="fas fa-question-circle me-2"></i>Generate Quiz</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item text-danger" href="{% url 'rag_app:subject_delete' subject.id %}"><i class="fas fa-trash me-2"></i>Delete Subject</a></li>
                                 </ul>
@@ -182,8 +182,14 @@
                                 </a>
                             </div>
                             <div class="col-md-3">
-                                <a href="{% url 'rag_app:quiz_create' %}?subject={{ subject.id }}" class="btn btn-outline-warning w-100" style="padding: 1rem; text-align: left;">
-                                    <i class="fas fa-question-circle me-2"></i>Create Quiz
+                                                                <a href="{% url 'rag_app:generate_rag_quiz' %}?subject={{ subject.id }}" class="btn btn-outline-warning w-100" style="padding: 1rem; text-align: left;">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-plus-circle fa-2x me-3"></i>
+                                        <div>
+                                            <h6 class="mb-1">Generate Quiz</h6>
+                                            <small class="text-muted">Test knowledge with AI-generated quizzes</small>
+                                        </div>
+                                    </div>
                                 </a>
                             </div>
                             <div class="col-md-3">

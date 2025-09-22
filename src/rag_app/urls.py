@@ -36,11 +36,13 @@ urlpatterns = [
     
     # Quiz management
     path('quizzes/', views.QuizListView.as_view(), name='quiz_list'),
-    path('quizzes/create/', views.QuizCreateView.as_view(), name='quiz_create'),
+
     path('quizzes/<uuid:pk>/', views.QuizDetailView.as_view(), name='quiz_detail'),
     path('quizzes/<uuid:pk>/take/', views.QuizTakeView.as_view(), name='quiz_take'),
     path('quizzes/<uuid:pk>/results/', views.QuizResultsView.as_view(), name='quiz_results'),
     path('quizzes/<uuid:pk>/generate/', views.generate_quiz_questions, name='quiz_generate'),
+    path('quizzes/generate-from-rag/', views.generate_rag_quiz, name='generate_rag_quiz'),
+    path('quizzes/generate-form-link/', views.generate_quiz_form_link, name='generate_form_link'),
     
     # Quiz attempts
     path('quiz-attempts/<uuid:pk>/', views.QuizAttemptDetailView.as_view(), name='quiz_attempt_detail'),
