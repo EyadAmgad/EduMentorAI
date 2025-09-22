@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from .retriever import DocumentRetriever
 from .vectorstore import VectorStore
 from ..models import ChatSession, ChatMessage, DocumentChunk, TempDocument
+from ..prompt_loader import prompt_loader
 
 # Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../.env"))
@@ -307,7 +308,31 @@ Please answer based on the provided context. If the context doesn't contain enou
     
     def _get_system_prompt(self, subject_id: Optional[int] = None) -> str:
         """Get system prompt for the LLM"""
-        base_prompt = """You are an intelligent educational assistant that helps students learn by answering questions based on their uploaded documents. 
+        try:
+            # Load base prompt from YAML
+            base_prompt = prompt_loader.get_prompt('rag_system_prompt')
+            
+            if subject_id:
+                try:
+                    from ..models import Subject
+                    subject = Subject.objects.get(id=subject_id)
+                    
+                    # Get subject prompt template and format it
+                    subject_prompt = prompt_loader.format_prompt(
+                        'subject_prompt_template',
+                        subject_name=subject.name,
+                        subject_description=subject.description or "No description available"
+                    )
+                    base_prompt += subject_prompt
+                except Exception as e:
+                    logger.warning(f"Could not load subject prompt: {e}")
+            
+            return base_prompt
+            
+        except Exception as e:
+            logger.error(f"Error loading system prompt from YAML: {e}")
+            # Fallback to hardcoded prompt if YAML loading fails
+            fallback_prompt = """You are an intelligent educational assistant that helps students learn by answering questions based on their uploaded documents. 
 
 IMPORTANT: Never introduce yourself by name or mention any specific AI assistant names like "Sonoma", "Claude", "GPT", etc. Simply provide helpful educational responses without personal identification.
 
@@ -328,19 +353,18 @@ Guidelines:
 - Do not introduce yourself by name or mention any specific AI assistant names
 - Focus entirely on helping the student understand the content
 - Start responses directly with the educational content, not personal introductions"""
-        
-        if subject_id:
-            try:
-                from ..models import Subject
-                subject = Subject.objects.get(id=subject_id)
-                subject_prompt = f"\n\nYou are currently helping with the subject: {subject.name}"
-                if subject.description:
-                    subject_prompt += f"\nSubject description: {subject.description}"
-                base_prompt += subject_prompt
-            except:
-                pass
-        
-        return base_prompt
+            
+            if subject_id:
+                try:
+                    from ..models import Subject
+                    subject = Subject.objects.get(id=subject_id)
+                    fallback_prompt += f"\n\nYou are currently helping with the subject: {subject.name}"
+                    if subject.description:
+                        fallback_prompt += f"\nSubject description: {subject.description}"
+                except:
+                    pass
+            
+            return fallback_prompt
     
     def _generate_llm_response(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """

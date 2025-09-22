@@ -18,6 +18,7 @@ from django.conf import settings
 from io import BytesIO
 import json
 import logging
+from .prompt_loader import prompt_loader
 import os
 import re
 
@@ -1581,36 +1582,54 @@ class SlideProcessor:
             if slide_count == 'auto':
                 slide_count = min(max(3, len(structured_content['sections'])), 10)
             
-            # Create the prompt for the LLM
-            prompt = f"""
-            Create exactly {slide_count} slides based on the following document content. 
-            
-            Document Content:
-            {content_summary}
-            
-            Requirements:
-            - Language: {language}
-            - Presentation Title: {title or 'Document Analysis'}
-            - Additional Instructions: {instructions}
-            - Each slide should have a clear title and 4-6 bullet points
-            - Make the content educational and well-structured
-            - Focus on key concepts and important information
-            
-            Format each slide exactly like this:
-            ### Slide Title Here
-            • First bullet point
-            • Second bullet point
-            • Third bullet point
-            
-            Please create engaging, informative slides that capture the essence of the document.
-            Start with a title slide, then create content slides, and end with a summary if appropriate.
-            """
+            # Create the prompt for the LLM using YAML prompts
+            try:
+                prompt = prompt_loader.format_prompt(
+                    'slide_generation.main_prompt',
+                    slide_count=slide_count,
+                    content_summary=content_summary,
+                    language=language,
+                    title=title or 'Document Analysis',
+                    instructions=instructions
+                )
+            except Exception as e:
+                logger.warning(f"Error loading slide prompt from YAML: {e}")
+                # Fallback to hardcoded prompt
+                prompt = f"""
+                Create exactly {slide_count} slides based on the following document content. 
+                
+                Document Content:
+                {content_summary}
+                
+                Requirements:
+                - Language: {language}
+                - Presentation Title: {title or 'Document Analysis'}
+                - Additional Instructions: {instructions}
+                - Each slide should have a clear title and 4-6 bullet points
+                - Make the content educational and well-structured
+                - Focus on key concepts and important information
+                
+                Format each slide exactly like this:
+                ### Slide Title Here
+                • First bullet point
+                • Second bullet point
+                • Third bullet point
+                
+                Please create engaging, informative slides that capture the essence of the document.
+                Start with a title slide, then create content slides, and end with a summary if appropriate.
+                """
             
             # Use the existing RAG model's LLM method
+            try:
+                system_message = prompt_loader.get_prompt('slide_generation.system_message')
+            except Exception as e:
+                logger.warning(f"Error loading system message from YAML: {e}")
+                system_message = "You are an expert educational content creator that creates well-structured, engaging presentation slides."
+            
             messages = [
                 {
                     "role": "system", 
-                    "content": "You are an expert educational content creator that creates well-structured, engaging presentation slides."
+                    "content": system_message
                 },
                 {
                     "role": "user", 
