@@ -7,8 +7,28 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, Pass
 from django.core.exceptions import ValidationError
 import logging
 from .models import Subject, Document, Quiz, UserProfile, ChatMessage
+from allauth.account.forms import SignupForm
+from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
+
+User = get_user_model()
+
+
+class CustomSignupForm(SignupForm):
+    """Custom signup form to handle existing users properly"""
+    
+    def clean_email(self):
+        """Override to add custom email validation"""
+        email = self.cleaned_data.get('email')
+        
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError(
+                "An account with this email address already exists. "
+                "Please sign in instead or use the 'Forgot Password' option if you can't remember your password."
+            )
+        
+        return email
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -374,6 +394,72 @@ class SlideGenerationForm(forms.Form):
             self.fields['document'].queryset = Document.objects.filter(
                 uploaded_by=user, processed=True
             )
+
+
+class ChatModeSelectionForm(forms.Form):
+    """Form for selecting chat mode and document/subject"""
+    
+    CHAT_MODE_CHOICES = [
+        ('document', 'Chat with a specific document'),
+        ('subject', 'Chat within a subject (all documents)'),
+    ]
+    
+    chat_mode = forms.ChoiceField(
+        choices=CHAT_MODE_CHOICES,
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}),
+        initial='document'
+    )
+    
+    # For document mode
+    document = forms.ModelChoiceField(
+        queryset=Document.objects.none(),
+        required=False,
+        empty_label="Select a document...",
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'id': 'id_document'
+        })
+    )
+    
+    # For subject mode
+    subject = forms.ModelChoiceField(
+        queryset=Subject.objects.none(),
+        required=False,
+        empty_label="Select a subject...",
+        widget=forms.Select(attrs={
+            'class': 'form-control',
+            'id': 'id_subject'
+        })
+    )
+    
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        
+        if user:
+            self.fields['document'].queryset = Document.objects.filter(
+                uploaded_by=user, processed=True
+            ).order_by('title')
+            
+            self.fields['subject'].queryset = Subject.objects.filter(
+                created_by=user
+            ).filter(
+                documents__processed=True
+            ).distinct().order_by('name')
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        chat_mode = cleaned_data.get('chat_mode')
+        document = cleaned_data.get('document')
+        subject = cleaned_data.get('subject')
+        
+        if chat_mode == 'document' and not document:
+            raise forms.ValidationError('Please select a document for document chat mode.')
+        
+        if chat_mode == 'subject' and not subject:
+            raise forms.ValidationError('Please select a subject for subject chat mode.')
+        
+        return cleaned_data
 
 
 class BulkDocumentUploadForm(forms.Form):

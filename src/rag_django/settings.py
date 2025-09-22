@@ -249,6 +249,20 @@ ACCOUNT_AUTHENTICATION_METHOD = 'email'  # Use email instead of username
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
+# Custom adapter to handle existing user signup attempts
+ACCOUNT_ADAPTER = 'rag_app.adapters.CustomAccountAdapter'
+# Custom signup form
+ACCOUNT_FORMS = {
+    'signup': 'rag_app.forms.CustomSignupForm',
+}
+# Prevent enumeration - don't send emails for existing accounts during signup
+ACCOUNT_PREVENT_ENUMERATION = False  # We want to show specific error for UX
+# Disable the automatic account already exists email behavior
+ACCOUNT_EMAIL_UNKNOWN_ACCOUNTS = False
+ACCOUNT_RATE_LIMITS = {
+    'login_failed': '5/5m',
+    'signup': '5/m',
+}
 # Remove deprecated signup fields setting
 # ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 
