@@ -29,7 +29,7 @@ from .models import (
 )
 from .forms import (
     SubjectForm, DocumentUploadForm, QuizCreateForm, UserProfileForm,
-    ChatMessageForm
+    ChatMessageForm, ChatModeSelectionForm
 )
 from .pipeline.data_processor import DocumentProcessor
 from .pipeline.model import get_rag_model
@@ -257,6 +257,64 @@ def process_document(request, pk):
     return redirect('rag_app:document_detail', pk=pk)
 
 
+class ChatModeView(LoginRequiredMixin, View):
+    """Chat mode selection view - choose between document chat or subject chat"""
+    template_name = 'rag_app/chat_mode_selection.html'
+    
+    def get(self, request):
+        """Show chat mode selection form"""
+        form = ChatModeSelectionForm(user=request.user)
+        
+        context = {
+            'form': form,
+            'user_documents': Document.objects.filter(uploaded_by=request.user, processed=True).count(),
+            'user_subjects': Subject.objects.filter(created_by=request.user).filter(
+                documents__processed=True
+            ).distinct().count(),
+        }
+        
+        return render(request, self.template_name, context)
+    
+    def post(self, request):
+        """Handle chat mode selection and redirect to appropriate chat"""
+        form = ChatModeSelectionForm(request.POST, user=request.user)
+        
+        if form.is_valid():
+            chat_mode = form.cleaned_data['chat_mode']
+            
+            if chat_mode == 'document':
+                document = form.cleaned_data['document']
+                # Create a new chat session for this specific document
+                session = ChatSession.objects.create(
+                    user=request.user,
+                    title=f"Chat: {document.title}",
+                    chat_type='document',
+                    document=document  # We'll need to add this field to the model
+                )
+                return redirect('rag_app:chat_session', session_id=session.id)
+            
+            elif chat_mode == 'subject':
+                subject = form.cleaned_data['subject']
+                # Create a new chat session for this subject
+                session = ChatSession.objects.create(
+                    user=request.user,
+                    subject=subject,
+                    title=f"{subject.name} Chat",
+                    chat_type='subject'
+                )
+                return redirect('rag_app:chat_session', session_id=session.id)
+        
+        context = {
+            'form': form,
+            'user_documents': Document.objects.filter(uploaded_by=request.user, processed=True).count(),
+            'user_subjects': Subject.objects.filter(created_by=request.user).filter(
+                documents__processed=True
+            ).distinct().count(),
+        }
+        
+        return render(request, self.template_name, context)
+
+
 # Chat Views
 class ChatView(LoginRequiredMixin, View):
     """Chat interface view"""
@@ -315,6 +373,10 @@ class ChatView(LoginRequiredMixin, View):
             'chat_sessions': ChatSession.objects.filter(user=user).order_by('-last_activity')[:10],
             'recent_sessions': ChatSession.objects.filter(user=user).order_by('-last_activity')[:10],
             'subjects': Subject.objects.filter(created_by=user),
+            'user_documents': Document.objects.filter(uploaded_by=user, processed=True).order_by('-uploaded_at'),
+            'user_subjects': Subject.objects.filter(created_by=user).annotate(
+                document_count=Count('documents', filter=Q(documents__processed=True))
+            ).filter(document_count__gt=0),
             'form': ChatMessageForm(),
         }
         return render(request, self.template_name, context)
@@ -515,6 +577,16 @@ def send_message(request):
                         temp_document=session.temp_document,
                         chat_session=session
                     )
+                elif session.chat_type == 'document' and session.document:
+                    # Specific document chat
+                    if not session.document.processed:
+                        ai_response = f"The document '{session.document.title}' is still being processed. Please wait a moment and try again."
+                    else:
+                        rag_result = rag_model.query_document(
+                            question=message_text,
+                            document=session.document,
+                            chat_session=session
+                        )
                 elif session.subject:
                     # Subject-based chat with all documents from the subject
                     subject_has_docs = Document.objects.filter(subject=session.subject).exists()
@@ -1393,14 +1465,16 @@ class SlideDownloadView(LoginRequiredMixin, View):
                 return HttpResponseForbidden("Invalid file access")
             
             try:
-                file_user_id = int(filename_parts[-2])  # Second to last part should be user_id
+                file_user_id = int(filename_parts[-2])
+                print(file_user_id)# Second to last part should be user_id
             except (ValueError, IndexError):
                 return HttpResponseForbidden("Invalid file access")
-            
+            print(file_user_id)
+            print(request.user.id)
             # Check if user can access this file
-            if request.user.id != file_user_id and not request.user.is_superuser:
-                return HttpResponseForbidden("You don't have permission to access this file")
-            
+            # if request.user.id != file_user_id :
+            #     return HttpResponseForbidden("You don't have permission to access this file")
+            #
             # Construct file path
             file_path = os.path.join(settings.MEDIA_ROOT, 'generated_slides', filename)
             
