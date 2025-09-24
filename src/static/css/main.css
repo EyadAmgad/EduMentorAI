@@ -1,34 +1,33 @@
 /* EduMentorAI Main Styles - Dark Mode Compatible */
 :root {
-    /* Primary theme colors - will be overridden by base.html for dark mode */
     --primary-color: #10b981;
     --primary-dark: #059669;
     --secondary-color: #374151;
-    
-    /* Layout colors that work with dark mode */
     --background-light: #f9fafb;
     --background-dark: #1f2937;
-    --text-primary: #111827;
+    --background-color: #ffffff;
+    --text-primary: #1f2937;
     --text-secondary: #6b7280;
+    --text-muted: #9ca3af;
     --border-color: #e5e7eb;
+    --border-color-dark: #374151;
     --chat-bg: #ffffff;
+    --card-bg: #ffffff;
+    --input-bg: #ffffff;
     --sidebar-bg: #f8fafc;
-    
-    /* Utility colors */
     --success-color: #059669;
     --warning-color: #d97706;
     --danger-color: #dc2626;
-    --info-color: #0891b2;
-    
-    /* Spacing and borders */
-    --border-radius: 12px;
-    --border-radius-lg: 16px;
-    --border-radius-sm: 8px;
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --info-color: #0ea5e9;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    --border-radius: 0.5rem;
+    --border-radius-sm: 0.25rem;
+    --border-radius-lg: 0.75rem;
+    --transition: all 0.2s ease;
 }
 
 /* Dark mode variables - these will be applied when [data-theme="dark"] is set */
@@ -38,12 +37,17 @@
     --secondary-color: #9ca3af;
     --background-light: #111827;
     --background-dark: #0f172a;
+    --background-color: #0f172a;
     --text-primary: #f9fafb;
     --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
     --border-color: #374151;
+    --border-color-dark: #4b5563;
     --chat-bg: #1f2937;
+    --card-bg: #1f2937;
+    --input-bg: #111827;
     --sidebar-bg: #111827;
-    --success-color: #10b981;
+    --success-color: #34d399;
     --warning-color: #fbbf24;
     --danger-color: #f87171;
     --info-color: #38bdf8;
@@ -56,28 +60,29 @@
 
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: 15px;
+    line-height: 1.7;
     color: var(--text-primary);
-    background-color: var(--background-light);
+    background-color: var(--background-color);
     padding-top: 76px; /* Account for fixed navbar */
     min-height: 100vh;
     display: flex;
     flex-direction: column;
-    transition: background-color 0.3s ease, color 0.3s ease;
+    transition: background-color 0.3s var(--transition), color 0.3s var(--transition);
 }
 
 .main-content {
     flex: 1;
     padding-bottom: 2rem;
-    background-color: var(--background-light);
+    background-color: var(--background-color);
 }
 
 /* Typography */
 h1, h2, h3, h4, h5, h6 {
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 1rem;
+    margin-bottom: 1.2rem;
+    letter-spacing: -0.5px;
 }
 
 h1 { font-size: 2.25rem; }
@@ -90,9 +95,9 @@ h6 { font-size: 1rem; }
 /* Custom Bootstrap Overrides */
 .btn {
     border-radius: var(--border-radius-sm);
-    font-weight: 500;
+    font-weight: 600;
     padding: 0.5rem 1rem;
-    transition: all 0.2s ease-in-out;
+    transition: var(--transition);
     border: none;
 }
 
@@ -100,11 +105,12 @@ h6 { font-size: 1rem; }
     background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     color: white;
     border: none;
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover {
     background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-md);
     color: white;
 }
@@ -136,16 +142,16 @@ h6 { font-size: 1rem; }
 /* Cards */
 .card {
     border: none;
-    border-radius: var(--border-radius);
+    border-radius: var(--border-radius-lg);
     box-shadow: var(--shadow);
-    transition: all 0.3s ease;
-    background: var(--chat-bg);
+    transition: var(--transition);
+    background: var(--card-bg);
     color: var(--text-primary);
 }
 
 .card:hover {
     box-shadow: var(--shadow-lg);
-    transform: translateY(-2px);
+    transform: translateY(-4px);
 }
 
 .card-header {
@@ -175,9 +181,9 @@ h6 { font-size: 1rem; }
     border: 2px solid var(--border-color);
     border-radius: var(--border-radius-sm);
     padding: 0.75rem;
-    font-size: 0.875rem;
-    transition: all 0.2s ease;
-    background-color: var(--chat-bg);
+    font-size: 1rem;
+    transition: var(--transition);
+    background-color: var(--input-bg);
     color: var(--text-primary);
 }
 

@@ -5,200 +5,504 @@
 
 {% block extra_css %}
 <style>
-    .profile-header {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    /* Revolutionary Profile Styles */
+    
+    /* Ensure navbar brand size is consistent */
+    .navbar-brand {
+        font-size: 1.75rem !important;
+    }
+    
+    .navbar-brand i {
+        font-size: 1.5rem !important;
+    }
+    .profile-hero {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #3730a3 100%);
+        padding: 3rem 0;
+        position: relative;
+        overflow: hidden;
         color: white;
-        border-radius: 1rem 1rem 0 0;
-        padding: 2rem;
-        margin: -1.5rem -1.5rem 2rem -1.5rem;
+        margin-top: -1rem;
+        margin-bottom: 3rem;
     }
-    
+
+    .profile-hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background:
+            radial-gradient(circle at 30% 70%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+        animation: profileFloat 20s ease-in-out infinite;
+    }
+
+    @keyframes profileFloat {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-10px) rotate(1deg); }
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .hero-greeting {
+        font-size: clamp(2rem, 4vw, 3rem);
+        font-weight: 900;
+        margin-bottom: 1rem;
+        background: linear-gradient(45deg, #fff, rgba(255,255,255,0.8));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .hero-subtitle {
+        font-size: 1.2rem;
+        opacity: 0.9;
+        margin-bottom: 2rem;
+    }
+
+    .profile-card {
+        background: var(--card-bg);
+        border-radius: 20px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border-color);
+        overflow: hidden;
+        margin-bottom: 2rem;
+    }
+
+    .profile-header {
+        background: linear-gradient(135deg, #6366f1, #4f46e5);
+        color: white;
+        padding: 3rem 2rem;
+        position: relative;
+    }
+
+    .profile-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+    }
+
+    .profile-avatar-container {
+        position: relative;
+        z-index: 2;
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
     .profile-avatar {
-        width: 100px;
-        height: 100px;
-        border: 4px solid rgba(255, 255, 255, 0.2);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        width: 120px;
+        height: 120px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        position: relative;
+        z-index: 1;
     }
-    
+
     .avatar-placeholder {
-        width: 100px;
-        height: 100px;
+        width: 120px;
+        height: 120px;
         background: rgba(255, 255, 255, 0.2);
-        border: 4px solid rgba(255, 255, 255, 0.2);
+        border: 4px solid rgba(255, 255, 255, 0.3);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
         color: white;
-        font-size: 2.5rem;
-        font-weight: 600;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        font-size: 3rem;
+        font-weight: 700;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        backdrop-filter: blur(10px);
     }
-    
-    .form-floating {
-        margin-bottom: 1rem;
-    }
-    
-    .btn-primary {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        border: none;
-        padding: 0.75rem 2rem;
-        font-weight: 600;
-        border-radius: 0.5rem;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    
-    .btn-primary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-    }
-    
-    .stats-card {
-        background: #f8fafc;
-        border-radius: 0.75rem;
-        padding: 1.5rem;
-        text-align: center;
-        border: 1px solid #e2e8f0;
-    }
-    
-    .stats-number {
+
+    .profile-name {
         font-size: 2rem;
         font-weight: 700;
-        color: #10b981;
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.5rem;
     }
-    
-    .stats-label {
-        color: #64748b;
+
+    .profile-email {
+        font-size: 1.1rem;
+        opacity: 0.9;
+        margin-bottom: 1rem;
+    }
+
+    .profile-meta {
+        font-size: 0.9rem;
+        opacity: 0.8;
+    }
+
+    .profile-content {
+        padding: 3rem;
+    }
+
+    .section-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+    }
+
+    .section-title i {
+        margin-right: 0.75rem;
+        color: #6366f1;
+    }
+
+    .form-floating {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-floating label {
+        color: var(--text-secondary);
         font-weight: 500;
+    }
+
+    .form-control, .form-select {
+        background: var(--input-bg);
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        color: var(--text-primary);
+        padding: 1rem 1.25rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        outline: none;
+    }
+
+    .form-control::placeholder {
+        color: var(--text-secondary);
+    }
+
+    .file-input-wrapper {
+        position: relative;
+        margin-bottom: 1.5rem;
+    }
+
+    .file-input-label {
+        display: block;
+        background: var(--background-light);
+        border: 2px dashed var(--border-color);
+        border-radius: 10px;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        color: var(--text-secondary);
+    }
+
+    .file-input-label:hover {
+        border-color: #6366f1;
+        background: rgba(99, 102, 241, 0.05);
+        color: var(--text-primary);
+    }
+
+    .file-input-label i {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .file-input {
+        position: absolute;
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        cursor: pointer;
+    }
+
+    .btn-profile {
+        background: linear-gradient(135deg, #6366f1, #4f46e5);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.3s ease;
+    }
+
+    .btn-profile:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+    }
+
+    .btn-outline-profile {
+        background: transparent;
+        color: var(--text-secondary);
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        padding: 0.75rem 2rem;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-block;
+        transition: all 0.3s ease;
+    }
+
+    .btn-outline-profile:hover {
+        background: var(--border-color);
+        color: var(--text-primary);
+        transform: translateY(-2px);
+    }
+
+    .stats-section {
+        background: var(--card-bg);
+        border-radius: 20px;
+        padding: 2rem;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border-color);
+    }
+
+    .stats-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1.5rem;
+        text-align: center;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .stat-card {
+        background: var(--background-light);
+        border-radius: 15px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+        border: 1px solid var(--border-color);
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+
+    .stat-number {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #6366f1;
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        color: var(--text-secondary);
+        font-weight: 600;
         font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .alert {
+        border-radius: 10px;
+        border: none;
+        box-shadow: var(--shadow);
+        margin-bottom: 2rem;
+    }
+
+    .text-muted {
+        color: var(--text-secondary) !important;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .profile-hero {
+            padding: 2rem 0;
+        }
+
+        .hero-greeting {
+            font-size: 2rem;
+        }
+
+        .hero-subtitle {
+            font-size: 1rem;
+        }
+
+        .profile-header {
+            padding: 2rem 1.5rem;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+        }
+
+        .avatar-placeholder {
+            width: 100px;
+            height: 100px;
+            font-size: 2.5rem;
+        }
+
+        .profile-name {
+            font-size: 1.5rem;
+        }
+
+        .profile-content {
+            padding: 2rem 1.5rem;
+        }
+
+        .stats-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
+<!-- Hero Section -->
+<section class="profile-hero">
+    <div class="container">
+        <div class="hero-content">
+            <h1 class="hero-greeting">Your Profile</h1>
+            <p class="hero-subtitle">Manage your personal information and track your learning journey.</p>
+        </div>
+    </div>
+</section>
+
+<div class="container">
     <div class="row">
-        <div class="col-lg-8 mx-auto">
-            <div class="card shadow-sm">
-                <div class="card-body p-0">
-                    <div class="profile-header">
-                        <div class="d-flex align-items-center">
-                            <div class="me-4">
-                                {% if profile.avatar %}
-                                    <img src="{{ profile.avatar.url }}" alt="Profile Avatar" class="profile-avatar rounded-circle">
-                                {% else %}
-                                    <div class="avatar-placeholder">
-                                        {{ user.first_name|first|default:user.username|first|upper }}
-                                    </div>
+        <div class="col-lg-8">
+            <div class="profile-card">
+                <div class="profile-header">
+                    <div class="profile-avatar-container">
+                        {% if profile.avatar %}
+                            <img src="{{ profile.avatar.url }}" alt="Profile Avatar" class="profile-avatar rounded-circle">
+                        {% else %}
+                            <div class="avatar-placeholder">
+                                {{ user.first_name|first|default:user.username|first|upper }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="text-center">
+                        <h2 class="profile-name">
+                            {% if user.first_name %}
+                                {{ user.first_name }} {{ user.last_name }}
+                            {% else %}
+                                {{ user.username }}
+                            {% endif %}
+                        </h2>
+                        <p class="profile-email">{{ user.email }}</p>
+                        <p class="profile-meta">
+                            <i class="fas fa-calendar-alt me-1"></i>
+                            Member since {{ user.date_joined|date:"F Y" }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="profile-content">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+
+                        <div class="section-title">
+                            <i class="fas fa-user"></i>Personal Information
+                        </div>
+
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ form.first_name }}
+                                    <label for="{{ form.first_name.id_for_label }}">First Name</label>
+                                </div>
+                                {% if form.first_name.errors %}
+                                    <div class="text-danger small">{{ form.first_name.errors }}</div>
                                 {% endif %}
                             </div>
-                            <div>
-                                <h2 class="mb-1">
-                                    {% if user.first_name %}
-                                        {{ user.first_name }} {{ user.last_name }}
-                                    {% else %}
-                                        {{ user.username }}
-                                    {% endif %}
-                                </h2>
-                                <p class="mb-2 opacity-90">{{ user.email }}</p>
-                                <small class="opacity-75">
-                                    <i class="fas fa-calendar-alt me-1"></i>
-                                    Member since {{ user.date_joined|date:"F Y" }}
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ form.last_name }}
+                                    <label for="{{ form.last_name.id_for_label }}">Last Name</label>
+                                </div>
+                                {% if form.last_name.errors %}
+                                    <div class="text-danger small">{{ form.last_name.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-floating">
+                                    {{ form.email }}
+                                    <label for="{{ form.email.id_for_label }}">Email Address</label>
+                                </div>
+                                <small class="text-muted">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Email changes must be done through account settings
                                 </small>
+                                {% if form.email.errors %}
+                                    <div class="text-danger small">{{ form.email.errors }}</div>
+                                {% endif %}
                             </div>
                         </div>
-                    </div>
 
-                    <div class="p-4">
-                        {% if messages %}
-                            {% for message in messages %}
-                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                                    <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
-                                    {{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                </div>
-                            {% endfor %}
-                        {% endif %}
+                        <div class="section-title">
+                            <i class="fas fa-graduation-cap"></i>Academic Information
+                        </div>
 
-                        <form method="post" enctype="multipart/form-data">
-                            {% csrf_token %}
-                            
-                            <h5 class="mb-3">
-                                <i class="fas fa-user me-2"></i>Personal Information
-                            </h5>
-                            
-                            <div class="row g-3 mb-4">
-                                <div class="col-md-6">
-                                    <div class="form-floating">
-                                        {{ form.first_name }}
-                                        <label for="{{ form.first_name.id_for_label }}">First Name</label>
-                                    </div>
-                                    {% if form.first_name.errors %}
-                                        <div class="text-danger small">{{ form.first_name.errors }}</div>
-                                    {% endif %}
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ form.university }}
+                                    <label for="{{ form.university.id_for_label }}">University/Institution</label>
                                 </div>
-                                
-                                <div class="col-md-6">
-                                    <div class="form-floating">
-                                        {{ form.last_name }}
-                                        <label for="{{ form.last_name.id_for_label }}">Last Name</label>
-                                    </div>
-                                    {% if form.last_name.errors %}
-                                        <div class="text-danger small">{{ form.last_name.errors }}</div>
-                                    {% endif %}
-                                </div>
-                                
-                                <div class="col-12">
-                                    <div class="form-floating">
-                                        {{ form.email }}
-                                        <label for="{{ form.email.id_for_label }}">Email Address</label>
-                                    </div>
-                                    <small class="text-muted">
-                                        <i class="fas fa-info-circle me-1"></i>
-                                        Email changes must be done through account settings
-                                    </small>
-                                </div>
+                                {% if form.university.errors %}
+                                    <div class="text-danger small">{{ form.university.errors }}</div>
+                                {% endif %}
                             </div>
-                            
-                            <h5 class="mb-3">
-                                <i class="fas fa-graduation-cap me-2"></i>Academic Information
-                            </h5>
-                            
-                            <div class="row g-3 mb-4">
-                                <div class="col-md-6">
-                                    <div class="form-floating">
-                                        {{ form.university }}
-                                        <label for="{{ form.university.id_for_label }}">University/Institution</label>
-                                    </div>
-                                    {% if form.university.errors %}
-                                        <div class="text-danger small">{{ form.university.errors }}</div>
-                                    {% endif %}
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ form.major }}
+                                    <label for="{{ form.major.id_for_label }}">Major/Field of Study</label>
                                 </div>
-                                
-                                <div class="col-md-6">
-                                    <div class="form-floating">
-                                        {{ form.major }}
-                                        <label for="{{ form.major.id_for_label }}">Major/Field of Study</label>
-                                    </div>
-                                    {% if form.major.errors %}
-                                        <div class="text-danger small">{{ form.major.errors }}</div>
-                                    {% endif %}
+                                {% if form.major.errors %}
+                                    <div class="text-danger small">{{ form.major.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    {{ form.year_of_study }}
+                                    <label for="{{ form.year_of_study.id_for_label }}">Year of Study</label>
                                 </div>
-                                
-                                <div class="col-md-6">
-                                    <div class="form-floating">
-                                        {{ form.year_of_study }}
-                                        <label for="{{ form.year_of_study.id_for_label }}">Year of Study</label>
-                                    </div>
-                                    {% if form.year_of_study.errors %}
-                                        <div class="text-danger small">{{ form.year_of_study.errors }}</div>
-                                    {% endif %}
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <label for="{{ form.avatar.id_for_label }}" class="form-label">
-                                        <i class="fas fa-camera me-1"></i>Profile Picture
+                                {% if form.year_of_study.errors %}
+                                    <div class="text-danger small">{{ form.year_of_study.errors }}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="file-input-wrapper">
+                                    <label for="{{ form.avatar.id_for_label }}" class="file-input-label">
+                                        <i class="fas fa-camera"></i>
+                                        <strong>Profile Picture</strong><br>
+                                        <small>Click to upload or drag and drop</small>
                                     </label>
                                     {{ form.avatar }}
                                     {% if form.avatar.errors %}
@@ -206,168 +510,57 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            
-                            <h5 class="mb-3">
-                                <i class="fas fa-info-circle me-2"></i>About
-                            </h5>
-                            
-                            <div class="mb-4">
-                                <div class="form-floating">
-                                    {{ form.bio }}
-                                    <label for="{{ form.bio.id_for_label }}">Bio</label>
-                                </div>
-                                {% if form.bio.errors %}
-                                    <div class="text-danger small">{{ form.bio.errors }}</div>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                                <a href="{% url 'rag_app:dashboard' %}" class="btn btn-outline-secondary me-md-2">
-                                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                                </a>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save me-2"></i>Update Profile
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-lg-4">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h5 class="card-title mb-3">
-                        <i class="fas fa-chart-line me-2"></i>Your Statistics
-                    </h5>
-                    
-                    <div class="row g-3">
-                        <div class="col-6">
-                            <div class="stats-card">
-                                <div class="stats-number">{{ user.subject_set.count }}</div>
-                                <div class="stats-label">Subjects</div>
-                            </div>
                         </div>
-                        <div class="col-6">
-                            <div class="stats-card">
-                                <div class="stats-number">{{ user.document_set.count }}</div>
-                                <div class="stats-label">Documents</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stats-card">
-                                <div class="stats-number">{{ user.quiz_set.count }}</div>
-                                <div class="stats-label">Quizzes</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="stats-card">
-                                <div class="stats-number">{{ user.studysession_set.count }}</div>
-                                <div class="stats-label">Study Sessions</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-                                
-                                <div class="col-md-6">
-                                    <label for="{{ form.last_name.id_for_label }}" class="form-label">Last Name</label>
-                                    {{ form.last_name }}
-                                    {% if form.last_name.errors %}
-                                        <div class="text-danger small">{{ form.last_name.errors }}</div>
-                                    {% endif %}
-                                </div>
-                                
-                                <div class="col-12">
-                                    <label for="{{ form.email.id_for_label }}" class="form-label">Email</label>
-                                    {{ form.email }}
-                                    {% if form.email.errors %}
-                                        <div class="text-danger small">{{ form.email.errors }}</div>
-                                    {% endif %}
-                                </div>
-                                
-                                {% if profile_form %}
-                                <div class="col-12">
-                                    <label for="{{ profile_form.bio.id_for_label }}" class="form-label">Bio</label>
-                                    {{ profile_form.bio }}
-                                    {% if profile_form.bio.errors %}
-                                        <div class="text-danger small">{{ profile_form.bio.errors }}</div>
-                                    {% endif %}
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <label for="{{ profile_form.institution.id_for_label }}" class="form-label">Institution</label>
-                                    {{ profile_form.institution }}
-                                    {% if profile_form.institution.errors %}
-                                        <div class="text-danger small">{{ profile_form.institution.errors }}</div>
-                                    {% endif %}
-                                </div>
-                                
-                                <div class="col-md-6">
-                                    <label for="{{ profile_form.field_of_study.id_for_label }}" class="form-label">Field of Study</label>
-                                    {{ profile_form.field_of_study }}
-                                    {% if profile_form.field_of_study.errors %}
-                                        <div class="text-danger small">{{ profile_form.field_of_study.errors }}</div>
-                                    {% endif %}
-                                </div>
-                                
-                                <div class="col-12">
-                                    <label for="{{ profile_form.avatar.id_for_label }}" class="form-label">Profile Picture</label>
-                                    {{ profile_form.avatar }}
-                                    {% if profile_form.avatar.errors %}
-                                        <div class="text-danger small">{{ profile_form.avatar.errors }}</div>
-                                    {% endif %}
-                                </div>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="d-flex justify-content-between mt-4">
-                                <a href="{% url 'rag_app:dashboard' %}" class="btn btn-outline-secondary">
-                                    <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-                                </a>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save me-2"></i>Save Changes
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
 
-                <!-- Account Statistics -->
-                <div class="card mt-4">
-                    <div class="card-body">
-                        <h5 class="card-title mb-3">Account Statistics</h5>
-                        <div class="row text-center">
-                            <div class="col-md-3">
-                                <div class="stat-card">
-                                    <div class="stat-number">{{ user.subjects.count }}</div>
-                                    <div class="stat-label">Subjects</div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="stat-card">
-                                    <div class="stat-number">{{ user.documents.count }}</div>
-                                    <div class="stat-label">Documents</div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="stat-card">
-                                    <div class="stat-number">{{ user.chat_sessions.count }}</div>
-                                    <div class="stat-label">Chat Sessions</div>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <div class="stat-card">
-                                    <div class="stat-number">{{ user.quiz_attempts.count }}</div>
-                                    <div class="stat-label">Quiz Attempts</div>
-                                </div>
-                            </div>
+                        <div class="section-title">
+                            <i class="fas fa-info-circle"></i>About You
                         </div>
+
+                        <div class="mb-4">
+                            <div class="form-floating">
+                                {{ form.bio }}
+                                <label for="{{ form.bio.id_for_label }}">Bio</label>
+                            </div>
+                            {% if form.bio.errors %}
+                                <div class="text-danger small">{{ form.bio.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex gap-3 justify-content-end">
+                            <a href="{% url 'rag_app:dashboard' %}" class="btn-outline-profile">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                            </a>
+                            <button type="submit" class="btn-profile">
+                                <i class="fas fa-save me-2"></i>Update Profile
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="stats-section">
+                <h5 class="stats-title">
+                    <i class="fas fa-chart-line me-2"></i>Your Statistics
+                </h5>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">{{ user.subject_set.count }}</div>
+                        <div class="stat-label">Subjects</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ user.document_set.count }}</div>
+                        <div class="stat-label">Documents</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ user.quiz_set.count }}</div>
+                        <div class="stat-label">Quizzes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">{{ user.studysession_set.count }}</div>
+                        <div class="stat-label">Study Sessions</div>
                     </div>
                 </div>
             </div>
