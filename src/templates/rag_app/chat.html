@@ -686,43 +686,108 @@ document.addEventListener('DOMContentLoaded', function() {
             url = '/chat/' + currentSessionId + '/';
         }
 
-        // Send message to server
-        fetch(url, {
+        // Send message with real streaming
+        sendStreamingMessage(message);
+    });
+
+
+
+    // Send streaming message with real-time display
+    function sendStreamingMessage(message) {
+        // Create AI message container for streaming content
+        const aiMessageDiv = addMessage('ai', '');
+        const messageContent = aiMessageDiv.querySelector('.message-content');
+        let accumulatedContent = '';
+        
+        // Prepare streaming URL
+        let streamUrl = '{% url "rag_app:chat_stream" %}';
+        if (currentSessionId) {
+            streamUrl = '/chat/' + currentSessionId + '/stream/';
+        }
+        
+        // Send POST request and read streaming response
+        fetch(streamUrl, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/json',
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
             },
-            body: new URLSearchParams({
+            body: JSON.stringify({
                 'message': message
             })
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                addMessage('ai', data.response);
-                // Update session ID if we got one back
-                if (data.session_id) {
-                    currentSessionId = data.session_id;
-                    // Update browser URL without reloading
-                    const newUrl = '/chat/' + data.session_id + '/';
-                    window.history.replaceState({}, '', newUrl);
-                }
-            } else {
-                addMessage('ai', data.error || 'Sorry, I encountered an error. Please try again.');
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
             }
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            
+            function readStream() {
+                return reader.read().then(({ done, value }) => {
+                    if (done) {
+                        // Re-enable form when streaming is complete
+                        sendBtn.disabled = false;
+                        chatInput.disabled = false;
+                        chatInput.focus();
+                        return;
+                    }
+                    
+                    // Decode chunk and process lines
+                    const chunk = decoder.decode(value, { stream: true });
+                    const lines = chunk.split('\n');
+                    
+                    lines.forEach(line => {
+                        if (line.startsWith('data: ') && line.length > 6) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                
+                                if (data.type === 'chunk') {
+                                    accumulatedContent += data.content;
+                                    // Update message content with markdown parsing
+                                    try {
+                                        messageContent.innerHTML = marked.parse(accumulatedContent);
+                                    } catch (e) {
+                                        messageContent.innerHTML = accumulatedContent.replace(/\n/g, '<br>');
+                                    }
+                                    scrollToBottom();
+                                    
+                                } else if (data.type === 'complete') {
+                                    if (data.session_id) {
+                                        currentSessionId = data.session_id;
+                                        const newUrl = '/chat/' + data.session_id + '/';
+                                        window.history.replaceState({}, '', newUrl);
+                                    }
+                                    // Add timestamp
+                                    const timeDiv = document.createElement('div');
+                                    timeDiv.className = 'message-time';
+                                    timeDiv.textContent = new Date().toLocaleString();
+                                    messageContent.appendChild(timeDiv);
+                                    
+                                } else if (data.type === 'error') {
+                                    messageContent.textContent = data.error || 'Sorry, I encountered an error.';
+                                }
+                            } catch (e) {
+                                console.warn('Failed to parse streaming data:', line);
+                            }
+                        }
+                    });
+                    
+                    return readStream();
+                });
+            }
+            
+            return readStream();
         })
         .catch(error => {
-            console.error('Error:', error);
-            addMessage('ai', 'Sorry, I encountered an error. Please try again.');
-        })
-        .finally(() => {
-            // Re-enable form
+            console.error('Streaming error:', error);
+            messageContent.textContent = 'Sorry, I encountered an error. Please try again.';
             sendBtn.disabled = false;
             chatInput.disabled = false;
             chatInput.focus();
         });
-    });
+    }
 
     // Scroll to bottom of messages
     function scrollToBottom() {
@@ -748,7 +813,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (role === 'user') {
             // For user messages, just convert newlines to <br>
             messageContent.innerHTML = content.replace(/\n/g, '<br>');
-        } else {
+        } else if (content) {
             // For AI messages, render markdown
             try {
                 messageContent.innerHTML = marked.parse(content);
@@ -768,6 +833,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         chatMessages.appendChild(messageDiv);
         scrollToBottom();
+        
+        return messageDiv; // Return the message element for streaming updates
     }
 
     // Initial scroll to bottom
