@@ -7,15 +7,18 @@
 
 {% block extra_css %}
 <style>
+    /* Revolutionary Home Page Styles */
     .hero-section {
-        background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
-        min-height: calc(100vh - 80px);
-        display: flex;
-        align-items: center;
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 50%, #047857 100%);
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
         position: relative;
         overflow: hidden;
+        color: white;
+        transition: background 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    
+
     .hero-section::before {
         content: '';
         position: absolute;
@@ -23,204 +26,441 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><polygon fill="rgba(255,255,255,0.05)" points="0,0 1000,300 1000,1000 0,700"/></svg>');
-        background-size: cover;
+        background:
+            radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(120, 119, 198, 0.2) 0%, transparent 50%);
+        animation: float 20s ease-in-out infinite;
     }
-    
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        33% { transform: translateY(-10px) rotate(1deg); }
+        66% { transform: translateY(10px) rotate(-1deg); }
+    }
+
     .hero-content {
         position: relative;
         z-index: 2;
-        animation: fadeInUp 0.8s ease-out;
+        text-align: center;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 2rem;
+        animation: slideInUp 1s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    
-    @keyframes fadeInUp {
+
+    @keyframes slideInUp {
         from {
             opacity: 0;
-            transform: translateY(30px);
+            transform: translateY(50px);
         }
         to {
             opacity: 1;
             transform: translateY(0);
         }
     }
-    
+
     .hero-title {
-        font-size: 3.5rem;
-        font-weight: 800;
+        font-size: clamp(2.5rem, 5vw, 4rem);
+        font-weight: 900;
         line-height: 1.1;
         margin-bottom: 1.5rem;
-        color: white;
+        background: linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.8) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
-    
+
     .hero-subtitle {
-        font-size: 1.25rem;
+        font-size: clamp(1rem, 2vw, 1.25rem);
         font-weight: 400;
         line-height: 1.6;
-        margin-bottom: 2rem;
-        color: rgba(255, 255, 255, 0.9);
+        margin-bottom: 3rem;
+        opacity: 0.9;
         max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
     }
-    
-    .feature-card {
-        background: var(--card-bg);
-        border-radius: 1rem;
-        padding: 2rem;
-        margin-bottom: 2rem;
-        box-shadow: var(--shadow-sm);
-        transition: all 0.3s ease;
-        border: 1px solid var(--border-color);
-    }
-    
-    .feature-card:hover {
-        transform: translateY(-5px);
-        box-shadow: var(--shadow-lg);
-    }
-    
-    .feature-icon {
-        width: 60px;
-        height: 60px;
-        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
-        border-radius: 1rem;
+
+    .cta-buttons {
         display: flex;
+        flex-direction: column;
+        gap: 1rem;
         align-items: center;
-        justify-content: center;
-        margin-bottom: 1.5rem;
-        color: white;
-        font-size: 1.5rem;
     }
-    
-    .feature-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        margin-bottom: 0.75rem;
-        color: var(--text-primary);
+
+    @media (min-width: 768px) {
+        .cta-buttons {
+            flex-direction: row;
+            justify-content: center;
+        }
     }
-    
-    .feature-description {
-        color: var(--text-secondary);
-        line-height: 1.6;
-    }
-    
-    .cta-section {
-        background: var(--background-light);
-        padding: 5rem 0;
-    }
-    
+
     .btn-hero {
-        background: var(--card-bg);
-        color: var(--primary-color);
-        border: 1px solid var(--border-color);
-        border-radius: 0.75rem;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(20px);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        color: white;
+        border-radius: 50px;
         font-weight: 600;
-        padding: 1rem 2rem;
+        padding: 1rem 2.5rem;
         font-size: 1.1rem;
-        transition: all 0.2s ease;
-        box-shadow: var(--shadow-sm);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        position: relative;
+        overflow: hidden;
     }
-    
+
+    .btn-hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .btn-hero:hover::before {
+        left: 100%;
+    }
+
     .btn-hero:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-md);
-        color: var(--primary-color);
-        background: var(--background-light);
+        transform: translateY(-3px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        background: rgba(255, 255, 255, 0.25);
     }
-    
+
     .btn-outline-hero {
         background: transparent;
         color: white;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-radius: 0.75rem;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        border-radius: 50px;
         font-weight: 600;
-        padding: 1rem 2rem;
+        padding: 1rem 2.5rem;
         font-size: 1.1rem;
-        transition: all 0.2s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
     }
-    
+
     .btn-outline-hero:hover {
         background: rgba(255, 255, 255, 0.1);
         border-color: white;
-        color: white;
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
     }
-    
-    .stats-container {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 1rem;
-        padding: 2rem;
-        margin-top: 3rem;
-        backdrop-filter: blur(10px);
+
+    .stats-section {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 2rem;
+        margin-top: 4rem;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
     }
-    
+
     .stat-item {
         text-align: center;
-        color: white;
+        padding: 1.5rem;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        animation: fadeInScale 0.8s cubic-bezier(0.4, 0, 0.2, 1) 0.5s both;
     }
-    
+
+    .stat-item:nth-child(2) { animation-delay: 0.7s; }
+    .stat-item:nth-child(3) { animation-delay: 0.9s; }
+
+    @keyframes fadeInScale {
+        from {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
     .stat-number {
         font-size: 2.5rem;
-        font-weight: 700;
+        font-weight: 800;
         margin-bottom: 0.5rem;
         display: block;
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
-    
+
     .stat-label {
         font-size: 0.9rem;
         opacity: 0.9;
+        font-weight: 500;
     }
-    
-    @media (max-width: 768px) {
-        .hero-title {
-            font-size: 2.5rem;
-        }
-        
-        .hero-subtitle {
-            font-size: 1.1rem;
-        }
-        
-        .btn-hero, .btn-outline-hero {
-            padding: 0.75rem 1.5rem;
-            font-size: 1rem;
-            width: 100%;
-            margin-bottom: 1rem;
-        }
-    }
-    
-    .feature-item {
-        animation-delay: 0.2s;
-    }
-    
-    .feature-preview {
-        animation: slideUp 0.8s ease-out 0.5s both;
-    }
-    
-    .step-number {
+
+    /* Features Section */
+    .features-section {
+        padding: 8rem 0;
+        background: var(--background-color);
         position: relative;
-        margin-bottom: 1rem;
     }
-    
-    .step-number::after {
+
+    .features-section::before {
         content: '';
         position: absolute;
-        top: 50%;
-        left: 100%;
-        width: 50px;
-        height: 2px;
-        background: var(--gray-300);
-        transform: translateY(-50%);
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, var(--border-color), transparent);
     }
-    
-    .col-md-4:last-child .step-number::after {
-        display: none;
+
+    .section-header {
+        text-align: center;
+        margin-bottom: 4rem;
     }
-    
-    @media (max-width: 768px) {
-        .step-number::after {
-            display: none;
-        }
+
+    .section-title {
+        font-size: clamp(2rem, 4vw, 3rem);
+        font-weight: 800;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
     }
-    
-    .chat-preview {
+
+    .section-subtitle {
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto;
+        line-height: 1.6;
+    }
+
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        margin-bottom: 4rem;
+    }
+
+    .feature-card {
+        background: var(--card-bg);
+        border-radius: 24px;
+        padding: 2.5rem;
+        box-shadow: var(--shadow);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid var(--border-color);
+        position: relative;
+        overflow: hidden;
+        animation: slideInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+    }
+
+    .feature-card:nth-child(2) { animation-delay: 0.2s; }
+    .feature-card:nth-child(3) { animation-delay: 0.4s; }
+    .feature-card:nth-child(4) { animation-delay: 0.6s; }
+
+    .feature-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        transform: scaleX(0);
+        transition: transform 0.3s ease;
+    }
+
+    .feature-card:hover::before {
+        transform: scaleX(1);
+    }
+
+    .feature-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+    }
+
+    .feature-icon {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        border-radius: 20px;
+        display: grid;
+        place-items: center;
+        margin-bottom: 1.5rem;
+        color: white;
+        font-size: 2rem;
+        box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
+    }
+
+    .feature-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+    }
+
+    .feature-description {
+        color: var(--text-secondary);
+        line-height: 1.7;
+        margin: 0;
+    }
+
+    /* How It Works */
+    .how-it-works {
+        padding: 8rem 0;
+        background: var(--background-light);
+    }
+
+    .steps-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 3rem;
+        max-width: 1000px;
+        margin: 0 auto;
+    }
+
+    .step-item {
+        text-align: center;
+        position: relative;
+    }
+
+    .step-number {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        color: white;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        font-size: 2rem;
+        font-weight: 800;
+        margin: 0 auto 2rem;
+        box-shadow: 0 15px 35px rgba(16, 185, 129, 0.3);
+        position: relative;
+        z-index: 2;
+    }
+
+    .step-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+    }
+
+    .step-description {
+        color: var(--text-secondary);
+        line-height: 1.7;
         max-width: 300px;
         margin: 0 auto;
+    }
+
+    /* CTA Section */
+    .cta-section {
+        padding: 8rem 0;
+        background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+        color: white;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .cta-section::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grain)"/></svg>');
+        opacity: 0.1;
+    }
+
+    .cta-content {
+        position: relative;
+        z-index: 2;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+
+    .cta-title {
+        font-size: clamp(2rem, 4vw, 3rem);
+        font-weight: 800;
+        margin-bottom: 1.5rem;
+        line-height: 1.2;
+    }
+
+    .cta-subtitle {
+        font-size: 1.25rem;
+        margin-bottom: 3rem;
+        opacity: 0.9;
+        line-height: 1.6;
+    }
+
+    .btn-cta {
+        background: white;
+        color: var(--primary-color);
+        border: none;
+        border-radius: 50px;
+        font-weight: 700;
+        padding: 1.25rem 3rem;
+        font-size: 1.2rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-cta:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        color: var(--primary-dark);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .hero-section {
+            padding: 2rem 1rem;
+        }
+
+        .features-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .steps-container {
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        .stats-section {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+    }
+
+    /* Dark mode adjustments */
+    [data-theme="dark"] .hero-section {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+    }
+
+    [data-theme="dark"] .btn-hero,
+    [data-theme="dark"] .btn-outline-hero {
+        backdrop-filter: blur(20px);
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    [data-theme="dark"] .stat-item {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.1);
     }
 </style>
 {% endblock %}
@@ -228,280 +468,198 @@
 {% block content %}
 <!-- Hero Section -->
 <section class="hero-section">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-lg-6">
-                <div class="hero-content">
-                    <h1 class="hero-title">
-                        Your AI-Powered<br>
-                        <span style="background: linear-gradient(45deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Learning Companion</span>
-                    </h1>
-                    <p class="hero-subtitle">
-                        Transform your learning experience with EduMentorAI. Upload your study materials, 
-                        chat with our intelligent AI assistant, and generate personalized quizzes to master any subject efficiently.
-                    </p>
-                    <div class="d-flex flex-column flex-md-row gap-3">
-                        {% if user.is_authenticated %}
-                            <a href="{% url 'rag_app:dashboard' %}" class="btn btn-hero">
-                                <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
-                            </a>
-                            <a href="{% url 'rag_app:chat' %}" class="btn btn-outline-hero">
-                                <i class="fas fa-comments me-2"></i>Start Chatting
-                            </a>
-                        {% else %}
-                            <a href="{% url 'account_signup' %}" class="btn btn-hero">
-                                <i class="fas fa-user-plus me-2"></i>Get Started Free
-                            </a>
-                            <a href="{% url 'account_login' %}" class="btn btn-outline-hero">
-                                <i class="fas fa-sign-in-alt me-2"></i>Sign In
-                            </a>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Stats -->
-                    <div class="stats-container">
-                        <div class="row">
-                            <div class="col-4">
-                                <div class="stat-item">
-                                    <span class="stat-number">10K+</span>
-                                    <span class="stat-label">Students</span>
-                                </div>
-                            </div>
-                            <div class="col-4">
-                                <div class="stat-item">
-                                    <span class="stat-number">50K+</span>
-                                    <span class="stat-label">Documents</span>
-                                </div>
-                            </div>
-                            <div class="col-4">
-                                <div class="stat-item">
-                                    <span class="stat-number">100K+</span>
-                                    <span class="stat-label">Questions</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <div class="hero-content">
+        <h1 class="hero-title">
+            Your AI-Powered<br>
+            <span>Learning Companion</span>
+        </h1>
+        <p class="hero-subtitle">
+            Transform your learning experience with EduMentorAI. Upload your study materials,
+            chat with our intelligent AI assistant, and generate personalized quizzes to master any subject efficiently.
+        </p>
+
+        <div class="cta-buttons">
+            {% if user.is_authenticated %}
+                <a href="{% url 'rag_app:dashboard' %}" class="btn btn-hero">
+                    <i class="fas fa-tachometer-alt me-2"></i>Go to Dashboard
+                </a>
+                <a href="{% url 'rag_app:chat' %}" class="btn btn-outline-hero">
+                    <i class="fas fa-comments me-2"></i>Start Chatting
+                </a>
+            {% else %}
+                <a href="{% url 'account_signup' %}" class="btn btn-hero">
+                    <i class="fas fa-user-plus me-2"></i>Get Started Free
+                </a>
+                <a href="{% url 'account_login' %}" class="btn btn-outline-hero">
+                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                </a>
+            {% endif %}
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-section">
+            <div class="stat-item">
+                <span class="stat-number">10K+</span>
+                <span class="stat-label">Students</span>
             </div>
-            <div class="col-lg-6">
-                <div class="text-center">
-                    <div style="background: rgba(255, 255, 255, 0.1); border-radius: 1rem; padding: 2rem; backdrop-filter: blur(10px);">
-                        <div style="background: white; border-radius: 0.75rem; padding: 1.5rem; color: var(--text-primary);">
-                            <div class="d-flex align-items-center mb-3">
-                                <div style="width: 40px; height: 40px; background: var(--primary-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 0.75rem;">
-                                    <i class="fas fa-robot text-white"></i>
-                                </div>
-                                <div class="text-start">
-                                    <div style="font-weight: 600; color: var(--text-primary);">EduMentor AI</div>
-                                    <div style="font-size: 0.875rem; color: var(--text-secondary);">Your Learning Assistant</div>
-                                </div>
-                            </div>
-                            <div style="background: var(--background-light); border-radius: 0.5rem; padding: 1rem; margin-bottom: 0.75rem; text-align: left;">
-                                <p style="margin: 0; color: var(--text-primary);">Hello! I can help you understand complex topics, generate quizzes, and answer questions about your study materials. What would you like to learn about today?</p>
-                            </div>
-                            <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
-                                <button style="background: var(--primary-color); color: white; border: none; border-radius: 0.5rem; padding: 0.5rem 1rem; font-size: 0.875rem;">Ask a Question</button>
-                                <button style="background: var(--border-color); color: var(--text-secondary); border: none; border-radius: 0.5rem; padding: 0.5rem 1rem; font-size: 0.875rem;">Upload Document</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                                    <h6 class="mb-0">EduMentorAI</h6>
-                                    <small class="text-muted">AI Assistant</small>
-                                </div>
-                            </div>
-                            <div class="bg-light rounded p-3 mb-3">
-                                <p class="mb-0">"Can you explain the concept of neural networks in deep learning?"</p>
-                            </div>
-                            <div class="bg-primary text-white rounded p-3">
-                                <p class="mb-0">Neural networks are computational models inspired by the human brain...</p>
-                            </div>
-                        </div>
+            <div class="stat-item">
+                <span class="stat-number">50K+</span>
+                <span class="stat-label">Documents</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">100K+</span>
+                <span class="stat-label">Questions</span>
+            </div>
         </div>
     </div>
 </section>
 
 <!-- Features Section -->
-<section style="padding: 5rem 0; background: white;">
+<section class="features-section">
     <div class="container">
-        <div class="text-center mb-5">
-            <h2 style="font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem;">Powerful Features for Better Learning</h2>
-            <p style="font-size: 1.125rem; color: var(--text-secondary); max-width: 600px; margin: 0 auto;">Everything you need to enhance your educational journey with AI-powered assistance</p>
+        <div class="section-header">
+            <h2 class="section-title">Powerful Features for Better Learning</h2>
+            <p class="section-subtitle">Everything you need to enhance your educational journey with AI-powered assistance</p>
         </div>
-        
-        <div class="row g-4">
-            <div class="col-md-6 col-lg-3">
-                <div class="feature-card text-center h-100">
-                    <div class="feature-icon">
-                        <i class="fas fa-upload"></i>
-                    </div>
-                    <h5 class="feature-title">Smart Document Upload</h5>
-                    <p class="feature-description">Upload PDFs, Word docs, PowerPoints, and text files. Our AI instantly processes and indexes them for intelligent search and retrieval.</p>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-upload"></i>
                 </div>
+                <h3 class="feature-title">Smart Document Upload</h3>
+                <p class="feature-description">Upload PDFs, Word docs, PowerPoints, and text files. Our AI instantly processes and indexes them for intelligent search and retrieval.</p>
             </div>
-            
-            <div class="col-md-6 col-lg-3">
-                <div class="feature-card text-center h-100">
-                    <div class="feature-icon">
-                        <i class="fas fa-brain"></i>
-                    </div>
-                    <h5 class="feature-title">AI Chat Assistant</h5>
-                    <p class="feature-description">Ask questions about your study materials and get accurate, context-aware answers. Like having a personal tutor available 24/7.</p>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-brain"></i>
                 </div>
+                <h3 class="feature-title">AI Chat Assistant</h3>
+                <p class="feature-description">Ask questions about your study materials and get accurate, context-aware answers. Like having a personal tutor available 24/7.</p>
             </div>
-            
-            <div class="col-md-6 col-lg-3">
-                <div class="feature-card text-center h-100">
-                <div class="card-body p-4">
-                    <div class="feature-icon bg-warning bg-gradient text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px;">
-                        <i class="fas fa-question-circle fa-lg"></i>
-                    </div>
-                    <h5 class="fw-bold mb-3">Auto-Generated Quizzes</h5>
-                    <div class="feature-icon">
-                        <i class="fas fa-question-circle"></i>
-                    </div>
-                    <h5 class="feature-title">Smart Quiz Generation</h5>
-                    <p class="feature-description">Generate personalized quizzes from your documents to test knowledge and track progress. Adaptive difficulty based on your performance.</p>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-question-circle"></i>
                 </div>
+                <h3 class="feature-title">Smart Quiz Generation</h3>
+                <p class="feature-description">Generate personalized quizzes from your documents to test knowledge and track progress. Adaptive difficulty based on your performance.</p>
             </div>
-            
-            <div class="col-md-6 col-lg-3">
-                <div class="feature-card text-center h-100">
-                    <div class="feature-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <h5 class="feature-title">Progress Analytics</h5>
-                    <p class="feature-description">Monitor your learning journey with detailed analytics, performance insights, and personalized recommendations for improvement.</p>
+
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-line"></i>
                 </div>
+                <h3 class="feature-title">Progress Analytics</h3>
+                <p class="feature-description">Monitor your learning journey with detailed analytics, performance insights, and personalized recommendations for improvement.</p>
             </div>
         </div>
     </div>
 </section>
 
 <!-- How It Works Section -->
-<section style="padding: 5rem 0; background: var(--background-light);">
+<section class="how-it-works">
     <div class="container">
-        <div class="text-center mb-5">
-            <h2 style="font-size: 2.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 1rem;">How It Works</h2>
-            <p style="font-size: 1.125rem; color: var(--text-secondary);">Get started in just three simple steps</p>
+        <div class="section-header">
+            <h2 class="section-title">How It Works</h2>
+            <p class="section-subtitle">Get started in just three simple steps</p>
         </div>
-        
-        <div class="row g-5">
-            <div class="col-md-4">
-                <div class="text-center">
-                    <div style="width: 60px; height: 60px; background: var(--primary-color); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; margin: 0 auto 1.5rem;">
-                        1
-                    </div>
-                    <h5 style="font-size: 1.25rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1rem;">Upload Your Materials</h5>
-                    <p style="color: var(--text-secondary); line-height: 1.6;">Upload your lecture notes, textbooks, slides, or any study materials in PDF, DOCX, or TXT format. Our AI instantly processes them.</p>
-                </div>
+
+        <div class="steps-container">
+            <div class="step-item">
+                <div class="step-number">1</div>
+                <h3 class="step-title">Upload Your Materials</h3>
+                <p class="step-description">Upload your lecture notes, textbooks, slides, or any study materials in PDF, DOCX, or TXT format. Our AI instantly processes them.</p>
             </div>
-            
-            <div class="col-md-4">
-                <div class="text-center">
-                    <div style="width: 60px; height: 60px; background: var(--primary-color); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; margin: 0 auto 1.5rem;">
-                        2
-                    </div>
-                    <h5 style="font-size: 1.25rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1rem;">Chat & Learn</h5>
-                    <p style="color: var(--text-secondary); line-height: 1.6;">Ask questions about your materials and get instant, accurate answers from our AI assistant. Like having a personal tutor.</p>
-                </div>
+
+            <div class="step-item">
+                <div class="step-number">2</div>
+                <h3 class="step-title">Chat & Learn</h3>
+                <p class="step-description">Ask questions about your materials and get instant, accurate answers from our AI assistant. Like having a personal tutor.</p>
             </div>
-            
-            <div class="col-md-4">
-                <div class="text-center">
-                    <div style="width: 60px; height: 60px; background: var(--primary-color); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; margin: 0 auto 1.5rem;">
-                        3
-                    </div>
-                    <h5 style="font-size: 1.25rem; font-weight: 600; color: var(--text-primary); margin-bottom: 1rem;">Test Your Knowledge</h5>
-                    <p style="color: var(--text-secondary); line-height: 1.6;">Generate personalized quizzes from your materials and track your progress to master any subject efficiently.</p>
-                </div>
+
+            <div class="step-item">
+                <div class="step-number">3</div>
+                <h3 class="step-title">Test Your Knowledge</h3>
+                <p class="step-description">Generate personalized quizzes from your materials and track your progress to master any subject efficiently.</p>
             </div>
-        </div>
         </div>
     </div>
 </section>
 
 {% if user.is_authenticated %}
 <!-- Quick Access Section for Logged-in Users -->
-<section style="padding: 4rem 0; background: white;">
+<section class="features-section">
     <div class="container">
-        <div class="row align-items-center">
-            <div class="col-lg-8">
-                <h3 style="font-size: 2rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem;">Quick Access</h3>
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <a href="{% url 'rag_app:document_upload' %}" style="text-decoration: none; color: inherit; display: block;">
-                            <div class="feature-card d-flex align-items-center" style="padding: 1.5rem;">
-                                <div style="width: 50px; height: 50px; background: var(--primary-color); border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; margin-right: 1rem; color: white;">
-                                    <i class="fas fa-plus"></i>
-                                </div>
-                                <div>
-                                    <h6 style="font-weight: 600; margin-bottom: 0.25rem; color: var(--text-primary);">Upload Document</h6>
-                                    <small style="color: var(--text-secondary);">Add new study materials</small>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
-                    
-                    <div class="col-md-6">
-                        <a href="{% url 'rag_app:generate_rag_quiz' %}" style="text-decoration: none; color: inherit; display: block;">
-                            <div class="feature-card d-flex align-items-center" style="padding: 1.5rem;">
-                                <div style="width: 50px; height: 50px; background: #8b5cf6; border-radius: 0.75rem; display: flex; align-items: center; justify-content: center; margin-right: 1rem; color: white;">
-                                    <i class="fas fa-question"></i>
-                                </div>
-                                <div>
-                                    <h6 style="font-weight: 600; margin-bottom: 0.25rem; color: var(--text-primary);">Create Quiz</h6>
-                                    <small style="color: var(--text-secondary);">Generate new quiz</small>
-                                </div>
-                            </div>
-                        </a>
-                    </div>
+        <div class="section-header">
+            <h2 class="section-title">Quick Access</h2>
+            <p class="section-subtitle">Jump back into your learning journey</p>
+        </div>
+
+        <div class="features-grid">
+            <a href="{% url 'rag_app:document_upload' %}" class="feature-card" style="text-decoration: none; color: inherit;">
+                <div class="feature-icon">
+                    <i class="fas fa-plus"></i>
                 </div>
-            </div>
-            
-            <div class="col-lg-4">
-            <div class="card border-0 shadow-custom">
-                <div class="card-header bg-white">
-                    <h6 class="fw-bold mb-0">
-                        <i class="fas fa-book me-2 text-primary"></i>Recent Subjects
-                    </h6>
+                <h3 class="feature-title">Upload Document</h3>
+                <p class="feature-description">Add new study materials to expand your knowledge base</p>
+            </a>
+
+            <a href="{% url 'rag_app:generate_rag_quiz' %}" class="feature-card" style="text-decoration: none; color: inherit;">
+                <div class="feature-icon">
+                    <i class="fas fa-question"></i>
                 </div>
-                <div class="card-body">
-                    {% if recent_subjects %}
-                        {% for subject in recent_subjects %}
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="bg-light rounded p-2 me-3">
-                                    <i class="fas fa-book text-primary"></i>
-                                </div>
-                                <div class="flex-grow-1">
-                                    <a href="{% url 'rag_app:subject_detail' subject.pk %}" class="text-decoration-none">
-                                        <h6 class="mb-0">{{ subject.name }}</h6>
-                                        <small class="text-muted">{{ subject.code }} - {{ subject.documents.count }} documents</small>
-                                    </a>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="text-center text-muted py-4">
-                            <i class="fas fa-plus-circle fs-2 mb-3 d-block"></i>
-                            <p class="mb-3">No subjects yet</p>
-                            <a href="{% url 'rag_app:subject_create' %}" class="btn btn-primary">Create First Subject</a>
+                <h3 class="feature-title">Create Quiz</h3>
+                <p class="feature-description">Generate personalized quizzes to test your understanding</p>
+            </a>
+
+            <a href="{% url 'rag_app:chat' %}" class="feature-card" style="text-decoration: none; color: inherit;">
+                <div class="feature-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <h3 class="feature-title">AI Chat</h3>
+                <p class="feature-description">Get instant answers to your questions from your study materials</p>
+            </a>
+
+            <a href="{% url 'rag_app:dashboard' %}" class="feature-card" style="text-decoration: none; color: inherit;">
+                <div class="feature-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h3 class="feature-title">View Analytics</h3>
+                <p class="feature-description">Track your learning progress and performance insights</p>
+            </a>
+        </div>
+
+        {% if recent_subjects %}
+        <div style="margin-top: 4rem; max-width: 800px; margin-left: auto; margin-right: auto;">
+            <h3 style="text-align: center; font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2rem;">Recent Subjects</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+                {% for subject in recent_subjects %}
+                <a href="{% url 'rag_app:subject_detail' subject.pk %}" style="text-decoration: none;">
+                    <div class="feature-card" style="padding: 1.5rem; text-align: center;">
+                        <div style="width: 50px; height: 50px; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); border-radius: 12px; display: grid; place-items: center; margin: 0 auto 1rem; color: white;">
+                            <i class="fas fa-book"></i>
                         </div>
-                    {% endif %}
-                </div>
+                        <h4 style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">{{ subject.name }}</h4>
+                        <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">{{ subject.code }} • {{ subject.documents.count }} documents</p>
+                    </div>
+                </a>
+                {% endfor %}
             </div>
         </div>
+        {% endif %}
     </div>
 </section>
 {% endif %}
 
 <!-- CTA Section -->
 {% if not user.is_authenticated %}
-<section style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%); padding: 5rem 0; color: white; text-align: center;">
-    <div class="container">
-        <h2 style="font-size: 2.5rem; font-weight: 700; margin-bottom: 1rem;">Ready to Transform Your Learning?</h2>
-        <p style="font-size: 1.125rem; margin-bottom: 2rem; opacity: 0.9; max-width: 600px; margin-left: auto; margin-right: auto;">Join thousands of students already using EduMentorAI to ace their studies with AI-powered assistance.</p>
-        <a href="{% url 'account_signup' %}" class="btn btn-hero" style="font-size: 1.1rem;">
+<section class="cta-section">
+    <div class="cta-content">
+        <h2 class="cta-title">Ready to Transform Your Learning?</h2>
+        <p class="cta-subtitle">Join thousands of students already using EduMentorAI to ace their studies with AI-powered assistance.</p>
+        <a href="{% url 'account_signup' %}" class="btn btn-cta">
             <i class="fas fa-rocket me-2"></i>Get Started Today - It's Free!
         </a>
     </div>

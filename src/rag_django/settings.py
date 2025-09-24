@@ -61,7 +61,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # Note: allauth.account.middleware.AccountMiddleware is not needed for most django-allauth versions
+    'allauth.account.middleware.AccountMiddleware',
     'rag_app.email_verification_middleware.EmailVerificationMiddleware',  # Email verification
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',

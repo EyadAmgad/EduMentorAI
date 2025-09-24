@@ -165,15 +165,42 @@ class DocumentListView(LoginRequiredMixin, ListView):
     
     def get_queryset(self):
         queryset = Document.objects.filter(uploaded_by=self.request.user)
+        
+        # Filter by subject
         subject_id = self.request.GET.get('subject')
         if subject_id:
             queryset = queryset.filter(subject_id=subject_id)
-        return queryset.order_by('-uploaded_at')
+        
+        # Filter by search (title or content)
+        search_query = self.request.GET.get('search')
+        if search_query:
+            queryset = queryset.filter(title__icontains=search_query)
+        
+        # Filter by file type
+        file_type = self.request.GET.get('file_type')
+        if file_type:
+            queryset = queryset.filter(document_type=file_type)
+        
+        # Sort
+        sort_by = self.request.GET.get('sort', '-uploaded_at')
+        if sort_by == 'uploaded_at':
+            queryset = queryset.order_by('uploaded_at')
+        elif sort_by == 'title':
+            queryset = queryset.order_by('title')
+        elif sort_by == '-title':
+            queryset = queryset.order_by('-title')
+        else:
+            queryset = queryset.order_by('-uploaded_at')
+        
+        return queryset
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['subjects'] = Subject.objects.filter(created_by=self.request.user)
         context['selected_subject'] = self.request.GET.get('subject')
+        context['selected_file_type'] = self.request.GET.get('file_type')
+        context['selected_sort'] = self.request.GET.get('sort', '-uploaded_at')
+        context['search_query'] = self.request.GET.get('search', '')
         return context
 
 

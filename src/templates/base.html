@@ -107,30 +107,235 @@
         }
         
         .navbar {
-            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%) !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            border: none;
-            padding: 0.75rem 0;
+            background: rgba(255, 255, 255, 0.1) !important;
+            backdrop-filter: blur(20px) !important;
+            -webkit-backdrop-filter: blur(20px) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+            padding: 1rem 0;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        
+
+        [data-theme="dark"] .navbar {
+            background: rgba(15, 23, 42, 0.8) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        }
+
         .navbar-brand {
-            font-weight: 700;
-            font-size: 1.5rem;
-            color: white !important;
+            font-weight: 800;
+            font-size: 1.75rem;
+            color: var(--text-primary) !important;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
         }
-        
+
+        .navbar-brand::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .navbar-brand:hover::before {
+            left: 100%;
+        }
+
+        .navbar-brand i {
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            margin-right: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .navbar-brand:hover i {
+            transform: rotate(10deg) scale(1.1);
+        }
+
         .navbar-nav .nav-link {
-            color: rgba(255,255,255,0.9) !important;
-            font-weight: 500;
+            color: var(--text-primary) !important;
+            font-weight: 600;
             margin: 0 0.25rem;
-            padding: 0.5rem 1rem !important;
+            padding: 0.75rem 1.25rem !important;
+            border-radius: 1rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .navbar-nav .nav-link::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .navbar-nav .nav-link:hover::before {
+            left: 100%;
+        }
+
+        .navbar-nav .nav-link:hover {
+            background: rgba(16, 185, 129, 0.1) !important;
+            color: var(--primary-color) !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+        }
+
+        .navbar-nav .nav-link i {
+            margin-right: 0.375rem;
+            transition: all 0.3s ease;
+        }
+
+        .navbar-nav .nav-link:hover i {
+            transform: scale(1.1);
+        }
+
+        .dark-mode-toggle {
+            background: rgba(16, 185, 129, 0.1) !important;
+            border: 2px solid rgba(16, 185, 129, 0.3) !important;
+            color: var(--primary-color) !important;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0.625rem;
+            border-radius: 0.75rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dark-mode-toggle::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .dark-mode-toggle:hover::before {
+            left: 100%;
+        }
+
+        .dark-mode-toggle:hover {
+            background: rgba(16, 185, 129, 0.2) !important;
+            border-color: var(--primary-color) !important;
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .user-avatar img {
+            border: 2px solid rgba(16, 185, 129, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .user-avatar img:hover {
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+        }
+
+        .avatar-placeholder {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.875rem;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .avatar-placeholder:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .dropdown-menu {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 1rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        .dropdown-item {
+            color: var(--text-primary);
+            font-weight: 500;
+            padding: 0.75rem 1rem;
             border-radius: 0.5rem;
             transition: all 0.2s ease;
         }
-        
-        .navbar-nav .nav-link:hover {
-            background-color: rgba(255,255,255,0.1);
-            color: white !important;
+
+        .dropdown-item:hover {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--primary-color);
+            transform: translateX(4px);
+        }
+
+        .dropdown-item i {
+            width: 1rem;
+            margin-right: 0.5rem;
+        }
+
+        .navbar-toggler {
+            border: 2px solid rgba(16, 185, 129, 0.3);
+            border-radius: 0.5rem;
+            padding: 0.375rem 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .navbar-toggler:hover {
+            border-color: var(--primary-color);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(16, 185, 129, 0.8)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='m4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+
+        @media (max-width: 991.98px) {
+            .navbar-collapse {
+                background: var(--card-bg);
+                border-radius: 1rem;
+                margin-top: 1rem;
+                padding: 1rem;
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+                backdrop-filter: blur(10px);
+                -webkit-backdrop-filter: blur(10px);
+                border: 1px solid var(--border-color);
+            }
+
+            .navbar-nav .nav-link {
+                margin: 0.25rem 0;
+                padding: 0.75rem 1rem !important;
+            }
+
+            .navbar-brand span {
+                display: inline !important;
+            }
         }
         
         .main-content {
@@ -421,50 +626,28 @@
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg fixed-top">
         <div class="container-fluid px-3">
-            <a class="navbar-brand fw-bold" href="{% url 'rag_app:home' %}">
+            <a class="navbar-brand fw-bold d-flex align-items-center" href="{% url 'rag_app:home' %}">
                 <i class="fas fa-graduation-cap me-2"></i>
-                EduMentorAI
+                <span class="d-none d-md-inline">EduMentorAI</span>
             </a>
-            
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     {% if user.is_authenticated %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'rag_app:dashboard' %}">
-                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'rag_app:chat' %}">
-                            <i class="fas fa-comments me-1"></i>Chat
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'rag_app:subject_list' %}">
-                            <i class="fas fa-book me-1"></i>Subjects
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'rag_app:document_list' %}">
-                            <i class="fas fa-file-alt me-1"></i>Documents
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'rag_app:quiz_list' %}">
-                            <i class="fas fa-question-circle me-1"></i>Quizzes
-                        </a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'rag_app:dashboard' %}"><i class="fas fa-tachometer-alt me-1"></i>Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'rag_app:chat' %}"><i class="fas fa-comments me-1"></i>Chat</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'rag_app:subject_list' %}"><i class="fas fa-book me-1"></i>Subjects</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'rag_app:document_list' %}"><i class="fas fa-file-alt me-1"></i>Documents</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'rag_app:quiz_list' %}"><i class="fas fa-question-circle me-1"></i>Quizzes</a></li>
                     {% endif %}
                 </ul>
-                
-                <ul class="navbar-nav">
+                <ul class="navbar-nav align-items-center">
                     <li class="nav-item">
-                        <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="Toggle Dark Mode">
-                            <i class="fas fa-moon" id="theme-icon"></i>
+                        <button id="theme-toggle" class="dark-mode-toggle d-flex align-items-center justify-content-center" aria-label="Toggle dark mode">
+                            <span class="visually-hidden">Toggle dark mode</span>
+                            <i id="theme-toggle-icon" class="fas fa-moon"></i>
                         </button>
                     </li>
                     {% if user.is_authenticated %}
@@ -482,29 +665,15 @@
                             <span class="d-none d-md-inline">{{ user.first_name|default:user.username }}</span>
                         </a>
                         <ul class="dropdown-menu dropdown-menu-end">
-                            <li><a class="dropdown-item" href="{% url 'rag_app:profile' %}">
-                                <i class="fas fa-user me-2"></i>Profile
-                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'rag_app:profile' %}"><i class="fas fa-user me-2"></i>Profile</a></li>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="{% url 'account_change_password' %}">
-                                <i class="fas fa-key me-2"></i>Change Password
-                            </a></li>
-                            <li><a class="dropdown-item" href="{% url 'account_logout' %}">
-                                <i class="fas fa-sign-out-alt me-2"></i>Logout
-                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'account_change_password' %}"><i class="fas fa-key me-2"></i>Change Password</a></li>
+                            <li><a class="dropdown-item" href="{% url 'account_logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Logout</a></li>
                         </ul>
                     </li>
                     {% else %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'account_login' %}">
-                            <i class="fas fa-sign-in-alt me-1"></i>Login
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'account_signup' %}">
-                            <i class="fas fa-user-plus me-1"></i>Sign Up
-                        </a>
-                    </li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'account_login' %}"><i class="fas fa-sign-in-alt me-1"></i>Login</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'account_signup' %}"><i class="fas fa-user-plus me-1"></i>Sign Up</a></li>
                     {% endif %}
                 </ul>
             </div>
@@ -516,7 +685,7 @@
         {% if messages %}
         <div class="container-fluid mt-3">
             {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm rounded" role="alert" style="background: var(--card-bg); color: var(--text-primary); border: 1px solid var(--border-color);">
                 <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -524,17 +693,16 @@
             {% endfor %}
         </div>
         {% endif %}
-        
         {% block content %}{% endblock %}
     </main>
     
     <!-- Footer -->
     <footer class="footer mt-auto py-4" style="background: var(--card-bg); border-top: 1px solid var(--border-color);">
         <div class="container">
-            <div class="row">
+            <div class="row align-items-center">
                 <div class="col-md-6">
-                    <h6 class="fw-bold">EduMentorAI</h6>
-                    <p class="text-muted small" style="color: var(--text-secondary) !important;">Your AI-powered learning companion</p>
+                    <h6 class="fw-bold mb-1">EduMentorAI</h6>
+                    <p class="text-muted small mb-0" style="color: var(--text-secondary) !important;">Your AI-powered learning companion</p>
                 </div>
                 <div class="col-md-6 text-md-end">
                     <p class="text-muted small mb-0" style="color: var(--text-secondary) !important;">
@@ -569,44 +737,31 @@
     <script>
         // CSRF Token for AJAX requests
         const csrfToken = '{{ csrf_token }}';
-        
-        // Dark Mode Functionality
-        function toggleDarkMode() {
+        // Modern Dark/Light Mode Toggle
+        function setTheme(theme) {
             const html = document.documentElement;
-            const themeIcon = document.getElementById('theme-icon');
-            const currentTheme = html.getAttribute('data-theme');
-            
-            if (currentTheme === 'dark') {
-                html.removeAttribute('data-theme');
-                themeIcon.className = 'fas fa-moon';
-                localStorage.setItem('theme', 'light');
-            } else {
+            const icon = document.getElementById('theme-toggle-icon');
+            if (theme === 'dark') {
                 html.setAttribute('data-theme', 'dark');
-                themeIcon.className = 'fas fa-sun';
-                localStorage.setItem('theme', 'dark');
+                icon.className = 'fas fa-sun';
+            } else {
+                html.removeAttribute('data-theme');
+                icon.className = 'fas fa-moon';
             }
+            localStorage.setItem('theme', theme);
         }
-
-        // Initialize theme on page load
         document.addEventListener('DOMContentLoaded', function() {
-            const savedTheme = localStorage.getItem('theme');
-            const html = document.documentElement;
-            const themeIcon = document.getElementById('theme-icon');
-            
-            if (savedTheme === 'dark') {
-                html.setAttribute('data-theme', 'dark');
-                themeIcon.className = 'fas fa-sun';
-            } else {
-                html.removeAttribute('data-theme');
-                themeIcon.className = 'fas fa-moon';
-            }
-            
+            const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            setTheme(savedTheme);
+            document.getElementById('theme-toggle').addEventListener('click', function() {
+                const currentTheme = document.documentElement.getAttribute('data-theme');
+                setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+            });
             // Initialize tooltips and popovers
             var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
             var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
-            
             var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
             var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
                 return new bootstrap.Popover(popoverTriggerEl);

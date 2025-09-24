@@ -7,72 +7,189 @@
 
 {% block extra_css %}
 <style>
-    .auth-container {
-        min-height: calc(100vh - 80px);
+    /* Revolutionary Login Styles */
+    .auth-hero {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #3730a3 100%);
+        min-height: 100vh;
         display: flex;
         align-items: center;
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        position: relative;
+        overflow: hidden;
     }
-    
-    .auth-card {
-        background: white;
-        border-radius: 1rem;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        max-width: 400px;
+
+    .auth-hero::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background:
+            radial-gradient(circle at 30% 70%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+            radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+        animation: authFloat 20s ease-in-out infinite;
+    }
+
+    @keyframes authFloat {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-10px) rotate(1deg); }
+    }
+
+    .auth-container {
+        position: relative;
+        z-index: 2;
         width: 100%;
     }
-    
+
+    .auth-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        border-radius: 20px;
+        box-shadow: 0 25px 50px rgba(0,0,0,0.15);
+        max-width: 450px;
+        width: 100%;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        overflow: hidden;
+    }
+
     .auth-header {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        background: linear-gradient(135deg, #6366f1, #4f46e5);
         color: white;
-        border-radius: 1rem 1rem 0 0;
-        padding: 2rem;
+        padding: 3rem 2rem;
         text-align: center;
+        position: relative;
     }
-    
+
+    .auth-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+    }
+
+    .auth-header-content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .auth-title {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+
+    .auth-subtitle {
+        font-size: 1rem;
+        opacity: 0.9;
+        margin-bottom: 0;
+    }
+
     .auth-body {
-        padding: 2rem;
+        padding: 3rem;
     }
-    
+
+    .form-floating {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-floating label {
+        color: #6b7280;
+        font-weight: 500;
+    }
+
+    .form-control {
+        background: #f8fafc;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        color: #1f2937;
+        padding: 1rem 1.25rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
     .form-control:focus {
-        border-color: #10b981;
-        box-shadow: 0 0 0 0.2rem rgba(16, 185, 129, 0.25);
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        outline: none;
+        background: white;
     }
-    
+
+    .form-control::placeholder {
+        color: #9ca3af;
+    }
+
+    .form-check {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-check-input {
+        width: 1.2rem;
+        height: 1.2rem;
+        border: 2px solid #d1d5db;
+        border-radius: 4px;
+        background: white;
+        transition: all 0.2s ease;
+    }
+
+    .form-check-input:checked {
+        background-color: #6366f1;
+        border-color: #6366f1;
+    }
+
+    .form-check-input:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .form-check-label {
+        color: #374151;
+        font-weight: 500;
+        margin-left: 0.5rem;
+    }
+
     .btn-auth {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        background: linear-gradient(135deg, #6366f1, #4f46e5);
         border: none;
         color: white;
         font-weight: 600;
-        padding: 0.75rem 1.5rem;
-        border-radius: 0.5rem;
+        padding: 1rem 2rem;
+        border-radius: 10px;
         width: 100%;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
     }
-    
+
+    .btn-auth::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+
+    .btn-auth:hover::before {
+        left: 100%;
+    }
+
     .btn-auth:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
     }
-    
-    .auth-link {
-        color: #10b981;
-        text-decoration: none;
-        font-weight: 500;
-    }
-    
-    .auth-link:hover {
-        color: #059669;
-        text-decoration: underline;
-    }
-    
+
     .divider {
         position: relative;
         text-align: center;
-        margin: 1.5rem 0;
+        margin: 2rem 0;
     }
-    
+
     .divider::before {
         content: '';
         position: absolute;
@@ -80,123 +197,194 @@
         left: 0;
         right: 0;
         height: 1px;
-        background: #e2e8f0;
+        background: #e5e7eb;
     }
-    
+
     .divider span {
-        background: white;
+        background: rgba(255, 255, 255, 0.95);
         padding: 0 1rem;
-        color: #64748b;
+        color: #6b7280;
         font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .auth-links {
+        text-align: center;
+    }
+
+    .auth-link {
+        color: #6366f1;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.2s ease;
+        display: inline-block;
+        margin: 0.25rem 0;
+    }
+
+    .auth-link:hover {
+        color: #4f46e5;
+        text-decoration: underline;
+        transform: translateY(-1px);
+    }
+
+    .auth-link i {
+        margin-right: 0.25rem;
+    }
+
+    .alert {
+        border-radius: 10px;
+        border: none;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        margin-bottom: 2rem;
+    }
+
+    .invalid-feedback {
+        color: #dc2626;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+
+    .form-control.is-invalid {
+        border-color: #dc2626;
+    }
+
+    .form-control.is-invalid:focus {
+        border-color: #dc2626;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .auth-hero {
+            padding: 1rem;
+        }
+
+        .auth-card {
+            margin: 1rem;
+            max-width: none;
+        }
+
+        .auth-header {
+            padding: 2rem 1.5rem;
+        }
+
+        .auth-title {
+            font-size: 1.5rem;
+        }
+
+        .auth-body {
+            padding: 2rem 1.5rem;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="auth-container">
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-6 col-lg-5">
-                <div class="auth-card">
-                    <div class="auth-header">
-                        <h2 class="mb-0">
-                            <i class="fas fa-sign-in-alt me-2"></i>
-                            Welcome Back
-                        </h2>
-                        <p class="mt-2 mb-0 opacity-90">Sign in to your EduMentorAI account</p>
-                    </div>
-                    <div class="auth-body">
-                        {% if messages %}
-                            {% for message in messages %}
-                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                                    {{ message }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                                </div>
-                            {% endfor %}
-                        {% endif %}
-                        
-                        <form method="post" action="{% url 'account_login' %}">
-                            {% csrf_token %}
-                            
-                            <div class="mb-3">
-                                <label for="{{ form.login.id_for_label }}" class="form-label fw-semibold">
-                                    <i class="fas fa-envelope me-1"></i>Email Address
-                                </label>
-                                <input type="email" 
-                                       class="form-control {% if form.login.errors %}is-invalid{% endif %}" 
-                                       id="{{ form.login.id_for_label }}" 
-                                       name="{{ form.login.name }}" 
-                                       value="{{ form.login.value|default:'' }}"
-                                       placeholder="Enter your email address"
-                                       required>
-                                {% if form.login.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.login.errors %}
-                                            {{ error }}
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
+<div class="auth-hero">
+    <div class="auth-container">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-6 col-lg-5">
+                    <div class="auth-card">
+                        <div class="auth-header">
+                            <div class="auth-header-content">
+                                <h2 class="auth-title">
+                                    <i class="fas fa-sign-in-alt me-2"></i>Welcome Back
+                                </h2>
+                                <p class="auth-subtitle">Sign in to continue your learning journey</p>
                             </div>
-                            
-                            <div class="mb-3">
-                                <label for="{{ form.password.id_for_label }}" class="form-label fw-semibold">
-                                    <i class="fas fa-lock me-1"></i>Password
-                                </label>
-                                <input type="password" 
-                                       class="form-control {% if form.password.errors %}is-invalid{% endif %}" 
-                                       id="{{ form.password.id_for_label }}" 
-                                       name="{{ form.password.name }}"
-                                       placeholder="Enter your password"
-                                       required>
-                                {% if form.password.errors %}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.password.errors %}
-                                            {{ error }}
-                                        {% endfor %}
-                                    </div>
-                                {% endif %}
-                            </div>
-                            
-                            <div class="mb-3 form-check">
-                                <input type="checkbox" 
-                                       class="form-check-input" 
-                                       id="{{ form.remember.id_for_label }}" 
-                                       name="{{ form.remember.name }}"
-                                       {% if form.remember.value %}checked{% endif %}>
-                                <label class="form-check-label" for="{{ form.remember.id_for_label }}">
-                                    Remember me
-                                </label>
-                            </div>
-                            
-                            {% if form.non_field_errors %}
-                                <div class="alert alert-danger">
-                                    {% for error in form.non_field_errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                            
-                            <button type="submit" class="btn btn-auth">
-                                <i class="fas fa-sign-in-alt me-2"></i>Sign In
-                            </button>
-                        </form>
-                        
-                        <div class="divider">
-                            <span>or</span>
                         </div>
-                        
-                        <div class="text-center">
-                            <p class="mb-2">
+                        <div class="auth-body">
+                            {% if messages %}
+                                {% for message in messages %}
+                                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                        <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+
+                            <form method="post" action="{% url 'account_login' %}">
+                                {% csrf_token %}
+
+                                <div class="form-floating">
+                                    <input type="email"
+                                           class="form-control {% if form.login.errors %}is-invalid{% endif %}"
+                                           id="{{ form.login.id_for_label }}"
+                                           name="{{ form.login.name }}"
+                                           value="{{ form.login.value|default:'' }}"
+                                           placeholder="Enter your email address"
+                                           required>
+                                    <label for="{{ form.login.id_for_label }}">
+                                        <i class="fas fa-envelope me-1"></i>Email Address
+                                    </label>
+                                    {% if form.login.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.login.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-floating">
+                                    <input type="password"
+                                           class="form-control {% if form.password.errors %}is-invalid{% endif %}"
+                                           id="{{ form.password.id_for_label }}"
+                                           name="{{ form.password.name }}"
+                                           placeholder="Enter your password"
+                                           required>
+                                    <label for="{{ form.password.id_for_label }}">
+                                        <i class="fas fa-lock me-1"></i>Password
+                                    </label>
+                                    {% if form.password.errors %}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.password.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="form-check">
+                                    <input type="checkbox"
+                                           class="form-check-input"
+                                           id="{{ form.remember.id_for_label }}"
+                                           name="{{ form.remember.name }}"
+                                           {% if form.remember.value %}checked{% endif %}>
+                                    <label class="form-check-label" for="{{ form.remember.id_for_label }}">
+                                        Remember me
+                                    </label>
+                                </div>
+
+                                {% if form.non_field_errors %}
+                                    <div class="alert alert-danger">
+                                        {% for error in form.non_field_errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+
+                                <button type="submit" class="btn btn-auth">
+                                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                                </button>
+                            </form>
+
+                            <div class="divider">
+                                <span>or</span>
+                            </div>
+
+                            <div class="auth-links">
                                 <a href="{% url 'account_reset_password' %}" class="auth-link">
-                                    <i class="fas fa-key me-1"></i>Forgot your password?
-                                </a>
-                            </p>
-                            <p class="mb-0">
-                                Don't have an account? 
+                                    <i class="fas fa-key"></i>Forgot your password?
+                                </a><br>
+                                <span style="color: #6b7280; font-size: 0.875rem;">Don't have an account?</span>
                                 <a href="{% url 'account_signup' %}" class="auth-link">
-                                    <i class="fas fa-user-plus me-1"></i>Sign up here
+                                    <i class="fas fa-user-plus"></i>Sign up here
                                 </a>
-                            </p>
+                            </div>
                         </div>
                     </div>
                 </div>
