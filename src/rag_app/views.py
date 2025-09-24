@@ -24,7 +24,7 @@ import re
 
 from .models import (
     Subject, Document, DocumentChunk, ChatSession, ChatMessage,
-    Quiz, Question, QuizAttempt, QuizResponse, UserProfile, StudySession,
+    Quiz, Question, QuizAttempt, QuizResponse, UserProfile,
     TempDocument
 )
 from .forms import (
@@ -1363,28 +1363,6 @@ class ProfileEditView(LoginRequiredMixin, UpdateView):
     def form_valid(self, form):
         messages.success(self.request, 'Profile updated successfully!')
         return super().form_valid(form)
-
-
-# Study Session Views
-class StudySessionListView(LoginRequiredMixin, ListView):
-    """List study sessions"""
-    model = StudySession
-    template_name = 'rag_app/study_session_list.html'
-    context_object_name = 'sessions'
-    paginate_by = 20
-    
-    def get_queryset(self):
-        return StudySession.objects.filter(user=self.request.user)
-
-
-class StudySessionDetailView(LoginRequiredMixin, DetailView):
-    """Study session detail"""
-    model = StudySession
-    template_name = 'rag_app/study_session_detail.html'
-    context_object_name = 'session'
-    
-    def get_queryset(self):
-        return StudySession.objects.filter(user=self.request.user)
 
 
 # Slide Generation View

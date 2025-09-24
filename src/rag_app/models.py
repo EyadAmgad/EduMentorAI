@@ -275,21 +275,3 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"{self.user.username}'s Profile"
 
-
-class StudySession(models.Model):
-    """Track user study sessions"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE)
-    started_at = models.DateTimeField(auto_now_add=True)
-    ended_at = models.DateTimeField(null=True, blank=True)
-    duration = models.DurationField(null=True, blank=True)
-    documents_accessed = models.ManyToManyField(Document, blank=True)
-    questions_asked = models.PositiveIntegerField(default=0)
-    quizzes_taken = models.PositiveIntegerField(default=0)
-    
-    def __str__(self):
-        return f"{self.user.username} - {self.subject.name} - {self.started_at.date()}"
-    
-    class Meta:
-        ordering = ['-started_at']

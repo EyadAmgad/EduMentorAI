@@ -61,7 +61,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
+    # 'allauth.account.middleware.AccountMiddleware',  # This middleware doesn't exist in most django-allauth versions
     'rag_app.email_verification_middleware.EmailVerificationMiddleware',  # Email verification
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -259,10 +259,11 @@ ACCOUNT_FORMS = {
 ACCOUNT_PREVENT_ENUMERATION = False  # We want to show specific error for UX
 # Disable the automatic account already exists email behavior
 ACCOUNT_EMAIL_UNKNOWN_ACCOUNTS = False
-ACCOUNT_RATE_LIMITS = {
-    'login_failed': '5/5m',
-    'signup': '5/m',
-}
+# Disable rate limiting for now to avoid compatibility issues
+# ACCOUNT_RATE_LIMITS = {
+#     'login_failed': '5/300',  # 5 attempts per 300 seconds (5 minutes)
+#     'signup': '5/60',         # 5 signups per 60 seconds (1 minute)
+# }
 # Remove deprecated signup fields setting
 # ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 
