@@ -53,10 +53,6 @@ urlpatterns = [
     # User profile
     path('profile/', views.ProfileView.as_view(), name='profile'),
     
-    # Study sessions
-    path('study-sessions/', views.StudySessionListView.as_view(), name='study_session_list'),
-    path('study-sessions/<uuid:pk>/', views.StudySessionDetailView.as_view(), name='study_session_detail'),
-    
     # Slide generation
     path('slides/generate/', views.SlideGeneratorView.as_view(), name='slide_generate'),
     path('slides/download/<str:filename>/', views.SlideDownloadView.as_view(), name='slide_download'),

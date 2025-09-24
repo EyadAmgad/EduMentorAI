@@ -5,7 +5,7 @@ from django.utils.safestring import mark_safe
 from .models import (
     Subject, Document, DocumentChunk, ChatSession, ChatMessage,
     Quiz, Question, AnswerChoice, QuizAttempt, QuizResponse,
-    UserProfile, StudySession
+    UserProfile
 )
 
 
@@ -185,16 +185,6 @@ class UserProfileAdmin(admin.ModelAdmin):
         if obj:  # Editing existing object
             readonly_fields.append('user')
         return readonly_fields
-
-
-@admin.register(StudySession)
-class StudySessionAdmin(admin.ModelAdmin):
-    list_display = ['user', 'subject', 'started_at', 'ended_at', 
-                   'duration', 'questions_asked', 'quizzes_taken']
-    list_filter = ['started_at', 'subject']
-    search_fields = ['user__username', 'subject__name']
-    readonly_fields = ['id', 'started_at', 'duration']
-    filter_horizontal = ['documents_accessed']
 
 
 # Customize admin site

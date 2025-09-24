@@ -3,517 +3,342 @@
 
 {% block title %}AI Chat - EduMentorAI{% endblock %}
 
-{% block body_class %}chat-page{% endblock %}
-
 {% block extra_css %}
 <style>
-    /* Modern Chat Interface - Inspired by ChatGPT/Claude */
-    :root {
-        --chat-bg: #f8fafc;
-        --chat-sidebar-bg: #ffffff;
-        --chat-message-user: #10b981;
-        --chat-message-ai: #ffffff;
-        --chat-border: #e5e7eb;
-        --chat-text-primary: #111827;
-        --chat-text-secondary: #6b7280;
-        --chat-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
-        --chat-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-    }
 
-    [data-theme="dark"] {
-        --chat-bg: #0f172a;
-        --chat-sidebar-bg: #1e293b;
-        --chat-message-user: #10b981;
-        --chat-message-ai: #1e293b;
-        --chat-border: #334155;
-        --chat-text-primary: #f1f5f9;
-        --chat-text-secondary: #94a3b8;
-    }
+.chat-layout {
+    display: flex;
+    height: calc(100vh - 80px);
+    background: var(--background-color);
+}
 
-    * {
-        box-sizing: border-box;
-    }
+.chat-sidebar {
+    width: 300px;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+}
 
-    body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        background: var(--chat-bg);
-        margin: 0;
-        padding: 0;
-        line-height: 1.6;
-    }
+.sidebar-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
 
-    .chat-container {
-        display: flex;
-        height: 100vh;
-        background: var(--chat-bg);
-    }
+.new-chat-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.75rem 1rem;
+    background: var(--primary-color);
+    color: white;
+    border-radius: var(--border-radius);
+    text-decoration: none;
+    font-weight: 500;
+    transition: var(--transition);
+}
 
-    /* Sidebar */
-    .chat-sidebar {
-        width: 280px;
-        background: var(--chat-sidebar-bg);
-        border-right: 1px solid var(--chat-border);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
+.new-chat-btn:hover {
+    background: var(--primary-dark);
+    color: white;
+    text-decoration: none;
+}
 
-    .sidebar-header {
-        padding: 16px;
-        border-bottom: 1px solid var(--chat-border);
-    }
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+}
 
-    .new-chat-btn {
-        width: 100%;
-        padding: 12px 16px;
-        background: var(--chat-message-user);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        font-weight: 500;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        transition: all 0.2s ease;
-        font-size: 14px;
-    }
+.current-session-info {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1rem;
+}
 
-    .new-chat-btn:hover {
-        background: #059669;
-        transform: translateY(-1px);
-        box-shadow: var(--chat-shadow);
-    }
+.session-card {
+    background: var(--primary-color);
+    color: white;
+    padding: 0.75rem;
+    border-radius: var(--border-radius);
+    border: 2px solid var(--primary-color);
+}
 
-    .chat-history {
-        flex: 1;
-        overflow-y: auto;
-        padding: 8px;
-    }
+.session-card .session-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
 
-    .chat-session {
-        padding: 12px 16px;
-        margin: 2px 0;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        font-size: 14px;
-        color: var(--chat-text-secondary);
-        border: 1px solid transparent;
-    }
+.session-card .session-meta {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
 
-    .chat-session:hover {
-        background: rgba(16, 185, 129, 0.1);
-        border-color: rgba(16, 185, 129, 0.2);
-    }
+.chat-session {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+    color: var(--text-primary);
+    border: 1px solid transparent;
+    background: var(--card-bg);
+}
 
-    .chat-session.active {
-        background: rgba(16, 185, 129, 0.1);
-        border-color: var(--chat-message-user);
-        color: var(--chat-text-primary);
-    }
+.chat-session:hover {
+    background: var(--background-light);
+    border-color: var(--border-color);
+    transform: translateX(2px);
+}
 
-    .session-title {
-        font-weight: 500;
-        margin-bottom: 4px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+.chat-session .session-title {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+}
 
-    .session-date {
-        font-size: 12px;
-        opacity: 0.7;
-    }
+.chat-session .session-meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
 
-    /* Main Chat Area */
-    .chat-main {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        background: var(--chat-bg);
-    }
+.chat-mode-modal {
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
 
-    .chat-header {
-        padding: 16px 24px;
-        background: var(--chat-sidebar-bg);
-        border-bottom: 1px solid var(--chat-border);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        box-shadow: var(--chat-shadow);
-    }
+.chat-mode-content {
+    background: var(--card-bg);
+    border-radius: 1rem;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--border-color);
+    max-width: 500px;
+    width: 90%;
+}
 
-    .chat-title {
-        font-size: 18px;
-        font-weight: 600;
-        color: var(--chat-text-primary);
-        margin: 0;
-    }
+.mode-option-mini {
+    padding: 1rem;
+    border: 2px solid var(--border-color);
+    border-radius: 0.75rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: var(--card-bg);
+    text-align: center;
+}
 
-    .chat-messages {
-        flex: 1;
-        overflow-y: auto;
-        padding: 24px;
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-        max-width: 800px;
-        margin: 0 auto;
-        width: 100%;
-    }
+.mode-option-mini:hover {
+    border-color: var(--primary-color);
+    background: var(--background-light);
+    transform: translateY(-2px);
+}
 
-    .message {
-        display: flex;
-        gap: 16px;
-        max-width: 100%;
-        animation: messageSlideIn 0.3s ease-out;
-    }
+.mode-option-mini.selected {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    color: white;
+}
 
-    .message.user {
-        justify-content: flex-end;
-    }
+.mode-icon-mini {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: var(--primary-color);
+}
 
-    .message-avatar {
-        width: 36px;
-        height: 36px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 600;
-        color: white;
-        flex-shrink: 0;
-        font-size: 14px;
-        margin-top: 2px;
-    }
+.mode-option-mini.selected .mode-icon-mini {
+    color: white;
+}
 
-    .message.user .message-avatar {
-        background: var(--chat-message-user);
-    }
+.chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--background-color);
+}
 
-    .message.ai .message-avatar {
-        background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    }
+.chat-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--card-bg);
+}
 
-    .message-content {
-        background: var(--chat-message-ai);
-        padding: 16px 20px;
-        border-radius: 18px;
-        border: 1px solid var(--chat-border);
-        box-shadow: var(--chat-shadow);
-        position: relative;
-        max-width: calc(100% - 52px);
-        word-wrap: break-word;
-        overflow-wrap: break-word;
-    }
+.chat-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
 
-    .message.user .message-content {
-        background: var(--chat-message-user);
-        color: white;
-        border-color: var(--chat-message-user);
-    }
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+    background: var(--card-bg);
+}
 
-    .message-actions {
-        position: absolute;
-        top: -8px;
-        right: 8px;
+.message {
+    margin-bottom: 2rem;
+    display: flex;
+    gap: 1rem;
+    animation: messageAppear 0.5s ease-out;
+}
+
+@keyframes messageAppear {
+    from {
         opacity: 0;
-        transition: opacity 0.2s ease;
-        display: flex;
-        gap: 4px;
+        transform: translateY(20px);
     }
-
-    .message:hover .message-actions {
+    to {
         opacity: 1;
+        transform: translateY(0);
     }
+}
 
-    .message-action-btn {
-        width: 24px;
-        height: 24px;
-        border-radius: 50%;
-        background: var(--chat-sidebar-bg);
-        border: 1px solid var(--chat-border);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        font-size: 12px;
-        color: var(--chat-text-secondary);
-        transition: all 0.2s ease;
+.message.user {
+    flex-direction: row-reverse;
+}
+
+.message-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+.message.user .message-avatar {
+    background: var(--primary-color);
+    color: white;
+}
+
+.message.ai .message-avatar {
+    background: var(--secondary-color);
+    color: white;
+}
+
+.message-content {
+    background: var(--card-bg);
+    border-radius: var(--border-radius-lg);
+    padding: 1.25rem;
+    max-width: 70%;
+    box-shadow: var(--shadow-sm);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.message.user .message-content {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.message-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+.chat-input-area {
+    padding: 1.5rem;
+    background: var(--card-bg);
+    border-top: 1px solid var(--border-color);
+}
+
+.chat-input-container {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-end;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.chat-input {
+    flex: 1;
+    resize: none;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: 1rem;
+    min-height: 50px;
+    max-height: 150px;
+    background: var(--input-bg);
+    color: var(--text-primary);
+    transition: var(--transition);
+}
+
+.chat-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.send-btn {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius-lg);
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+    transition: var(--transition);
+}
+
+.send-btn:hover {
+    background: var(--primary-dark);
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-secondary);
+}
+
+.empty-state i {
+    font-size: 4rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.suggested-prompts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 2rem;
+}
+
+.suggested-prompts .btn {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: var(--border-radius-lg);
+    padding: 0.75rem 1.25rem;
+    transition: var(--transition);
+}
+
+.suggested-prompts .btn:hover {
+    background: var(--background-light);
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .chat-sidebar {
+        position: fixed;
+        left: -300px;
+        top: 80px;
+        height: calc(100vh - 80px);
+        z-index: 1000;
     }
-
-    .message-action-btn:hover {
-        background: var(--chat-message-user);
-        color: white;
-        border-color: var(--chat-message-user);
+    
+    .chat-sidebar.show {
+        left: 0;
     }
-
-    .message-time {
-        font-size: 12px;
-        color: var(--chat-text-secondary);
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px solid var(--chat-border);
-        opacity: 0.7;
-    }
-
-    .message.user .message-time {
-        color: rgba(255, 255, 255, 0.8);
-        border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    /* Typing Indicator */
-    .typing-indicator {
-        display: flex;
-        gap: 16px;
-        max-width: 100%;
-        animation: messageSlideIn 0.3s ease-out;
-    }
-
-    .typing-content {
-        background: var(--chat-message-ai);
-        padding: 16px 20px;
-        border-radius: 18px;
-        border: 1px solid var(--chat-border);
-        box-shadow: var(--chat-shadow);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .typing-text {
-        color: var(--chat-text-secondary);
-        font-size: 14px;
-    }
-
-    .typing-dots {
-        display: flex;
-        gap: 4px;
-    }
-
-    .typing-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: var(--chat-text-secondary);
-        animation: typing 1.4s infinite ease-in-out;
-    }
-
-    .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-    .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-
-    /* Input Area */
-    .chat-input-area {
-        padding: 24px;
-        background: var(--chat-sidebar-bg);
-        border-top: 1px solid var(--chat-border);
-        box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-
-    .chat-input-container {
-        max-width: 800px;
-        margin: 0 auto;
-        display: flex;
-        gap: 12px;
-        align-items: flex-end;
-    }
-
-    .chat-input {
-        flex: 1;
-        border: 2px solid var(--chat-border);
-        border-radius: 24px;
-        padding: 16px 20px;
-        background: var(--chat-sidebar-bg);
-        color: var(--chat-text-primary);
-        font-size: 16px;
-        line-height: 1.5;
-        resize: none;
-        outline: none;
-        transition: all 0.2s ease;
-        min-height: 20px;
-        max-height: 200px;
-        font-family: inherit;
-    }
-
-    .chat-input:focus {
-        border-color: var(--chat-message-user);
-        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-    }
-
-    .chat-input::placeholder {
-        color: var(--chat-text-secondary);
-    }
-
-    .send-btn {
-        width: 48px;
-        height: 48px;
-        border-radius: 50%;
-        background: var(--chat-message-user);
-        color: white;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        transition: all 0.2s ease;
-        flex-shrink: 0;
-    }
-
-    .send-btn:hover:not(:disabled) {
-        background: #059669;
-        transform: scale(1.05);
-    }
-
-    .send-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        transform: none;
-    }
-
-    .input-hint {
-        text-align: center;
-        margin-top: 12px;
-        font-size: 13px;
-        color: var(--chat-text-secondary);
-    }
-
-    /* Empty State */
-    .empty-state {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 48px 24px;
-    }
-
-    .empty-icon {
-        font-size: 64px;
-        color: var(--chat-text-secondary);
-        margin-bottom: 24px;
-        opacity: 0.5;
-    }
-
-    .empty-title {
-        font-size: 24px;
-        font-weight: 600;
-        color: var(--chat-text-primary);
-        margin-bottom: 8px;
-    }
-
-    .empty-description {
-        color: var(--chat-text-secondary);
-        margin-bottom: 32px;
-        max-width: 400px;
-        line-height: 1.6;
-    }
-
-    .suggested-prompts {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 12px;
-        max-width: 700px;
-        width: 100%;
-    }
-
-    .suggested-prompt {
-        padding: 16px;
-        background: var(--chat-sidebar-bg);
-        border: 1px solid var(--chat-border);
-        border-radius: 12px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        text-align: left;
-    }
-
-    .suggested-prompt:hover {
-        border-color: var(--chat-message-user);
-        box-shadow: var(--chat-shadow);
-        transform: translateY(-2px);
-    }
-
-    .suggested-prompt-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--chat-text-primary);
-        margin-bottom: 4px;
-    }
-
-    .suggested-prompt-desc {
-        color: var(--chat-text-secondary);
-        font-size: 14px;
-    }
-
-    /* Mobile Responsive */
-    @media (max-width: 768px) {
-        .chat-sidebar {
-            position: fixed;
-            left: -280px;
-            top: 0;
-            height: 100vh;
-            z-index: 1000;
-            transition: left 0.3s ease;
-            box-shadow: var(--chat-shadow-lg);
-        }
-
-        .chat-sidebar.show {
-            left: 0;
-        }
-
-        .chat-messages {
-            padding: 16px;
-        }
-
-        .message {
-            gap: 12px;
-        }
-
-        .message-content {
-            padding: 12px 16px;
-            font-size: 15px;
-        }
-
-        .chat-input-area {
-            padding: 16px;
-        }
-
-        .chat-input-container {
-            gap: 8px;
-        }
-
-        .send-btn {
-            width: 44px;
-            height: 44px;
-            font-size: 16px;
-        }
-
-        .mobile-menu-btn {
-            display: block !important;
-        }
-    }
-
-    .mobile-menu-btn {
-        display: none;
-        background: none;
-        border: none;
-        color: var(--chat-text-primary);
-        font-size: 20px;
-        cursor: pointer;
-        padding: 8px;
-        border-radius: 6px;
-        transition: background 0.2s ease;
-    }
-
-    .mobile-menu-btn:hover {
-        background: rgba(0, 0, 0, 0.1);
-    }
-
-    .mobile-overlay {
-        display: none;
+    
+    .chat-overlay {
         position: fixed;
         top: 0;
         left: 0;
@@ -521,316 +346,394 @@
         height: 100%;
         background: rgba(0, 0, 0, 0.5);
         z-index: 999;
+        display: none;
     }
-
-    .mobile-overlay.show {
+    
+    .chat-overlay.show {
         display: block;
     }
-
-    /* Animations */
-    @keyframes messageSlideIn {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    
+    .mobile-sidebar-toggle {
+        display: block;
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: var(--text-primary);
+        font-size: 1.25rem;
     }
+}
 
-    @keyframes typing {
-        0%, 80%, 100% {
-            transform: scale(0);
-            opacity: 0.5;
-        }
-        40% {
-            transform: scale(1);
-            opacity: 1;
-        }
+@media (min-width: 769px) {
+    .mobile-sidebar-toggle {
+        display: none;
     }
-
-    /* Scrollbar Styling */
-    .chat-history::-webkit-scrollbar,
-    .chat-messages::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .chat-history::-webkit-scrollbar-track,
-    .chat-messages::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .chat-history::-webkit-scrollbar-thumb,
-    .chat-messages::-webkit-scrollbar-thumb {
-        background: var(--chat-border);
-        border-radius: 3px;
-    }
-
-    .chat-history::-webkit-scrollbar-thumb:hover,
-    .chat-messages::-webkit-scrollbar-thumb:hover {
-        background: var(--chat-text-secondary);
-    }
+}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="chat-container">
+<div class="chat-layout">
     <!-- Sidebar -->
     <div class="chat-sidebar" id="chatSidebar">
         <div class="sidebar-header">
-            <button class="new-chat-btn" onclick="startNewChat()">
-                <i class="fas fa-plus"></i>
-                New Chat
-            </button>
+            <div class="d-grid gap-2">
+                <a href="{% url 'rag_app:chat' %}" class="new-chat-btn">
+                    <i class="fas fa-plus me-2"></i>New Chat
+                </a>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <a href="{% url 'rag_app:anonymous_chat' %}" class="btn btn-outline-primary btn-sm w-100" title="Upload and chat with a single document">
+                            <i class="fas fa-file-upload me-1"></i>
+                            <span class="d-none d-lg-inline">Quick Chat</span>
+                        </a>
+                    </div>
+                    <div class="col-6">
+                        <button class="btn btn-outline-secondary btn-sm w-100" onclick="showChatModeModal()" title="Choose between document chat or subject chat">
+                            <i class="fas fa-cog me-1"></i>
+                            <span class="d-none d-lg-inline">Mode</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <div class="chat-history" id="chatHistory">
-            {% for session in user_chat_sessions %}
-                <div class="chat-session {% if session.id == current_session.id %}active{% endif %}"
-                     onclick="loadChatSession({{ session.id }})">
-                    <div class="session-title">{{ session.title|truncatechars:25|default:"New Chat" }}</div>
-                    <div class="session-date">{{ session.created_at|date:"M j, H:i" }}</div>
+        
+        <div class="sidebar-content">
+            <!-- Current Session Info -->
+            {% if current_session %}
+                <div class="current-session-info mb-3">
+                    <h6 class="text-muted mb-2">
+                        <i class="fas fa-circle text-success me-1" style="font-size: 0.5rem;"></i>
+                        Current Session
+                    </h6>
+                    <div class="session-card">
+                        <div class="session-title">{{ current_session.title|default:"AI Chat" }}</div>
+                        <div class="session-meta">
+                            {% if current_session.chat_type == 'document' and current_session.document %}
+                                <i class="fas fa-file-alt me-1"></i>{{ current_session.document.title|truncatechars:25 }}
+                            {% elif current_session.chat_type == 'subject' and current_session.subject %}
+                                <i class="fas fa-books me-1"></i>{{ current_session.subject.name }}
+                                <small class="d-block text-muted">{{ current_session.subject.documents.count }} doc{{ current_session.subject.documents.count|pluralize }}</small>
+                            {% elif current_session.chat_type == 'anonymous' %}
+                                <i class="fas fa-upload me-1"></i>Temp Document
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-            {% empty %}
-                <div style="text-align: center; padding: 20px; color: var(--chat-text-secondary);">
-                    <small>No chat history yet</small>
+            {% endif %}
+            
+            <!-- Recent Sessions -->
+            {% if chat_sessions %}
+                <h6 class="text-muted mb-2">Recent Sessions</h6>
+                {% for session in chat_sessions %}
+                    {% if not current_session or session.id != current_session.id %}
+                        <div class="chat-session" onclick="loadChatSession('{{ session.id }}')">
+                            <div class="session-title">
+                                {{ session.title|default:"New Chat"|truncatechars:30 }}
+                            </div>
+                            <div class="session-meta">
+                                {% if session.chat_type == 'document' and session.document %}
+                                    <i class="fas fa-file-alt me-1"></i>{{ session.document.title|truncatechars:20 }}
+                                {% elif session.chat_type == 'subject' and session.subject %}
+                                    <i class="fas fa-books me-1"></i>{{ session.subject.name|truncatechars:20 }}
+                                {% elif session.chat_type == 'anonymous' %}
+                                    <i class="fas fa-upload me-1"></i>Quick Chat
+                                {% endif %}
+                                <small class="d-block text-muted">{{ session.created_at|date:"M d, H:i" }}</small>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-comments fa-2x mb-2"></i>
+                    <p>No chat sessions yet</p>
+                    <small>Start a new chat to begin!</small>
                 </div>
-            {% endfor %}
+            {% endif %}
         </div>
     </div>
+
+    <!-- Chat Overlay for Mobile -->
+    <div class="chat-overlay" id="chatOverlay"></div>
 
     <!-- Main Chat Area -->
     <div class="chat-main">
         <div class="chat-header">
-            <h1 class="chat-title" id="chatTitle">
-                {% if current_session %}
-                    {{ current_session.title|default:"AI Chat" }}
-                {% else %}
-                    AI Chat
-                {% endif %}
-            </h1>
-            <button class="mobile-menu-btn" id="mobileMenuBtn">
+            <button class="mobile-sidebar-toggle" id="mobileSidebarToggle">
                 <i class="fas fa-bars"></i>
             </button>
+            <div>
+                <h5 class="chat-title">
+                    {% if current_session %}
+                        {{ current_session.title|default:"AI Chat" }}
+                    {% else %}
+                        AI Chat
+                    {% endif %}
+                </h5>
+                {% if current_session %}
+                    <small class="text-muted">
+                        {% if current_session.chat_type == 'document' and current_session.document %}
+                            <i class="fas fa-file-alt me-1"></i>Document: {{ current_session.document.title }}
+                        {% elif current_session.chat_type == 'subject' and current_session.subject %}
+                            <i class="fas fa-books me-1"></i>Subject: {{ current_session.subject.name }} ({{ current_session.subject.documents.count }} document{{ current_session.subject.documents.count|pluralize }})
+                        {% elif current_session.chat_type == 'anonymous' %}
+                            <i class="fas fa-upload me-1"></i>Temporary Document Chat
+                        {% endif %}
+                    </small>
+                {% endif %}
+            </div>
         </div>
 
         <div class="chat-messages" id="chatMessages">
             {% if messages %}
                 {% for message in messages %}
-                    <div class="message {{ message.role }}">
+                    <div class="message {% if message.is_user %}user{% else %}ai{% endif %}">
                         <div class="message-avatar">
-                            {% if message.role == 'user' %}
+                            {% if message.is_user %}
                                 {{ request.user.username|first|upper }}
                             {% else %}
                                 <i class="fas fa-robot"></i>
                             {% endif %}
                         </div>
                         <div class="message-content">
-                            {% if message.role == 'user' %}
-                                {{ message.content|linebreaksbr }}
-                            {% else %}
-                                <div class="message-text">{{ message.content|safe }}</div>
-                            {% endif %}
-                            <div class="message-actions">
-                                <button class="message-action-btn" onclick="copyMessage(this)" title="Copy message">
-                                    <i class="fas fa-copy"></i>
-                                </button>
+                            {{ message.message|linebreaks }}
+                            <div class="message-time">
+                                {{ message.timestamp|date:"M d, H:i" }}
                             </div>
-                            <div class="message-time">{{ message.timestamp|date:"H:i" }}</div>
                         </div>
                     </div>
                 {% endfor %}
             {% else %}
                 <div class="empty-state">
-                    <div class="empty-icon">
+                    {% if current_session %}
+                        {% if current_session.chat_type == 'document' and current_session.document %}
+                            <i class="fas fa-file-alt"></i>
+                            <h4>Chat with {{ current_session.document.title }}</h4>
+                            <p>Ask questions about this specific document. I can help you understand, summarize, or analyze its content.</p>
+                            
+                            <div class="suggested-prompts">
+                                <button class="btn" onclick="setSuggestedPrompt('Summarize this document for me')">
+                                    <i class="fas fa-compress-alt me-1"></i>Summarize document
+                                </button>
+                                <button class="btn" onclick="setSuggestedPrompt('What are the key concepts in this document?')">
+                                    <i class="fas fa-lightbulb me-1"></i>Key concepts
+                                </button>
+                                <button class="btn" onclick="setSuggestedPrompt('Explain the main arguments presented')">
+                                    <i class="fas fa-balance-scale me-1"></i>Main arguments
+                                </button>
+                                <button class="btn" onclick="setSuggestedPrompt('Create a quiz based on this document')">
+                                    <i class="fas fa-question-circle me-1"></i>Generate quiz
+                                </button>
+                            </div>
+                        {% elif current_session.chat_type == 'subject' and current_session.subject %}
+                            <i class="fas fa-books"></i>
+                            <h4>Chat within {{ current_session.subject.name }}</h4>
+                            <p>Ask questions across all {{ current_session.subject.documents.count }} document{{ current_session.subject.documents.count|pluralize }} in this subject. I can find connections and provide comprehensive answers.</p>
+                            
+                            <div class="suggested-prompts">
+                                <button class="btn" onclick="setSuggestedPrompt('What are the common themes across all documents?')">
+                                    <i class="fas fa-project-diagram me-1"></i>Common themes
+                                </button>
+                                <button class="btn" onclick="setSuggestedPrompt('Compare the different approaches discussed')">
+                                    <i class="fas fa-balance-scale me-1"></i>Compare approaches
+                                </button>
+                                <button class="btn" onclick="setSuggestedPrompt('Summarize the key learnings from this subject')">
+                                    <i class="fas fa-graduation-cap me-1"></i>Key learnings
+                                </button>
+                                <button class="btn" onclick="setSuggestedPrompt('Create a comprehensive quiz for this subject')">
+                                    <i class="fas fa-clipboard-list me-1"></i>Subject quiz
+                                </button>
+                            </div>
+                        {% elif current_session.chat_type == 'anonymous' %}
+                            <i class="fas fa-upload"></i>
+                            <h4>Quick Document Chat</h4>
+                            <p>Chat with your uploaded document. This is a temporary session that will expire after 24 hours.</p>
+                            
+                            <div class="suggested-prompts">
+                                <button class="btn" onclick="setSuggestedPrompt('What is this document about?')">
+                                    <i class="fas fa-search me-1"></i>Document overview
+                                </button>
+                                <button class="btn" onclick="setSuggestedPrompt('Summarize the main points')">
+                                    <i class="fas fa-list me-1"></i>Main points
+                                </button>
+                                <button class="btn" onclick="setSuggestedPrompt('Extract key information')">
+                                    <i class="fas fa-filter me-1"></i>Key information
+                                </button>
+                            </div>
+                        {% endif %}
+                    {% else %}
                         <i class="fas fa-comments"></i>
-                    </div>
-                    <div class="empty-state-title">How can I help you today?</div>
-                    <div class="empty-state-description">
-                        Ask me anything about your documents, get help with research, or just have a conversation.
-                    </div>
-
-                    <div class="suggested-prompts">
-                        <div class="suggested-prompt" onclick="useSuggestedPrompt('What can you help me with?')">
-                            <div class="suggested-prompt-title">What can you help me with?</div>
-                            <div class="suggested-prompt-desc">Learn about my capabilities</div>
+                        <h4>Welcome to EduMentorAI</h4>
+                        <p>Choose how you'd like to start chatting with your documents:</p>
+                        
+                        <div class="row g-3 mt-3">
+                            <div class="col-md-6">
+                                <div class="text-center p-3 border rounded">
+                                    <i class="fas fa-file-alt fa-2x text-primary mb-2"></i>
+                                    <h6>Chat with Document</h6>
+                                    <p class="small text-muted">Focus on a specific document</p>
+                                    <button class="btn btn-sm btn-primary" onclick="showChatModeModal()">
+                                        Start Document Chat
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="text-center p-3 border rounded">
+                                    <i class="fas fa-books fa-2x text-success mb-2"></i>
+                                    <h6>Chat within Subject</h6>
+                                    <p class="small text-muted">Query across all documents in a subject</p>
+                                    <button class="btn btn-sm btn-success" onclick="showChatModeModal()">
+                                        Start Subject Chat
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="suggested-prompt" onclick="useSuggestedPrompt('How do I upload documents?')">
-                            <div class="suggested-prompt-title">How do I upload documents?</div>
-                            <div class="suggested-prompt-desc">Get started with your files</div>
+                        
+                        <div class="mt-4">
+                            <small class="text-muted">
+                                Or try <a href="{% url 'rag_app:anonymous_chat' %}" class="text-primary">Quick Document Chat</a> 
+                                to upload and chat with a single document instantly.
+                            </small>
                         </div>
-                        <div class="suggested-prompt" onclick="useSuggestedPrompt('Tell me about EduMentorAI')">
-                            <div class="suggested-prompt-title">Tell me about EduMentorAI</div>
-                            <div class="suggested-prompt-desc">Learn about the platform</div>
-                        </div>
-                        <div class="suggested-prompt" onclick="useSuggestedPrompt('Help me analyze my documents')">
-                            <div class="suggested-prompt-title">Help me analyze my documents</div>
-                            <div class="suggested-prompt-desc">Get insights from your files</div>
-                        </div>
-                    </div>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>
 
         <div class="chat-input-area">
-            <form id="chatForm" class="chat-input-container">
+            <form method="post" id="chatForm" class="chat-input-container">
                 {% csrf_token %}
-                <textarea name="message"
-                         id="chatInput"
-                         class="chat-input"
-                         placeholder="Type your message here..."
+                <textarea name="message" 
+                         id="chatInput" 
+                         class="chat-input" 
+                         placeholder="Type your message here..." 
                          rows="1"
-                         maxlength="4000"
                          required></textarea>
-                <button type="submit" class="send-btn" id="sendBtn" disabled>
+                <button type="submit" class="send-btn" id="sendBtn">
                     <i class="fas fa-paper-plane"></i>
                 </button>
             </form>
-            <div class="input-hint">
-                Press <kbd>Ctrl</kbd> + <kbd>Enter</kbd> to send
-            </div>
         </div>
     </div>
-
-    <!-- Mobile Overlay -->
-    <div class="mobile-overlay" id="mobileOverlay"></div>
 </div>
 
-<!-- Markdown Parser -->
-<script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
-
+<!-- Markdown library for rendering formatted text -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Configure marked for safe rendering
     marked.setOptions({
         breaks: true,
         gfm: true,
-        headerIds: false,
-        mangle: false
+        sanitize: false,
+        silent: false
     });
-
-    // DOM Elements
+    
     const chatInput = document.getElementById('chatInput');
     const chatForm = document.getElementById('chatForm');
     const sendBtn = document.getElementById('sendBtn');
     const chatMessages = document.getElementById('chatMessages');
-    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+    const mobileSidebarToggle = document.getElementById('mobileSidebarToggle');
     const chatSidebar = document.getElementById('chatSidebar');
-    const mobileOverlay = document.getElementById('mobileOverlay');
+    const chatOverlay = document.getElementById('chatOverlay');
+    
+    // Track current session ID
+    let currentSessionId = {% if session %}'{{ session.id }}'{% else %}null{% endif %};
 
-    // State
-    let currentSessionId = {{ current_session.id|default:"null" }};
-    let isLoading = false;
-
-    // Initialize
-    setupEventListeners();
-    scrollToBottom();
-
-    function setupEventListeners() {
-        // Auto-resize textarea
-        chatInput.addEventListener('input', handleInputChange);
-
-        // Handle Ctrl+Enter to send message
-        chatInput.addEventListener('keydown', handleKeyDown);
-
-        // Form submission
-        chatForm.addEventListener('submit', handleFormSubmit);
-
-        // Mobile menu
-        mobileMenuBtn.addEventListener('click', toggleMobileMenu);
-        mobileOverlay.addEventListener('click', closeMobileMenu);
-    }
-
-    function handleInputChange() {
-        // Auto-resize
+    // Auto-resize textarea
+    chatInput.addEventListener('input', function() {
         this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+        this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+    });
 
-        // Update send button state
-        const hasContent = this.value.trim().length > 0;
-        sendBtn.disabled = !hasContent;
+    // Mobile sidebar toggle
+    if (mobileSidebarToggle) {
+        mobileSidebarToggle.addEventListener('click', function() {
+            chatSidebar.classList.toggle('show');
+            chatOverlay.classList.toggle('show');
+        });
     }
 
-    function handleKeyDown(e) {
-        // Ctrl+Enter or Cmd+Enter to send
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            e.preventDefault();
-            if (!isLoading && chatInput.value.trim()) {
-                chatForm.requestSubmit();
-            }
-        }
+    if (chatOverlay) {
+        chatOverlay.addEventListener('click', function() {
+            chatSidebar.classList.remove('show');
+            chatOverlay.classList.remove('show');
+        });
     }
 
-    function handleFormSubmit(e) {
+    // Handle form submission
+    chatForm.addEventListener('submit', function(e) {
         e.preventDefault();
-
+        
         const message = chatInput.value.trim();
-        if (!message || isLoading) return;
+        if (!message) return;
 
-        // Update UI state
-        setLoadingState(true);
+        // Disable form
+        sendBtn.disabled = true;
+        chatInput.disabled = true;
 
-        // Add user message
+        // Add user message to chat
         addMessage('user', message);
-
-        // Clear input
         chatInput.value = '';
         chatInput.style.height = 'auto';
-        sendBtn.disabled = true;
 
-        // Show typing indicator
-        showTypingIndicator();
+        // Prepare URL based on session
+        let url = '{% url "rag_app:chat" %}';
+        if (currentSessionId) {
+            url = '/chat/' + currentSessionId + '/';
+        }
 
-        // Send to server
-        sendMessage(message);
-    }
-
-    function sendMessage(message) {
-        const url = currentSessionId
-            ? `/chat/${currentSessionId}/`
-            : '{% url "rag_app:chat" %}';
-
+        // Send message to server
         fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
             },
-            body: new URLSearchParams({ 'message': message })
+            body: new URLSearchParams({
+                'message': message
+            })
         })
         .then(response => response.json())
         .then(data => {
-            hideTypingIndicator();
-
             if (data.success) {
                 addMessage('ai', data.response);
-
-                // Update session if new
-                if (data.session_id && !currentSessionId) {
+                // Update session ID if we got one back
+                if (data.session_id) {
                     currentSessionId = data.session_id;
-                    updateChatTitle(data.session_title || 'AI Chat');
-                    window.history.replaceState({}, '', `/chat/${data.session_id}/`);
+                    // Update browser URL without reloading
+                    const newUrl = '/chat/' + data.session_id + '/';
+                    window.history.replaceState({}, '', newUrl);
                 }
             } else {
-                addMessage('ai', data.error || 'Sorry, something went wrong. Please try again.');
+                addMessage('ai', data.error || 'Sorry, I encountered an error. Please try again.');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            hideTypingIndicator();
-            addMessage('ai', 'Sorry, something went wrong. Please try again.');
+            addMessage('ai', 'Sorry, I encountered an error. Please try again.');
         })
         .finally(() => {
-            setLoadingState(false);
+            // Re-enable form
+            sendBtn.disabled = false;
+            chatInput.disabled = false;
             chatInput.focus();
         });
+    });
+
+    // Scroll to bottom of messages
+    function scrollToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
     }
 
+    // Add message to chat
     function addMessage(role, content) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${role}`;
-
+        
         const avatar = document.createElement('div');
         avatar.className = 'message-avatar';
         if (role === 'user') {
@@ -841,27 +744,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
-
+        
         if (role === 'user') {
-            messageContent.textContent = content;
+            // For user messages, just convert newlines to <br>
+            messageContent.innerHTML = content.replace(/\n/g, '<br>');
         } else {
-            messageContent.innerHTML = marked.parse(content);
+            // For AI messages, render markdown
+            try {
+                messageContent.innerHTML = marked.parse(content);
+            } catch (error) {
+                console.warn('Markdown parsing failed, using plain text:', error);
+                messageContent.innerHTML = content.replace(/\n/g, '<br>');
+            }
         }
 
-        // Add actions
-        const messageActions = document.createElement('div');
-        messageActions.className = 'message-actions';
-        messageActions.innerHTML = `
-            <button class="message-action-btn" onclick="copyMessage(this)" title="Copy message">
-                <i class="fas fa-copy"></i>
-            </button>
-        `;
-        messageContent.appendChild(messageActions);
-
-        // Add timestamp
         const timeDiv = document.createElement('div');
         timeDiv.className = 'message-time';
-        timeDiv.textContent = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        timeDiv.textContent = new Date().toLocaleString();
         messageContent.appendChild(timeDiv);
 
         messageDiv.appendChild(avatar);
@@ -871,98 +770,142 @@ document.addEventListener('DOMContentLoaded', function() {
         scrollToBottom();
     }
 
-    function showTypingIndicator() {
-        const typingDiv = document.createElement('div');
-        typingDiv.className = 'typing-indicator';
-        typingDiv.id = 'typingIndicator';
-
-        typingDiv.innerHTML = `
-            <div class="message-avatar">
-                <i class="fas fa-robot"></i>
-            </div>
-            <div class="typing-content">
-                <span class="typing-text">AI is thinking</span>
-                <div class="typing-dots">
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                    <div class="typing-dot"></div>
-                </div>
-            </div>
-        `;
-
-        chatMessages.appendChild(typingDiv);
-        scrollToBottom();
-    }
-
-    function hideTypingIndicator() {
-        const typingIndicator = document.getElementById('typingIndicator');
-        if (typingIndicator) {
-            typingIndicator.remove();
-        }
-    }
-
-    function setLoadingState(loading) {
-        isLoading = loading;
-        sendBtn.disabled = loading || !chatInput.value.trim();
-        chatInput.disabled = loading;
-    }
-
-    function scrollToBottom() {
-        setTimeout(() => {
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }, 100);
-    }
-
-    function toggleMobileMenu() {
-        chatSidebar.classList.toggle('show');
-        mobileOverlay.classList.toggle('show');
-    }
-
-    function closeMobileMenu() {
-        chatSidebar.classList.remove('show');
-        mobileOverlay.classList.remove('show');
-    }
-
-    function updateChatTitle(title) {
-        document.getElementById('chatTitle').textContent = title;
-    }
+    // Initial scroll to bottom
+    scrollToBottom();
 });
 
-// Global functions for onclick handlers
-function startNewChat() {
-    window.location.href = '{% url "rag_app:chat" %}';
+// Set suggested prompt
+function setSuggestedPrompt(prompt) {
+    document.getElementById('chatInput').value = prompt;
+    document.getElementById('chatInput').focus();
 }
 
+// Load chat session
 function loadChatSession(sessionId) {
-    window.location.href = `/chat/${sessionId}/`;
+    window.location.href = '/chat/' + sessionId + '/';
 }
 
-function useSuggestedPrompt(prompt) {
-    const input = document.getElementById('chatInput');
-    input.value = prompt;
-    input.focus();
-    input.dispatchEvent(new Event('input'));
+// Start new chat
+document.getElementById('newChatBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    window.location.href = '{% url "rag_app:chat" %}';
+});
+
+// Chat mode selection
+function showChatModeModal() {
+    const modal = new bootstrap.Modal(document.getElementById('chatModeModal'));
+    modal.show();
 }
 
-function copyMessage(button) {
-    const messageContent = button.closest('.message-content');
-    const textToCopy = messageContent.textContent.replace(/Copy message/, '').trim();
-
-    navigator.clipboard.writeText(textToCopy).then(() => {
-        // Visual feedback
-        const originalIcon = button.innerHTML;
-        button.innerHTML = '<i class="fas fa-check"></i>';
-        button.style.background = '#10b981';
-        button.style.color = 'white';
-
-        setTimeout(() => {
-            button.innerHTML = originalIcon;
-            button.style.background = '';
-            button.style.color = '';
-        }, 2000);
-    }).catch(err => {
-        console.error('Failed to copy:', err);
-    });
+function setChatMode(mode) {
+    const documentSection = document.getElementById('documentSection');
+    const subjectSection = document.getElementById('subjectSection');
+    
+    if (mode === 'document') {
+        documentSection.style.display = 'block';
+        subjectSection.style.display = 'none';
+    } else if (mode === 'subject') {
+        documentSection.style.display = 'none';
+        subjectSection.style.display = 'block';
+    }
 }
 </script>
+
+<!-- Chat Mode Selection Modal -->
+<div class="modal fade" id="chatModeModal" tabindex="-1" aria-labelledby="chatModeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="chatModeModalLabel">
+                    <i class="fas fa-comments me-2"></i>Choose Chat Mode
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{% url 'rag_app:chat_mode' %}">
+                    {% csrf_token %}
+                    
+                    <!-- Chat Mode Selection -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3">How would you like to chat?</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="chat_mode" id="chat_mode_document" 
+                                           value="document" onchange="setChatMode('document')" required>
+                                    <label class="form-check-label" for="chat_mode_document">
+                                        <div class="p-3 border rounded">
+                                            <i class="fas fa-file-alt fa-2x text-primary mb-2"></i>
+                                            <h6>Chat with Document</h6>
+                                            <p class="small text-muted mb-0">Focus on a specific document. Ask targeted questions about its content.</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="chat_mode" id="chat_mode_subject" 
+                                           value="subject" onchange="setChatMode('subject')" required>
+                                    <label class="form-check-label" for="chat_mode_subject">
+                                        <div class="p-3 border rounded">
+                                            <i class="fas fa-books fa-2x text-success mb-2"></i>
+                                            <h6>Chat within Subject</h6>
+                                            <p class="small text-muted mb-0">Query across all documents in a subject. Find connections and comprehensive answers.</p>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Document Selection (hidden by default) -->
+                    <div id="documentSection" style="display: none;">
+                        <h6 class="fw-bold mb-3">Select a Document</h6>
+                        <div class="mb-3">
+                            <select name="document" class="form-select" id="document_select">
+                                <option value="">Choose a document...</option>
+                                {% for doc in user_documents %}
+                                    <option value="{{ doc.id }}" data-subject="{{ doc.subject.name|default:'No Subject' }}">
+                                        {{ doc.title }}
+                                        {% if doc.subject %} ({{ doc.subject.name }}){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Subject Selection (hidden by default) -->
+                    <div id="subjectSection" style="display: none;">
+                        <h6 class="fw-bold mb-3">Select a Subject</h6>
+                        <div class="mb-3">
+                            <select name="subject" class="form-select" id="subject_select">
+                                <option value="">Choose a subject...</option>
+                                {% for subject in user_subjects %}
+                                    <option value="{{ subject.id }}">
+                                        {{ subject.name }} ({{ subject.documents.count }} document{{ subject.documents.count|pluralize }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div>
+                            <small class="text-muted">
+                                Don't have documents yet? <a href="{% url 'rag_app:home' %}" class="text-primary">Upload some documents</a> first.
+                            </small>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-comments me-1"></i>Start Chat
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
