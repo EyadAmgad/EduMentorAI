@@ -850,6 +850,227 @@ def new_chat_session(request):
 
 @login_required
 @csrf_exempt
+def stream_chat_response(request, session_id=None):
+    """Stream chat response using Server-Sent Events"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        message_text = data.get('message', '').strip()
+        
+        if not message_text:
+            return JsonResponse({'error': 'Message cannot be empty'}, status=400)
+        
+        user = request.user
+        
+        # Get or create session
+        if session_id:
+            session = get_object_or_404(ChatSession, id=session_id, user=user)
+        else:
+            session = ChatSession.objects.filter(user=user).order_by('-last_activity').first()
+            if not session:
+                session = ChatSession.objects.create(
+                    user=user,
+                    title=message_text[:50] + "..." if len(message_text) > 50 else message_text
+                )
+        
+        # Save user message
+        user_message = ChatMessage.objects.create(
+            session=session,
+            message=message_text,
+            is_user=True
+        )
+        
+        # Create a proper streaming response
+        def event_stream():
+            try:
+                yield "data: " + json.dumps({"type": "start"}) + "\n\n"
+                
+                # Import RAG model
+                from .pipeline.model import get_rag_model
+                rag_model = get_rag_model()
+                
+                # Check if user has any documents before allowing chat
+                user_has_documents = Document.objects.filter(uploaded_by=user).exists()
+                user_has_subjects_with_docs = Subject.objects.filter(
+                    created_by=user, documents__isnull=False
+                ).exists()
+                
+                # Build context and messages
+                if session.chat_type == 'anonymous' and session.temp_document:
+                    # Get document content for temp documents
+                    from django.core.cache import cache
+                    cache_key = f"temp_doc_content_{session.temp_document.id}"
+                    document_content = cache.get(cache_key)
+                    
+                    if not document_content:
+                        from .pipeline.data_processor import DocumentProcessor
+                        processor = DocumentProcessor()
+                        document_content = processor._extract_temp_document_text(session.temp_document)
+                        cache.set(cache_key, document_content, timeout=86400)
+                    
+                    context = f"Document: {session.temp_document.title}\n\n{document_content[:8000]}"
+                    subject_id = None
+                    
+                elif session.subject:
+                    # Get retrieval context for subject
+                    retrieval_result = rag_model.retriever.retrieve_for_query(
+                        query=message_text,
+                        subject_id=session.subject.id,
+                        retrieval_strategy='hybrid',
+                        max_chunks=5
+                    )
+                    context = retrieval_result.get('context', '') if retrieval_result['success'] else ''
+                    subject_id = session.subject.id
+                    
+                elif user_has_documents or user_has_subjects_with_docs:
+                    # Get general retrieval context
+                    retrieval_result = rag_model.retriever.retrieve_for_query(
+                        query=message_text,
+                        subject_id=None,
+                        retrieval_strategy='hybrid',
+                        max_chunks=5
+                    )
+                    context = retrieval_result.get('context', '') if retrieval_result['success'] else ''
+                    subject_id = None
+                    
+                else:
+                    # No documents - provide guidance
+                    full_response = """Hello! I'm your AI study assistant. To get started, you'll need to upload some documents first. Here's how:
+
+1. **Create a Subject**: Go to the Subjects section and create a new subject for your study material
+2. **Upload Documents**: Add PDF, Word, PowerPoint, or text files to your subject  
+3. **Start Chatting**: Once documents are uploaded and processed, you can ask me questions about them
+
+What would you like to do first?"""
+                    
+                    # Stream the response word by word
+                    words = full_response.split(' ')
+                    for i, word in enumerate(words):
+                        if i == 0:
+                            chunk = word
+                        else:
+                            chunk = ' ' + word
+                        yield "data: " + json.dumps({"type": "chunk", "content": chunk}) + "\n\n"
+                        
+                    # Save message and complete
+                    ai_message = ChatMessage.objects.create(
+                        session=session,
+                        message=full_response,
+                        is_user=False
+                    )
+                    session.last_activity = timezone.now()
+                    session.save()
+                    
+                    yield "data: " + json.dumps({
+                        "type": "complete", 
+                        "session_id": str(session.id),
+                        "message_id": str(ai_message.id)
+                    }) + "\n\n"
+                    return
+                
+                # Build messages for LLM
+                messages = rag_model._build_chat_messages(
+                    question=message_text,
+                    context=context,
+                    chat_session=session,
+                    subject_id=subject_id
+                )
+                
+                # Stream the LLM response
+                full_response = ""
+                
+                # We need to handle streaming differently since we're in a generator
+                # Let's create a custom streaming approach
+                import requests
+                import sseclient
+                
+                start_time = timezone.now()
+                payload = {
+                    "model": rag_model.llm_model,
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "max_tokens": 4000,
+                    "top_p": 0.9,
+                    "stream": True
+                }
+                
+                # Send streaming request directly
+                api_response = requests.post(
+                    rag_model.api_url,
+                    headers=rag_model.headers,
+                    json=payload,
+                    timeout=60,
+                    stream=True
+                )
+                
+                if api_response.status_code == 200:
+                    client = sseclient.SSEClient(api_response)
+                    
+                    for event in client.events():
+                        if event.data == "[DONE]":
+                            break
+                            
+                        if event.data:
+                            try:
+                                chunk_data = json.loads(event.data)
+                                if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
+                                    delta = chunk_data["choices"][0].get("delta", {})
+                                    if "content" in delta:
+                                        chunk = delta["content"]
+                                        full_response += chunk
+                                        # Stream this chunk to frontend
+                                        yield "data: " + json.dumps({"type": "chunk", "content": chunk}) + "\n\n"
+                                        
+                            except (json.JSONDecodeError, KeyError, IndexError) as e:
+                                continue
+                    
+                    result = {'success': True, 'response_time': (timezone.now() - start_time).total_seconds()}
+                else:
+                    result = {'success': False, 'error': f'API error: {api_response.status_code}'}
+                
+                if result['success'] and full_response:
+                    # Save AI message
+                    ai_message = ChatMessage.objects.create(
+                        session=session,
+                        message=full_response,
+                        is_user=False,
+                        response_time=result.get('response_time', 0)
+                    )
+                    
+                    # Update session
+                    session.last_activity = timezone.now()
+                    session.save()
+                    
+                    yield "data: " + json.dumps({
+                        "type": "complete",
+                        "session_id": str(session.id), 
+                        "message_id": str(ai_message.id)
+                    }) + "\n\n"
+                else:
+                    yield "data: " + json.dumps({
+                        "type": "error", 
+                        "error": result.get('error', 'Unknown error')
+                    }) + "\n\n"
+                    
+            except Exception as e:
+                logger.error(f"Error in streaming: {e}")
+                yield "data: " + json.dumps({"type": "error", "error": str(e)}) + "\n\n"
+        
+        # Create streaming response without problematic headers
+        from django.http import StreamingHttpResponse
+        response = StreamingHttpResponse(event_stream(), content_type='text/plain')
+        response['Cache-Control'] = 'no-cache'
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error setting up streaming chat: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@csrf_exempt
 def chat_with_subject(request):
     """Chat with documents from a specific subject"""
     if request.method == 'POST':

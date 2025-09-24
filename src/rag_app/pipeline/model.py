@@ -7,6 +7,7 @@ import os
 import logging
 import json
 import requests
+import sseclient
 from typing import Dict, List, Any, Optional
 from django.utils import timezone
 from dotenv import load_dotenv
@@ -366,9 +367,13 @@ Guidelines:
             
             return fallback_prompt
     
-    def _generate_llm_response(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
+    def _generate_llm_response(self, messages: List[Dict[str, str]], stream_callback=None) -> Dict[str, Any]:
         """
         Generate response using OpenRouter LLM
+        
+        Args:
+            messages: List of chat messages
+            stream_callback: Optional callback function for streaming chunks
         """
         try:
             start_time = timezone.now()
@@ -377,15 +382,18 @@ Guidelines:
                 "model": self.llm_model,
                 "messages": messages,
                 "temperature": 0.7,
-                "max_tokens": 4000,  # Further increased for longer responses
-                "top_p": 0.9
+                "max_tokens": 4000,
+                "top_p": 0.9,
+                "stream": True
             }
             
+            # Send request with streaming enabled
             response = requests.post(
                 self.api_url,
                 headers=self.headers,
                 json=payload,
-                timeout=60  # Increased timeout for longer responses
+                timeout=60,
+                stream=True
             )
             
             response_time = (timezone.now() - start_time).total_seconds()
@@ -398,28 +406,45 @@ Guidelines:
                     'response_time': response_time
                 }
             
-            response_data = response.json()
+            # Parse server-sent events (SSE)
+            client = sseclient.SSEClient(response)
+            full_response = ""
+            tokens_used = 0
             
-            # Extract answer
-            try:
-                answer = response_data["choices"][0]["message"]["content"]
-                tokens_used = response_data.get("usage", {}).get("total_tokens", 0)
-                
-                return {
-                    'success': True,
-                    'answer': answer,
-                    'tokens_used': tokens_used,
-                    'response_time': response_time
-                }
-                
-            except (KeyError, IndexError) as e:
-                logger.error(f"Error parsing LLM response: {e}")
-                logger.error(f"Response data: {response_data}")
-                return {
-                    'success': False,
-                    'error': f"Error parsing LLM response: {str(e)}",
-                    'response_time': response_time
-                }
+            for event in client.events():
+                if event.data == "[DONE]":
+                    break
+                    
+                if event.data:
+                    try:
+                        chunk_data = json.loads(event.data)
+                        if "choices" in chunk_data and len(chunk_data["choices"]) > 0:
+                            delta = chunk_data["choices"][0].get("delta", {})
+                            if "content" in delta:
+                                chunk = delta["content"]
+                                full_response += chunk
+                                
+                                # Call the stream callback if provided (for frontend streaming)
+                                if stream_callback:
+                                    stream_callback(chunk)
+                                else:
+                                    # Print to console for terminal usage
+                                    print(chunk, end="", flush=True)
+                        
+                        # Track token usage if available
+                        if "usage" in chunk_data:
+                            tokens_used = chunk_data["usage"].get("total_tokens", 0)
+                            
+                    except (json.JSONDecodeError, KeyError, IndexError) as e:
+                        logger.warning(f"Error parsing SSE chunk: {e}")
+                        continue
+            
+            return {
+                'success': True,
+                'answer': full_response,
+                'tokens_used': tokens_used,
+                'response_time': response_time
+            }
             
         except requests.exceptions.Timeout:
             return {
