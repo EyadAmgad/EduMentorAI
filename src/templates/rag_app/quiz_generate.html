@@ -68,12 +68,30 @@
                 <div class="card-body">
                     <div id="quizMetadata" class="mb-4"></div>
                     
+                    <!-- Google Form Link (if available) -->
+                    <div id="googleFormSection" class="mb-4" style="display: none;">
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-check-circle me-2"></i>✅ Google Form Created Successfully!</h6>
+                            <div id="formDetails" class="mb-3">
+                                <!-- Form details will be populated by JavaScript -->
+                            </div>
+                            <div class="d-grid gap-2">
+                                <a id="googleFormLink" href="#" target="_blank" class="btn btn-success">
+                                    <i class="fas fa-external-link-alt me-2"></i> Open Google Form
+                                </a>
+                                <a id="googleFormEditLink" href="#" target="_blank" class="btn btn-outline-primary" style="display: none;">
+                                    <i class="fas fa-edit me-2"></i> Edit Google Form
+                                </a>
+                                <button id="copyFormLinkButton" class="btn btn-outline-success">
+                                    <i class="fas fa-copy me-2"></i> Copy Form Link
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="d-grid gap-2">
                         <button id="viewQuizButton" class="btn btn-primary">
                             <i class="fas fa-eye me-2"></i> View Generated Questions
-                        </button>
-                        <button id="generateFormButton" class="btn btn-info">
-                            <i class="fab fa-google me-2"></i> Generate Google Form
                         </button>
                     </div>
                 </div>
@@ -99,27 +117,7 @@
                 </div>
             </div>
             
-            <!-- Google Form Content Modal -->
-            <div class="modal fade" id="formContentModal" tabindex="-1">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Quiz Content for Google Form</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p class="text-muted">Copy this content to create a Google Form:</p>
-                            <pre id="formContent" class="bg-light p-3" style="white-space: pre-wrap;"></pre>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                            <button type="button" class="btn btn-primary" id="copyContentButton">
-                                <i class="fas fa-copy me-2"></i> Copy to Clipboard
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
 
             <style>
             .questions-list {
@@ -179,9 +177,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const results = document.getElementById('quizResults');
     const metadata = document.getElementById('quizMetadata');
     const viewQuizButton = document.getElementById('viewQuizButton');
-    const generateFormButton = document.getElementById('generateFormButton');
-    const formContent = document.getElementById('formContent');
-    const copyContentButton = document.getElementById('copyContentButton');
+    const googleFormSection = document.getElementById('googleFormSection');
+    const googleFormLink = document.getElementById('googleFormLink');
+    const googleFormEditLink = document.getElementById('googleFormEditLink');
+    const copyFormLinkButton = document.getElementById('copyFormLinkButton');
     const quizQuestions = document.getElementById('quizQuestions');
     
     let currentQuizData = null;
@@ -230,6 +229,44 @@ document.addEventListener('DOMContentLoaded', function() {
                     </ul>
                 `;
                 
+                // Show Google Form link if available
+                if (data.google_form_url) {
+                    googleFormLink.href = data.google_form_url;
+                    
+                    // Show edit link if available
+                    const editLink = document.getElementById('googleFormEditLink');
+                    if (data.google_form_edit_url) {
+                        editLink.href = data.google_form_edit_url;
+                        editLink.style.display = 'block';
+                    }
+                    
+                    // Display form details
+                    const formDetails = document.getElementById('formDetails');
+                    let detailsHTML = `
+                        <p class="mb-2"><strong>Form URL:</strong><br>
+                        <small class="text-muted font-monospace">${data.google_form_url}</small></p>
+                    `;
+                    
+                    if (data.google_form_edit_url) {
+                        detailsHTML += `
+                            <p class="mb-2"><strong>Edit URL:</strong><br>
+                            <small class="text-muted font-monospace">${data.google_form_edit_url}</small></p>
+                        `;
+                    }
+                    
+                    if (data.ownership_transfer && data.ownership_transfer.status === 'success') {
+                        detailsHTML += `
+                            <p class="mb-0"><strong>Ownership Transfer:</strong><br>
+                            <small class="text-success">✅ Invitation sent to: ${data.ownership_transfer.new_owner}</small></p>
+                        `;
+                    }
+                    
+                    formDetails.innerHTML = detailsHTML;
+                    googleFormSection.style.display = 'block';
+                } else {
+                    googleFormSection.style.display = 'none';
+                }
+                
                 // Show results
                 results.style.display = 'block';
                 results.scrollIntoView({ behavior: 'smooth' });
@@ -273,47 +310,25 @@ document.addEventListener('DOMContentLoaded', function() {
         new bootstrap.Modal(document.getElementById('quizContentModal')).show();
     });
 
-    generateFormButton.addEventListener('click', async function() {
-        if (!currentQuizData) return;
-        
-        this.disabled = true;
-        this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating...';
-        
-        try {
-            const formData = new FormData();
-            formData.append('quiz_id', currentQuizData.quiz_id);
-            
-            const response = await fetch("{% url 'rag_app:generate_form_link' %}", {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                }
+    // Copy Google Form link functionality
+    copyFormLinkButton.addEventListener('click', function() {
+        if (currentQuizData && currentQuizData.google_form_url) {
+            navigator.clipboard.writeText(currentQuizData.google_form_url).then(() => {
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-check me-2"></i> Copied!';
+                this.classList.remove('btn-outline-success');
+                this.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-outline-success');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+                alert('Failed to copy link to clipboard');
             });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                formContent.textContent = data.form_content;
-                new bootstrap.Modal(document.getElementById('formContentModal')).show();
-            } else {
-                throw new Error(data.error);
-            }
-        } catch (error) {
-            alert('Error generating form content: ' + error.message);
-        } finally {
-            this.disabled = false;
-            this.innerHTML = '<i class="fab fa-google me-2"></i> Generate Google Form';
         }
-    });
-    
-    copyContentButton.addEventListener('click', function() {
-        navigator.clipboard.writeText(formContent.textContent).then(() => {
-            this.innerHTML = '<i class="fas fa-check me-2"></i> Copied!';
-            setTimeout(() => {
-                this.innerHTML = '<i class="fas fa-copy me-2"></i> Copy to Clipboard';
-            }, 2000);
-        });
     });
 });
 </script>
