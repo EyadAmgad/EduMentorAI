@@ -37,7 +37,7 @@ class Form_generator:
             else:
                 flow = InstalledAppFlow.from_client_secrets_file("rag_app/pipeline/credentials.json", self.SCOPES)
                 creds = flow.run_local_server(port=0)
-            with open("token.json", "w") as f:
+            with open("rag_app/pipeline/token.json", "w") as f:
                 f.write(creds.to_json())
         return creds
     def create_quiz(self,questions):
