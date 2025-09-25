@@ -5,6 +5,9 @@ Generates quizzes using RAG model and LLM
 
 import logging
 import json
+import requests
+import uuid
+import os
 from typing import Dict, List, Any, Optional
 from .model import get_rag_model
 from ..models import Quiz, Question, AnswerChoice, Document, Subject
@@ -16,7 +19,101 @@ class QuizGenerationError(Exception):
     """Custom exception for quiz generation errors"""
     pass
 
+class Form_generator:
+    def __init__(self):
+        # Apps Script configuration
+        self.APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzlY5De92Jdwia7iD6YRsisFzighWJ_vy44GCZhJLyLm81ZFziqp0zF_9ry5a_HPA35A/exec'
+        self.SECRET_KEY = 'V@g@bond0603' 
+        self.TARGET_OWNER_EMAIL = 'eyad.mahmoud@ejust.edu.eg' 
+    
+    def create_quiz(self, questions_data):
+        """
+        Create a Google Form quiz using Apps Script endpoint
+        
+        Args:
+            questions_data: List of question dictionaries with LLM-generated questions
+        
+        Returns:
+            str: Form URL if successful, None if failed
+        """
+        try:
+            # Parse questions if it's a JSON string
+            if isinstance(questions_data, str):
+                questions_data = json.loads(questions_data)
+            
+            # Extract questions from the data structure
+            if isinstance(questions_data, dict) and 'questions' in questions_data:
+                questions = questions_data['questions']
+            else:
+                questions = questions_data
+            
+            # Generate unique form title
+            form_title = f"AI Generated Quiz - {uuid.uuid4().hex[:6]}"
+            
+            # Create payload for Apps Script
+            payload = {
+                'auth_key': self.SECRET_KEY,
+                'form_title': form_title,
+                'new_owner_email': self.TARGET_OWNER_EMAIL,
+                'questions': questions
+            }
+            
+            headers = {'Content-Type': 'application/json'}
+            
+            print(f"Creating Google Form: {form_title}")
+            print(f"Sending request to Apps Script endpoint...")
+            
+            # Send request to Apps Script
+            response = requests.post(
+                self.APPS_SCRIPT_URL, 
+                data=json.dumps(payload), 
+                headers=headers,
+                timeout=30
+            )
+            response.raise_for_status()
+            
+            response_data = response.json()
+            
+            if response_data.get('status') == 'success':
+                # Get the form URL (prioritize form_url, fallback to edit_url)
+                form_url = response_data.get('form_url') or response_data.get('edit_url')
+                edit_url = response_data.get('edit_url')
+                
+                print(f"✅ Google Form created successfully!")
+                print(f"Form URL: {form_url}")
+                print(f"Edit URL: {edit_url}")
+                
+                # Check ownership transfer status
+                ownership_info = response_data.get('ownership_transfer', {})
+                if ownership_info.get('status') == 'success':
+                    print(f"Ownership transfer invitation sent to: {ownership_info.get('new_owner')}")
+                else:
+                    print(f"Ownership transfer to {self.TARGET_OWNER_EMAIL} may have failed")
+                
+                # Return complete form information
+                return {
+                    'form_url': form_url,
+                    'edit_url': edit_url,
+                    'ownership_transfer': ownership_info,
+                    'success': True
+                }
+            else:
+                error_msg = response_data.get('error', 'Unknown error from Apps Script')
+                print(f"❌ Apps Script Error: {error_msg}")
+                raise Exception(f"Apps Script error: {error_msg}")
 
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Network error connecting to Apps Script: {str(e)}"
+            print(f"❌ {error_msg}")
+            raise Exception(error_msg)
+        except json.JSONDecodeError as e:
+            error_msg = f"Failed to parse response from Apps Script: {str(e)}"
+            print(f"❌ {error_msg}")
+            raise Exception(error_msg)
+        except Exception as e:
+            error_msg = f"Error creating Google Form: {str(e)}"
+            print(f"❌ {error_msg}")
+            raise e
 class QuizGenerator:
     """
     Quiz Generator using RAG model and LLM
@@ -92,7 +189,22 @@ class QuizGenerator:
             # Generate questions using RAG
             questions = self._generate_questions(question_content, num_questions)
             
-            return {
+            # Try to create Google Form using Apps Script, but don't fail if it doesn't work
+            form_data = None
+            try:
+                form_gen = Form_generator()
+                form_data = form_gen.create_quiz(questions)
+                if form_data and form_data.get('success'):
+                    print(f"Google Form created successfully: {form_data.get('form_url')}")
+                else:
+                    form_data = None
+            except Exception as e:
+                logger.warning(f"Google Forms creation failed: {str(e)}")
+                print(f"Quiz generated successfully, but Google Form creation failed: {str(e)}")
+                print("You can still use the quiz questions in the application.")
+                form_data = None
+            
+            result = {
                 'success': True,
                 'questions': questions,
                 'metadata': {
@@ -102,6 +214,19 @@ class QuizGenerator:
                     'sources': [doc.title for doc in documents]
                 }
             }
+            
+            if form_data and form_data.get('success'):
+                result['google_form_url'] = form_data.get('form_url')
+                result['google_form_edit_url'] = form_data.get('edit_url')
+                result['ownership_transfer'] = form_data.get('ownership_transfer', {})
+                
+                # Extract form ID from URL if needed
+                form_url = form_data.get('form_url')
+                if form_url and '/forms/d/' in form_url:
+                    form_id = form_url.split('/forms/d/')[1].split('/')[0]
+                    result['google_form_id'] = form_id
+            
+            return result
             
         except Exception as e:
             logger.error(f"Error generating quiz: {str(e)}")
@@ -314,26 +439,3 @@ class QuizGenerator:
             logger.error(f"Error saving quiz: {str(e)}")
             raise QuizGenerationError(f"Failed to save quiz: {str(e)}")
     
-    def generate_google_form_content(self, questions: List[Dict[str, Any]]) -> str:
-        """
-        Generate content for Google Form
-        
-        Args:
-            questions: List of question dictionaries
-            
-        Returns:
-            String with formatted questions and choices
-        """
-        form_content = []
-        
-        for i, question in enumerate(questions, 1):
-            # Add question
-            form_content.append(f"{i}. {question['question']}")
-            
-            # Add choices
-            for j, choice in enumerate(question['choices'], ord('a')):
-                form_content.append(f"   {chr(j)}. {choice['text']}")
-            
-            form_content.append("")  # Add blank line between questions
-        
-        return "\n".join(form_content)
