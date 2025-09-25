@@ -6,9 +6,7 @@
 {% block extra_css %}
 <style>
     .document-header {
-        background: linear-gradient(135deg, #f5                    <a href="{% url 'rag_app:generate_rag_quiz' %}?document={{ document.pk }}" class="btn btn-outline-success">
-                        <i class="fas fa-plus-circle me-2"></i>Generate Quiz
-                    </a>b 0%, #d97706 100%);
+        background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
         color: white;
         border-radius: 1rem;
         padding: 2rem;
@@ -16,7 +14,7 @@
     }
     
     .document-meta {
-        background: white;
+        background: var(--card-bg);
         border-radius: 1rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         padding: 1.5rem;
@@ -28,7 +26,7 @@
         justify-content: space-between;
         align-items: center;
         padding: 0.75rem 0;
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: 1px solid var(--border-color);
     }
     
     .meta-item:last-child {
@@ -37,23 +35,23 @@
     
     .meta-label {
         font-weight: 600;
-        color: #374151;
+        color: var(--text-primary);
     }
     
     .meta-value {
-        color: #6b7280;
+        color: var(--text-secondary);
     }
     
     .chunks-container {
-        background: white;
+        background: var(--card-bg);
         border-radius: 1rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         padding: 1.5rem;
     }
     
     .chunk-item {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        background: var(--background-light);
+        border: 1px solid var(--border-color);
         border-radius: 0.5rem;
         padding: 1rem;
         margin-bottom: 1rem;
@@ -71,7 +69,7 @@
     }
     
     .chunk-number {
-        background: #f59e0b;
+        background: var(--primary-color);
         color: white;
         padding: 0.25rem 0.5rem;
         border-radius: 0.25rem;
@@ -80,7 +78,7 @@
     }
     
     .chunk-content {
-        color: #374151;
+        color: var(--text-primary);
         line-height: 1.6;
         font-size: 0.875rem;
     }
@@ -105,7 +103,76 @@
         background: #fef3c7;
         color: #92400e;
     }
+    
+    .pdf-container iframe {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .pdf-embed-container object {
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .pdf-fallback {
+        padding: 2rem;
+        text-align: center;
+        background: var(--background-light);
+        border-radius: 0.5rem;
+        height: 600px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .pdf-controls {
+        text-align: right;
+    }
+    
+    .text-content, .document-preview {
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        background: var(--background-light);
+    }
+    
+    .alert i.fa-3x {
+        color: inherit;
+        opacity: 0.7;
+    }
+    
+    .view-toggle .btn.active {
+        background: #3b82f6;
+        color: white;
+        border-color: #3b82f6;
+    }
 </style>
+
+<script>
+function showPdfViewer() {
+    document.getElementById('pdfViewer').style.display = 'block';
+    document.getElementById('chunksView').style.display = 'none';
+    
+    // Update button states
+    document.getElementById('showPdf').classList.add('active');
+    document.getElementById('showChunks').classList.remove('active');
+}
+
+function showChunksView() {
+    document.getElementById('pdfViewer').style.display = 'none';
+    document.getElementById('chunksView').style.display = 'block';
+    
+    // Update button states
+    document.getElementById('showPdf').classList.remove('active');
+    document.getElementById('showChunks').classList.add('active');
+}
+
+// Initialize with PDF view active
+document.addEventListener('DOMContentLoaded', function() {
+    showPdfViewer();
+});
+</script>
 {% endblock %}
 
 {% block content %}
@@ -208,11 +275,11 @@
                         </form>
                     {% endif %}
                     
-                    <a href="{% url 'rag_app:chat' %}?document={{ document.pk }}" class="btn btn-outline-primary">
+                    <a href="{% url 'rag_app:chat_mode' %}" class="btn btn-outline-primary">
                         <i class="fas fa-comments me-2"></i>Chat about this Document
                     </a>
                     
-                    <a href="{% url 'rag_app:quiz_create' %}?document={{ document.pk }}" class="btn btn-outline-success">
+                    <a href="{% url 'rag_app:generate_rag_quiz' %}?document={{ document.pk }}" class="btn btn-outline-success">
                         <i class="fas fa-question-circle me-2"></i>Generate Quiz
                     </a>
                     
@@ -223,55 +290,179 @@
             </div>
         </div>
         
-        <!-- Document Chunks -->
+        <!-- Document Content -->
         <div class="col-lg-8">
             <div class="chunks-container">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h5 class="mb-0">
-                        <i class="fas fa-puzzle-piece me-2"></i>Content Preview
+                        <i class="fas fa-file-pdf me-2"></i>Document Viewer
                     </h5>
-                    <span class="text-muted">
-                        Showing {{ chunks|length }} of {{ total_chunks }} chunks
-                    </span>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" id="showPdf" onclick="showPdfViewer()">
+                            <i class="fas fa-file-pdf me-1"></i>PDF View
+                        </button>
+                        <button class="btn btn-outline-secondary" id="showChunks" onclick="showChunksView()">
+                            <i class="fas fa-puzzle-piece me-1"></i>Chunks ({{ total_chunks }})
+                        </button>
+                    </div>
                 </div>
                 
-                {% if chunks %}
-                    {% for chunk in chunks %}
-                        <div class="chunk-item">
-                            <div class="chunk-header">
-                                <span class="chunk-number">Chunk {{ chunk.chunk_index }}</span>
-                                {% if chunk.page_number %}
-                                    <span class="text-muted small">Page {{ chunk.page_number }}</span>
-                                {% endif %}
-                            </div>
-                            <div class="chunk-content">
-                                {{ chunk.content|truncatewords:50|linebreaks }}
+                <!-- PDF Viewer -->
+                <div id="pdfViewer" class="pdf-container">
+                    {% if document.document_type == 'pdf' %}
+                        <div class="pdf-viewer-container">
+                            <div class="text-center p-5">
+                                <div class="alert alert-primary">
+                                    <i class="fas fa-file-pdf fa-4x mb-3 text-primary"></i>
+                                    <h4>{{ document.title }}</h4>
+                                    <p class="mb-4">PDF Document Ready to View</p>
+                                    
+                                    <div class="d-grid gap-3 d-md-block">
+                                        <a href="{{ document.file.url }}" target="_blank" class="btn btn-primary btn-lg me-md-3">
+                                            <i class="fas fa-external-link-alt me-2"></i>Open in New Tab
+                                        </a>
+                                        <a href="{{ document.file.url }}" download="{{ document.title }}.pdf" class="btn btn-outline-primary btn-lg">
+                                            <i class="fas fa-download me-2"></i>Download PDF
+                                        </a>
+                                    </div>
+                                    
+                                    <hr class="my-4">
+                                    
+                                    <div class="row text-start">
+                                        <div class="col-md-6">
+                                            <h6><i class="fas fa-info-circle me-2"></i>Document Info</h6>
+                                            <ul class="list-unstyled small">
+                                                <li><strong>Size:</strong> {{ document.file_size|filesizeformat }}</li>
+                                                {% if document.page_count %}
+                                                <li><strong>Pages:</strong> {{ document.page_count }}</li>
+                                                {% endif %}
+                                                <li><strong>Type:</strong> PDF Document</li>
+                                                <li><strong>Subject:</strong> {{ document.subject.name }}</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6><i class="fas fa-tools me-2"></i>Actions</h6>
+                                            <div class="d-grid gap-2">
+                                                <button class="btn btn-sm btn-outline-secondary" onclick="showChunksView()">
+                                                    <i class="fas fa-search me-1"></i>View Text Content
+                                                </button>
+                                                <a href="{% url 'rag_app:chat_mode' %}" class="btn btn-sm btn-outline-success">
+                                                    <i class="fas fa-comments me-1"></i>Chat About This
+                                                </a>
+                                                <a href="{% url 'rag_app:generate_rag_quiz' %}?document={{ document.pk }}" class="btn btn-sm btn-outline-warning">
+                                                    <i class="fas fa-question-circle me-1"></i>Generate Quiz
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    {% endfor %}
-                    
-                    {% if total_chunks > chunks|length %}
-                        <div class="text-center mt-3">
-                            <p class="text-muted">
-                                <i class="fas fa-info-circle me-2"></i>
-                                Showing first {{ chunks|length }} chunks. 
-                                {{ total_chunks|add:"-10" }} more chunks are available.
-                            </p>
+                    {% elif document.document_type == 'txt' %}
+                        <div class="text-content" style="height: 600px; overflow-y: auto; padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background: #f8f9fa;">
+                            <pre style="white-space: pre-wrap; font-family: inherit;">{{ document.raw_content|default:"Content not available" }}</pre>
+                        </div>
+                    {% elif document.document_type in 'doc,docx' %}
+                        <div class="document-preview" style="height: 600px; overflow-y: auto; padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background: #f8f9fa;">
+                            <div class="alert alert-info">
+                                <i class="fas fa-file-word fa-3x mb-3"></i>
+                                <h5>Word Document</h5>
+                                <p>Word documents cannot be previewed directly in the browser.</p>
+                                <div class="d-grid gap-2">
+                                    <a href="{{ document.file.url }}" target="_blank" class="btn btn-primary">
+                                        <i class="fas fa-external-link-alt me-2"></i>Open Document
+                                    </a>
+                                    <a href="{{ document.file.url }}" download="{{ document.title }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-download me-2"></i>Download Document
+                                    </a>
+                                </div>
+                                <hr>
+                                <p class="mb-0">You can view the processed text content in the <strong>Chunks</strong> tab above.</p>
+                            </div>
+                        </div>
+                    {% elif document.document_type in 'ppt,pptx' %}
+                        <div class="document-preview" style="height: 600px; overflow-y: auto; padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background: #f8f9fa;">
+                            <div class="alert alert-info">
+                                <i class="fas fa-file-powerpoint fa-3x mb-3"></i>
+                                <h5>PowerPoint Presentation</h5>
+                                <p>PowerPoint presentations cannot be previewed directly in the browser.</p>
+                                <div class="d-grid gap-2">
+                                    <a href="{{ document.file.url }}" target="_blank" class="btn btn-primary">
+                                        <i class="fas fa-external-link-alt me-2"></i>Open Presentation
+                                    </a>
+                                    <a href="{{ document.file.url }}" download="{{ document.title }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-download me-2"></i>Download Presentation
+                                    </a>
+                                </div>
+                                <hr>
+                                <p class="mb-0">You can view the processed text content in the <strong>Chunks</strong> tab above.</p>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="document-preview" style="height: 600px; overflow-y: auto; padding: 1rem; border: 1px solid #ddd; border-radius: 0.5rem; background: #f8f9fa;">
+                            <div class="alert alert-warning">
+                                <i class="fas fa-file fa-3x mb-3"></i>
+                                <h5>Document Preview</h5>
+                                <p>This document type cannot be previewed directly in the browser.</p>
+                                <div class="d-grid gap-2">
+                                    <a href="{{ document.file.url }}" target="_blank" class="btn btn-primary">
+                                        <i class="fas fa-external-link-alt me-2"></i>Open Document
+                                    </a>
+                                    <a href="{{ document.file.url }}" download="{{ document.title }}" class="btn btn-outline-primary">
+                                        <i class="fas fa-download me-2"></i>Download Document
+                                    </a>
+                                </div>
+                                <hr>
+                                <p class="mb-0">You can view the processed text content in the <strong>Chunks</strong> tab above.</p>
+                            </div>
                         </div>
                     {% endif %}
-                {% else %}
-                    <div class="text-center py-5">
-                        {% if document.processed %}
-                            <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                            <h6 class="text-muted">No content chunks found</h6>
-                            <p class="text-muted">This document may be empty or failed to process properly.</p>
-                        {% else %}
-                            <i class="fas fa-hourglass-half fa-3x text-muted mb-3"></i>
-                            <h6 class="text-muted">Document not processed yet</h6>
-                            <p class="text-muted">Process this document to view its content chunks.</p>
-                        {% endif %}
+                </div>                <!-- Chunks View -->
+                <div id="chunksView" style="display: none;">
+                    <div class="mb-3">
+                        <span class="text-muted">
+                            Showing {{ chunks|length }} of {{ total_chunks }} chunks
+                        </span>
                     </div>
-                {% endif %}
+                    
+                    {% if chunks %}
+                        {% for chunk in chunks %}
+                            <div class="chunk-item">
+                                <div class="chunk-header">
+                                    <span class="chunk-number">Chunk {{ chunk.chunk_index }}</span>
+                                    {% if chunk.page_number %}
+                                        <span class="text-muted small">Page {{ chunk.page_number }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="chunk-content">
+                                    {{ chunk.content|truncatewords:50|linebreaks }}
+                                </div>
+                            </div>
+                        {% endfor %}
+                        
+                        {% if total_chunks > chunks|length %}
+                            <div class="text-center mt-3">
+                                <p class="text-muted">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Showing first {{ chunks|length }} chunks. 
+                                    {{ total_chunks|add:"-10" }} more chunks are available.
+                                </p>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-5">
+                            {% if document.processed %}
+                                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                                <h6 class="text-muted">No content chunks found</h6>
+                                <p class="text-muted">This document may be empty or failed to process properly.</p>
+                            {% else %}
+                                <i class="fas fa-hourglass-half fa-3x text-muted mb-3"></i>
+                                <h6 class="text-muted">Document not processed yet</h6>
+                                <p class="text-muted">Process this document to view its content chunks.</p>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>

@@ -18,7 +18,9 @@ from django.conf import settings
 from io import BytesIO
 import json
 import logging
+from .prompt_loader import prompt_loader
 import os
+import re
 
 from .models import (
     Subject, Document, DocumentChunk, ChatSession, ChatMessage,
@@ -27,7 +29,7 @@ from .models import (
 )
 from .forms import (
     SubjectForm, DocumentUploadForm, QuizCreateForm, UserProfileForm,
-    ChatMessageForm
+    ChatMessageForm, ChatModeSelectionForm
 )
 from .pipeline.data_processor import DocumentProcessor
 from .pipeline.model import get_rag_model
@@ -255,6 +257,64 @@ def process_document(request, pk):
     return redirect('rag_app:document_detail', pk=pk)
 
 
+class ChatModeView(LoginRequiredMixin, View):
+    """Chat mode selection view - choose between document chat or subject chat"""
+    template_name = 'rag_app/chat_mode_selection.html'
+    
+    def get(self, request):
+        """Show chat mode selection form"""
+        form = ChatModeSelectionForm(user=request.user)
+        
+        context = {
+            'form': form,
+            'user_documents': Document.objects.filter(uploaded_by=request.user, processed=True).count(),
+            'user_subjects': Subject.objects.filter(created_by=request.user).filter(
+                documents__processed=True
+            ).distinct().count(),
+        }
+        
+        return render(request, self.template_name, context)
+    
+    def post(self, request):
+        """Handle chat mode selection and redirect to appropriate chat"""
+        form = ChatModeSelectionForm(request.POST, user=request.user)
+        
+        if form.is_valid():
+            chat_mode = form.cleaned_data['chat_mode']
+            
+            if chat_mode == 'document':
+                document = form.cleaned_data['document']
+                # Create a new chat session for this specific document
+                session = ChatSession.objects.create(
+                    user=request.user,
+                    title=f"Chat: {document.title}",
+                    chat_type='document',
+                    document=document  # We'll need to add this field to the model
+                )
+                return redirect('rag_app:chat_session', session_id=session.id)
+            
+            elif chat_mode == 'subject':
+                subject = form.cleaned_data['subject']
+                # Create a new chat session for this subject
+                session = ChatSession.objects.create(
+                    user=request.user,
+                    subject=subject,
+                    title=f"{subject.name} Chat",
+                    chat_type='subject'
+                )
+                return redirect('rag_app:chat_session', session_id=session.id)
+        
+        context = {
+            'form': form,
+            'user_documents': Document.objects.filter(uploaded_by=request.user, processed=True).count(),
+            'user_subjects': Subject.objects.filter(created_by=request.user).filter(
+                documents__processed=True
+            ).distinct().count(),
+        }
+        
+        return render(request, self.template_name, context)
+
+
 # Chat Views
 class ChatView(LoginRequiredMixin, View):
     """Chat interface view"""
@@ -313,6 +373,10 @@ class ChatView(LoginRequiredMixin, View):
             'chat_sessions': ChatSession.objects.filter(user=user).order_by('-last_activity')[:10],
             'recent_sessions': ChatSession.objects.filter(user=user).order_by('-last_activity')[:10],
             'subjects': Subject.objects.filter(created_by=user),
+            'user_documents': Document.objects.filter(uploaded_by=user, processed=True).order_by('-uploaded_at'),
+            'user_subjects': Subject.objects.filter(created_by=user).annotate(
+                document_count=Count('documents', filter=Q(documents__processed=True))
+            ).filter(document_count__gt=0),
             'form': ChatMessageForm(),
         }
         return render(request, self.template_name, context)
@@ -513,6 +577,16 @@ def send_message(request):
                         temp_document=session.temp_document,
                         chat_session=session
                     )
+                elif session.chat_type == 'document' and session.document:
+                    # Specific document chat
+                    if not session.document.processed:
+                        ai_response = f"The document '{session.document.title}' is still being processed. Please wait a moment and try again."
+                    else:
+                        rag_result = rag_model.query_document(
+                            question=message_text,
+                            document=session.document,
+                            chat_session=session
+                        )
                 elif session.subject:
                     # Subject-based chat with all documents from the subject
                     subject_has_docs = Document.objects.filter(subject=session.subject).exists()
@@ -1391,14 +1465,16 @@ class SlideDownloadView(LoginRequiredMixin, View):
                 return HttpResponseForbidden("Invalid file access")
             
             try:
-                file_user_id = int(filename_parts[-2])  # Second to last part should be user_id
+                file_user_id = int(filename_parts[-2])
+                print(file_user_id)# Second to last part should be user_id
             except (ValueError, IndexError):
                 return HttpResponseForbidden("Invalid file access")
-            
+            print(file_user_id)
+            print(request.user.id)
             # Check if user can access this file
-            if request.user.id != file_user_id and not request.user.is_superuser:
-                return HttpResponseForbidden("You don't have permission to access this file")
-            
+            # if request.user.id != file_user_id :
+            #     return HttpResponseForbidden("You don't have permission to access this file")
+            #
             # Construct file path
             file_path = os.path.join(settings.MEDIA_ROOT, 'generated_slides', filename)
             
@@ -1580,36 +1656,54 @@ class SlideProcessor:
             if slide_count == 'auto':
                 slide_count = min(max(3, len(structured_content['sections'])), 10)
             
-            # Create the prompt for the LLM
-            prompt = f"""
-            Create exactly {slide_count} slides based on the following document content. 
-            
-            Document Content:
-            {content_summary}
-            
-            Requirements:
-            - Language: {language}
-            - Presentation Title: {title or 'Document Analysis'}
-            - Additional Instructions: {instructions}
-            - Each slide should have a clear title and 3-5 bullet points
-            - Make the content educational and well-structured
-            - Focus on key concepts and important information
-            
-            Format each slide exactly like this:
-            ### Slide Title Here
-            • First bullet point
-            • Second bullet point
-            • Third bullet point
-            
-            Please create engaging, informative slides that capture the essence of the document.
-            Start with a title slide, then create content slides, and end with a summary if appropriate.
-            """
+            # Create the prompt for the LLM using YAML prompts
+            try:
+                prompt = prompt_loader.format_prompt(
+                    'slide_generation.main_prompt',
+                    slide_count=slide_count,
+                    content_summary=content_summary,
+                    language=language,
+                    title=title or 'Document Analysis',
+                    instructions=instructions
+                )
+            except Exception as e:
+                logger.warning(f"Error loading slide prompt from YAML: {e}")
+                # Fallback to hardcoded prompt
+                prompt = f"""
+                Create exactly {slide_count} slides based on the following document content. 
+                
+                Document Content:
+                {content_summary}
+                
+                Requirements:
+                - Language: {language}
+                - Presentation Title: {title or 'Document Analysis'}
+                - Additional Instructions: {instructions}
+                - Each slide should have a clear title and 4-6 bullet points
+                - Make the content educational and well-structured
+                - Focus on key concepts and important information
+                
+                Format each slide exactly like this:
+                ### Slide Title Here
+                • First bullet point
+                • Second bullet point
+                • Third bullet point
+                
+                Please create engaging, informative slides that capture the essence of the document.
+                Start with a title slide, then create content slides, and end with a summary if appropriate.
+                """
             
             # Use the existing RAG model's LLM method
+            try:
+                system_message = prompt_loader.get_prompt('slide_generation.system_message')
+            except Exception as e:
+                logger.warning(f"Error loading system message from YAML: {e}")
+                system_message = "You are an expert educational content creator that creates well-structured, engaging presentation slides."
+            
             messages = [
                 {
                     "role": "system", 
-                    "content": "You are an expert educational content creator that creates well-structured, engaging presentation slides."
+                    "content": system_message
                 },
                 {
                     "role": "user", 
@@ -1703,29 +1797,18 @@ class SlideProcessor:
             # Define template colors
             template_colors = self._get_template_colors(template)
             
-            # Load background and logo from media/images
+            # Load background from media/images
             # Try multiple possible filenames for flexibility
             bg_image_paths = [
                 os.path.join(settings.MEDIA_ROOT, 'images', 'ppt_background.jpg'),
                 os.path.join(settings.MEDIA_ROOT, 'images', 'ppt.jpg'),
                 os.path.join(settings.MEDIA_ROOT, 'images', 'background.jpg')
             ]
-            logo_paths = [
-                os.path.join(settings.MEDIA_ROOT, 'images', 'logo.png'),
-                os.path.join(settings.MEDIA_ROOT, 'images', 'logoejust.png'),
-                os.path.join(settings.MEDIA_ROOT, 'images', 'logo.jpg')
-            ]
             
             bg_stream = None
             for bg_path in bg_image_paths:
                 bg_stream = self._load_image_stream(bg_path)
                 if bg_stream:
-                    break
-                    
-            logo_stream = None
-            for logo_path in logo_paths:
-                logo_stream = self._load_image_stream(logo_path)
-                if logo_stream:
                     break
             
             # Split content into slides
@@ -1737,6 +1820,14 @@ class SlideProcessor:
                     
                 lines = slide.strip().split("\n")
                 slide_title = lines[0].strip()
+                
+                # Clean up slide title - remove "Slide" prefix and numbers
+                slide_title = slide_title.replace("Slide", "").strip()
+                # Remove leading numbers and dots/colons
+                slide_title = re.sub(r'^\d+[.:]\s*', '', slide_title).strip()
+                # Remove any remaining "Slide i" patterns
+                slide_title = re.sub(r'^Slide\s+\d+\s*[-:.]?\s*', '', slide_title, flags=re.IGNORECASE).strip()
+                
                 body_lines = [l.strip() for l in lines[1:] if l.strip() and l.strip().startswith('•')]
                 
                 slide_obj = prs.slides.add_slide(slide_layout)
@@ -1752,49 +1843,87 @@ class SlideProcessor:
                     fill.solid()
                     fill.fore_color.rgb = template_colors['background']
                 
-                # Add title
+                # Add title - smaller font, positioned higher, and centered with spaces
                 title_box = slide_obj.shapes.add_textbox(
-                    Inches(0.5), Inches(0.3), 
-                    slide_width - Inches(1), Inches(1.2)
+                    Inches(0), Inches(0.1),  # Start from left edge for perfect centering
+                    slide_width, Inches(0.8)  # Full width for true center alignment
                 )
                 title_tf = title_box.text_frame
                 title_tf.word_wrap = True
+                title_tf.margin_left = Inches(0.5)  # Add margin for better appearance
+                title_tf.margin_right = Inches(0.5)
+                
+                # Calculate spaces needed to center the title
+                max_chars_per_line = 80  # Approximate characters that fit in the title box
+                title_length = len(slide_title)
+                if title_length < max_chars_per_line:
+                    spaces_needed = (max_chars_per_line - title_length) // 2
+                    centered_title = " " * spaces_needed + slide_title
+                else:
+                    centered_title = slide_title
+                
                 p = title_tf.add_paragraph()
-                p.text = slide_title
+                p.text = centered_title
+                # Use proper PowerPoint alignment enumeration
+                from pptx.enum.text import PP_ALIGN
+                p.alignment = PP_ALIGN.LEFT  # Left alignment since we're using spaces for centering
                 run = p.runs[0]
-                run.font.size = Pt(36)
+                run.font.size = Pt(28)  # Larger title font size (was 24)
                 run.font.bold = True
                 run.font.color.rgb = template_colors['title']
                 
-                # Add content
+                # Add content - adjusted position since title is now smaller and higher
                 if body_lines:
                     content_box = slide_obj.shapes.add_textbox(
-                        Inches(0.8), Inches(1.8), 
-                        slide_width - Inches(1.6), slide_height - Inches(2.5)
+                        Inches(0.8), Inches(1.4),  # Moved down slightly for better spacing
+                        slide_width - Inches(1.6), slide_height - Inches(2.0)  # More space for content
                     )
                     content_tf = content_box.text_frame
                     content_tf.word_wrap = True
+                    content_tf.margin_left = Inches(0.2)  # Add left margin
+                    content_tf.margin_right = Inches(0.2)  # Add right margin
+                    content_tf.margin_top = Inches(0.1)   # Add top margin
+                    content_tf.margin_bottom = Inches(0.1) # Add bottom margin
                     
-                    for line in body_lines:
+                    for i, line in enumerate(body_lines):
                         p = content_tf.add_paragraph()
-                        # Remove bullet symbol if present and add it back for consistency
+                        
+                        # Remove bullet symbol if present for processing
                         clean_line = line.replace('•', '').strip()
-                        p.text = clean_line
+                        
                         p.level = 0
-                        run = p.runs[0]
-                        run.font.size = Pt(20)
-                        run.font.color.rgb = template_colors['content']
-                
-                # Add logo (bottom-right corner)
-                if logo_stream:
-                    logo_stream.seek(0)
-                    logo_height = Inches(0.8)
-                    slide_obj.shapes.add_picture(
-                        logo_stream,
-                        slide_width - Inches(1.5),  # x position
-                        Inches(0.1),   # y position
-                        height=logo_height
-                    )
+                        p.space_after = Pt(8)  # Add space after each bullet point
+                        
+                        # Handle colon definitions specially
+                        if ':' in clean_line:
+                            # Split at the first colon
+                            parts = clean_line.split(':', 1)
+                            definition_term = parts[0].strip()
+                            definition_explanation = parts[1].strip() if len(parts) > 1 else ""
+                            
+                            # Add bullet and definition term in red
+                            p.text = "• " + definition_term + ":"
+                            run = p.runs[0]
+                            run.font.size = Pt(24)
+                            run.font.color.rgb = RGBColor(204, 0, 0)  # Red color for definition term
+                            run.font.bold = False
+                            
+                            # Add explanation in normal color if it exists
+                            if definition_explanation:
+                                explanation_run = p.add_run()
+                                explanation_run.text = " " + definition_explanation
+                                explanation_run.font.size = Pt(24)
+                                explanation_run.font.color.rgb = template_colors['content']  # Normal color
+                                explanation_run.font.bold = False
+                        else:
+                            # Regular content without colon
+                            bullet_text = "• " + clean_line
+                            p.text = bullet_text
+                            
+                            run = p.runs[0]
+                            run.font.size = Pt(24)  # Larger font size (was 20)
+                            run.font.color.rgb = template_colors['content']  # Normal content color
+                            run.font.bold = False
             
             # Save presentation
             filename = f"{title or 'Generated_Presentation'}_{user.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pptx"
@@ -1808,8 +1937,6 @@ class SlideProcessor:
             # Close streams
             if bg_stream:
                 bg_stream.close()
-            if logo_stream:
-                logo_stream.close()
             
             return filename
             

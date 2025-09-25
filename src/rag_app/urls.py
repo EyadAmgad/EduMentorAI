@@ -26,7 +26,9 @@ urlpatterns = [
     path('documents/<uuid:pk>/process/', views.process_document, name='document_process'),
     
     # Chat interface
-    path('chat/', views.ChatView.as_view(), name='chat'),
+    path('chat/', views.ChatModeView.as_view(), name='chat'),
+    path('chat/mode/', views.ChatModeView.as_view(), name='chat_mode'),
+    path('chat/start/', views.ChatView.as_view(), name='chat_start'),
     path('chat/anonymous/', views.AnonymousDocumentChatView.as_view(), name='anonymous_chat'),
     path('chat/<uuid:session_id>/', views.ChatView.as_view(), name='chat_session'),
     path('chat/ajax/send/', views.send_message, name='chat_send'),

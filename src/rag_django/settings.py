@@ -61,7 +61,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'allauth.account.middleware.AccountMiddleware',
+    # Note: allauth.account.middleware.AccountMiddleware is not needed for most django-allauth versions
     'rag_app.email_verification_middleware.EmailVerificationMiddleware',  # Email verification
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -107,14 +107,20 @@ if USE_SQLITE:
     print("Using SQLite database")  # Debug line
 else:
     # PostgreSQL database (Supabase) for production
+    print(config('DB_HOST', default=''))  # Debug line)
+    print(config('DB_NAME', default=''))  # Debug line)
+    print(config('DB_USER', default=''))  # Debug line)
+    print(config('SUPABASE_DB_PASSWORD', default=''))  # Debug line)
+    print(config('DB_PORT', default=''))  # Debug line)
+    print("Configuring PostgreSQL database")  # Debug line
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('SUPABASE_DB_NAME', default='postgres'),
-            'USER': config('SUPABASE_DB_USER', default='postgres'),
+            'NAME': config('DB_NAME', default='postgres'),
+            'USER': config('DB_USER', default='postgres'),
             'PASSWORD': config('SUPABASE_DB_PASSWORD', default=''),
-            'HOST': config('SUPABASE_DB_HOST', default=''),
-            'PORT': config('SUPABASE_DB_PORT', default='5432'),
+            'HOST': config('DB_HOST', default=''),
+            'PORT': config('DB_PORT', default='5432'),
             'OPTIONS': {
                 'sslmode': 'require',
             },
@@ -243,6 +249,20 @@ ACCOUNT_AUTHENTICATION_METHOD = 'email'  # Use email instead of username
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_UNIQUE_EMAIL = True
+# Custom adapter to handle existing user signup attempts
+ACCOUNT_ADAPTER = 'rag_app.adapters.CustomAccountAdapter'
+# Custom signup form
+ACCOUNT_FORMS = {
+    'signup': 'rag_app.forms.CustomSignupForm',
+}
+# Prevent enumeration - don't send emails for existing accounts during signup
+ACCOUNT_PREVENT_ENUMERATION = False  # We want to show specific error for UX
+# Disable the automatic account already exists email behavior
+ACCOUNT_EMAIL_UNKNOWN_ACCOUNTS = False
+ACCOUNT_RATE_LIMITS = {
+    'login_failed': '5/5m',
+    'signup': '5/m',
+}
 # Remove deprecated signup fields setting
 # ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 
