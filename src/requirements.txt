@@ -28,7 +28,18 @@ supabase
 # HTTP Requests
 requests
 
+# YAML processing for prompts
+PyYAML
+
 # Production utilities
 gunicorn
+whitenoise
+python-dotenv
+rn
+whitenoise
+python-dotenvrn
+whitenoise
+python-dotenv
+icorn
 whitenoise
 python-dotenv

@@ -86,6 +86,8 @@ class ChatSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, null=True, blank=True)
+    # For specific document chat
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, null=True, blank=True)
     # For anonymous document chat
     temp_document = models.ForeignKey('TempDocument', on_delete=models.CASCADE, null=True, blank=True)
     title = models.CharField(max_length=255, blank=True)

@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from .retriever import DocumentRetriever
 from .vectorstore import VectorStore
 from ..models import ChatSession, ChatMessage, DocumentChunk, TempDocument
+from ..prompt_loader import prompt_loader
 
 # Load environment variables
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "../../.env"))
@@ -38,22 +39,25 @@ class RAGModel:
     """
     
     def __init__(self, 
-                 embedding_model: str = 'all-MiniLM-L6-v2',
-                 llm_model: str = "x-ai/grok-4-fast:free",
+                 embedding_model: str = None,
+                 llm_model: str = None,
                  max_context_length: int = 4000):
         """
         Initialize the RAG model
         
         Args:
-            embedding_model: Embedding model for retrieval
-            llm_model: LLM model for generation
+            embedding_model: Embedding model for retrieval (defaults to env var EMBEDDING_MODEL)
+            llm_model: LLM model for generation (defaults to env var LLM_MODEL)
             max_context_length: Maximum context length
         """
-        # Initialize retriever
-        self.retriever = DocumentRetriever(embedding_model, max_context_length)
+        # Get models from environment variables if not provided
+        self.embedding_model = embedding_model or os.getenv("EMBEDDING_MODEL", 'all-MiniLM-L6-v2')
+        self.llm_model = llm_model or os.getenv("LLM_MODEL", "x-ai/grok-4-fast:free")
+        
+        # Initialize retriever with embedding model from env
+        self.retriever = DocumentRetriever(self.embedding_model, max_context_length)
         
         # LLM configuration
-        self.llm_model = llm_model
         self.api_key = os.getenv("OPEN_ROUTER_API_KEY")
         
         if not self.api_key:
@@ -304,7 +308,31 @@ Please answer based on the provided context. If the context doesn't contain enou
     
     def _get_system_prompt(self, subject_id: Optional[int] = None) -> str:
         """Get system prompt for the LLM"""
-        base_prompt = """You are an intelligent educational assistant that helps students learn by answering questions based on their uploaded documents. 
+        try:
+            # Load base prompt from YAML
+            base_prompt = prompt_loader.get_prompt('rag_system_prompt')
+            
+            if subject_id:
+                try:
+                    from ..models import Subject
+                    subject = Subject.objects.get(id=subject_id)
+                    
+                    # Get subject prompt template and format it
+                    subject_prompt = prompt_loader.format_prompt(
+                        'subject_prompt_template',
+                        subject_name=subject.name,
+                        subject_description=subject.description or "No description available"
+                    )
+                    base_prompt += subject_prompt
+                except Exception as e:
+                    logger.warning(f"Could not load subject prompt: {e}")
+            
+            return base_prompt
+            
+        except Exception as e:
+            logger.error(f"Error loading system prompt from YAML: {e}")
+            # Fallback to hardcoded prompt if YAML loading fails
+            fallback_prompt = """You are an intelligent educational assistant that helps students learn by answering questions based on their uploaded documents. 
 
 IMPORTANT: Never introduce yourself by name or mention any specific AI assistant names like "Sonoma", "Claude", "GPT", etc. Simply provide helpful educational responses without personal identification.
 
@@ -325,19 +353,18 @@ Guidelines:
 - Do not introduce yourself by name or mention any specific AI assistant names
 - Focus entirely on helping the student understand the content
 - Start responses directly with the educational content, not personal introductions"""
-        
-        if subject_id:
-            try:
-                from ..models import Subject
-                subject = Subject.objects.get(id=subject_id)
-                subject_prompt = f"\n\nYou are currently helping with the subject: {subject.name}"
-                if subject.description:
-                    subject_prompt += f"\nSubject description: {subject.description}"
-                base_prompt += subject_prompt
-            except:
-                pass
-        
-        return base_prompt
+            
+            if subject_id:
+                try:
+                    from ..models import Subject
+                    subject = Subject.objects.get(id=subject_id)
+                    fallback_prompt += f"\n\nYou are currently helping with the subject: {subject.name}"
+                    if subject.description:
+                        fallback_prompt += f"\nSubject description: {subject.description}"
+                except:
+                    pass
+            
+            return fallback_prompt
     
     def _generate_llm_response(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
         """

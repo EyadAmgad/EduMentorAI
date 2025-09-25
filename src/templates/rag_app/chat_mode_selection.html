@@ -1,0 +1,344 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Choose Chat Mode - EduMentorAI{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mode-selection-container {
+        min-height: calc(100vh - 100px);
+        display: flex;
+        align-items: center;
+        background: var(--background-light);
+    }
+    
+    .mode-card {
+        background: var(--card-bg);
+        border-radius: 1rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        border: 1px solid var(--border-color);
+        max-width: 600px;
+        width: 100%;
+    }
+    
+    .mode-header {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        border-radius: 1rem 1rem 0 0;
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    .mode-option {
+        padding: 1.5rem;
+        margin: 1rem 0;
+        border: 2px solid var(--border-color);
+        border-radius: 0.75rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: var(--background-light);
+    }
+    
+    .mode-option:hover {
+        border-color: var(--primary-color);
+        background: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+    }
+    
+    .mode-option.selected {
+        border-color: var(--primary-color);
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .mode-option .form-check-input {
+        display: none;
+    }
+    
+    .mode-icon {
+        font-size: 2.5rem;
+        margin-bottom: 1rem;
+        color: var(--primary-color);
+    }
+    
+    .mode-option.selected .mode-icon {
+        color: white;
+    }
+    
+    .mode-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+    }
+    
+    .mode-option.selected .mode-title {
+        color: white;
+    }
+    
+    .mode-description {
+        color: var(--text-secondary);
+        margin-bottom: 1rem;
+    }
+    
+    .mode-option.selected .mode-description {
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .mode-stats {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+    }
+    
+    .mode-option.selected .mode-stats {
+        color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .btn-start-chat {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border: none;
+        color: white;
+        font-weight: 600;
+        padding: 0.75rem 2rem;
+        border-radius: 0.5rem;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        width: 100%;
+    }
+    
+    .btn-start-chat:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        color: white;
+    }
+    
+    .selection-area {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        background: white;
+    }
+    
+    .document-item, .subject-item {
+        padding: 0.75rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        border: 1px solid transparent;
+        margin-bottom: 0.25rem;
+    }
+    
+    .document-item:hover, .subject-item:hover {
+        background: var(--background-light);
+        border-color: var(--border-color);
+    }
+    
+    .item-title {
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+    
+    .item-meta {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 2rem;
+        color: var(--text-secondary);
+    }
+    
+    .empty-state i {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        color: var(--text-muted);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mode-selection-container">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="mode-card">
+                    <div class="mode-header">
+                        <h2 class="mb-2">
+                            <i class="fas fa-comments me-2"></i>
+                            Choose Your Chat Mode
+                        </h2>
+                        <p class="mb-0 opacity-90">Select how you'd like to interact with your documents</p>
+                    </div>
+                    
+                    <div class="p-4">
+                        <form method="post" id="chatModeForm">
+                            {% csrf_token %}
+                            
+                            <!-- Mode Selection -->
+                            <div class="mb-4">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mode-option" data-mode="document">
+                                            <div class="text-center">
+                                                <div class="mode-icon">
+                                                    <i class="fas fa-file-alt"></i>
+                                                </div>
+                                                <h5 class="mode-title">Chat with Document</h5>
+                                                <p class="mode-description">
+                                                    Focus on a specific document for targeted questions and analysis
+                                                </p>
+                                                <div class="mode-stats">
+                                                    <i class="fas fa-file me-1"></i>
+                                                    {{ user_documents }} document{{ user_documents|pluralize }} available
+                                                </div>
+                                            </div>
+                                            <input type="radio" name="chat_mode" value="document" class="form-check-input" required>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="mode-option" data-mode="subject">
+                                            <div class="text-center">
+                                                <div class="mode-icon">
+                                                    <i class="fas fa-books"></i>
+                                                </div>
+                                                <h5 class="mode-title">Chat within Subject</h5>
+                                                <p class="mode-description">
+                                                    Ask questions across all documents in a subject for comprehensive insights
+                                                </p>
+                                                <div class="mode-stats">
+                                                    <i class="fas fa-folder me-1"></i>
+                                                    {{ user_subjects }} subject{{ user_subjects|pluralize }} with documents
+                                                </div>
+                                            </div>
+                                            <input type="radio" name="chat_mode" value="subject" class="form-check-input" required>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Document Selection (hidden by default) -->
+                            <div id="documentSelection" class="mb-4" style="display: none;">
+                                <label class="form-label fw-semibold">
+                                    <i class="fas fa-file-alt me-2"></i>Select Document
+                                </label>
+                                {{ form.document }}
+                                {% if form.document.errors %}
+                                    <div class="text-danger small mt-1">{{ form.document.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Subject Selection (hidden by default) -->
+                            <div id="subjectSelection" class="mb-4" style="display: none;">
+                                <label class="form-label fw-semibold">
+                                    <i class="fas fa-books me-2"></i>Select Subject
+                                </label>
+                                {{ form.subject }}
+                                {% if form.subject.errors %}
+                                    <div class="text-danger small mt-1">{{ form.subject.errors }}</div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- Error Messages -->
+                            {% if form.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    {% for error in form.non_field_errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            
+                            <!-- Quick Actions -->
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div>
+                                    <small class="text-muted">
+                                        Need to upload documents? 
+                                        <a href="{% url 'rag_app:document_upload' %}" class="text-primary">Upload here</a>
+                                    </small>
+                                </div>
+                                <div>
+                                    <small class="text-muted">
+                                        Or try 
+                                        <a href="{% url 'rag_app:anonymous_chat' %}" class="text-primary">quick document chat</a>
+                                    </small>
+                                </div>
+                            </div>
+                            
+                            <!-- Submit Button -->
+                            <button type="submit" class="btn btn-start-chat" id="startChatBtn" disabled>
+                                <i class="fas fa-comment-dots me-2"></i>Start Chatting
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modeOptions = document.querySelectorAll('.mode-option');
+    const documentSelection = document.getElementById('documentSelection');
+    const subjectSelection = document.getElementById('subjectSelection');
+    const startChatBtn = document.getElementById('startChatBtn');
+    const documentSelect = document.getElementById('id_document');
+    const subjectSelect = document.getElementById('id_subject');
+    
+    // Handle mode selection
+    modeOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            const mode = this.getAttribute('data-mode');
+            const radio = this.querySelector('input[type="radio"]');
+            
+            // Clear previous selections
+            modeOptions.forEach(opt => opt.classList.remove('selected'));
+            documentSelection.style.display = 'none';
+            subjectSelection.style.display = 'none';
+            
+            // Select current option
+            this.classList.add('selected');
+            radio.checked = true;
+            
+            // Show appropriate selection
+            if (mode === 'document') {
+                documentSelection.style.display = 'block';
+            } else if (mode === 'subject') {
+                subjectSelection.style.display = 'block';
+            }
+            
+            checkFormValidity();
+        });
+    });
+    
+    // Handle document/subject selection changes
+    documentSelect.addEventListener('change', checkFormValidity);
+    subjectSelect.addEventListener('change', checkFormValidity);
+    
+    function checkFormValidity() {
+        const selectedMode = document.querySelector('input[name="chat_mode"]:checked');
+        let isValid = false;
+        
+        if (selectedMode) {
+            if (selectedMode.value === 'document' && documentSelect.value) {
+                isValid = true;
+            } else if (selectedMode.value === 'subject' && subjectSelect.value) {
+                isValid = true;
+            }
+        }
+        
+        startChatBtn.disabled = !isValid;
+    }
+    
+    // Handle form submission
+    document.getElementById('chatModeForm').addEventListener('submit', function(e) {
+        if (startChatBtn.disabled) {
+            e.preventDefault();
+        }
+    });
+});
+</script>
+{% endblock %}
