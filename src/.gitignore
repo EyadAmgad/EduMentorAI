@@ -164,3 +164,4 @@ uploads/
 #.idea/src/token.json
 
 rag_app/pipeline/token.json
+token.json
