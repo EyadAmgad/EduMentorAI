@@ -9,6 +9,12 @@ from typing import Dict, List, Any, Optional
 from .model import get_rag_model
 from ..models import Quiz, Question, AnswerChoice, Document, Subject
 
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
+from googleapiclient.discovery import build
+import os
+
 logger = logging.getLogger(__name__)
 
 
@@ -16,7 +22,62 @@ class QuizGenerationError(Exception):
     """Custom exception for quiz generation errors"""
     pass
 
+class Form_generator:
+    def __init__(self):
+        self.SCOPES = ["https://www.googleapis.com/auth/forms.body"]
+    def get_creds(self):
+        print("Getting credentials")
+        creds = None
+        print(os.getcwd())
+        if os.path.exists("rag_app/pipeline/token.json"):
+            creds = Credentials.from_authorized_user_file("rag_app/pipeline/token.json", self.SCOPES)
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file("rag_app/pipeline/credentials.json", self.SCOPES)
+                creds = flow.run_local_server(port=0)
+            with open("token.json", "w") as f:
+                f.write(creds.to_json())
+        return creds
+    def create_quiz(self,questions):
+        creds = self.get_creds()
+        service = build("forms", "v1", credentials=creds)
 
+        # 1. Create empty form
+        form = {
+            "info": {
+                "title": "AI Generated Quiz",
+                "documentTitle": "AI Quiz Form"
+            }
+        }
+        result = service.forms().create(body=form).execute()
+        form_id = result["formId"]
+
+        # 2. Convert the form into a quiz
+        update = {
+            "requests": [
+                {
+                    "updateSettings": {
+                        "settings": {
+                            "quizSettings": {
+                                "isQuiz": True
+                            }
+                        },
+                        "updateMask": "quizSettings.isQuiz"
+                    }
+                }
+            ]
+        }
+        service.forms().batchUpdate(formId=form_id, body=update).execute()
+
+        # 3. Add  questions with correct answers and points
+        # Execute batchUpdate to insert questions
+        service.forms().batchUpdate(formId=form_id, body=questions).execute()
+
+        print(f"Quiz created! Edit here: https://docs.google.com/forms/d/{form_id}")
+
+        return form_id
 class QuizGenerator:
     """
     Quiz Generator using RAG model and LLM
@@ -91,7 +152,9 @@ class QuizGenerator:
             
             # Generate questions using RAG
             questions = self._generate_questions(question_content, num_questions)
-            
+            google_form_content = self.generate_google_form_content(json.dumps({"questions": questions}))
+            form_gen = Form_generator()
+            form_id = form_gen.create_quiz(google_form_content)
             return {
                 'success': True,
                 'questions': questions,
@@ -100,7 +163,8 @@ class QuizGenerator:
                     'num_questions': len(questions),
                     'topics': specific_topics or ['general'],
                     'sources': [doc.title for doc in documents]
-                }
+                },
+                'google_form_id': form_id
             }
             
         except Exception as e:
@@ -314,26 +378,55 @@ class QuizGenerator:
             logger.error(f"Error saving quiz: {str(e)}")
             raise QuizGenerationError(f"Failed to save quiz: {str(e)}")
     
-    def generate_google_form_content(self, questions: List[Dict[str, Any]]) -> str:
+    def generate_google_form_content(self,raw_json: str):
         """
-        Generate content for Google Form
-        
-        Args:
-            questions: List of question dictionaries
-            
-        Returns:
-            String with formatted questions and choices
+        Transform raw question JSON (with string booleans) into
+        Google Forms API request format.
         """
-        form_content = []
-        
-        for i, question in enumerate(questions, 1):
-            # Add question
-            form_content.append(f"{i}. {question['question']}")
-            
-            # Add choices
-            for j, choice in enumerate(question['choices'], ord('a')):
-                form_content.append(f"   {chr(j)}. {choice['text']}")
-            
-            form_content.append("")  # Add blank line between questions
-        
-        return "\n".join(form_content)
+        data = json.loads(raw_json)
+        questions = data.get("questions", [])
+
+        requests = []
+        for idx, q in enumerate(questions):
+            title = q["question"]
+
+            # Normalize choices: turn "true"/"false" into proper bools
+            options = []
+            correct_answers = []
+            for choice in q["choices"]:
+                text = choice["text"]
+                is_correct_str = str(choice["is_correct"]).strip().lower()
+                is_correct = is_correct_str == "true"
+
+                options.append({"value": text})
+                if is_correct:
+                    correct_answers.append({"value": text})
+
+            # Build request block
+            item = {
+                "createItem": {
+                    "item": {
+                        "title": title,
+                        "questionItem": {
+                            "question": {
+                                "required": True,
+                                "grading": {
+                                    "pointValue": 1,
+                                    "correctAnswers": {"answers": correct_answers},
+                                    "whenRight": {"text": "Correct!"},
+                                    "whenWrong": {"text": q.get("explanation", "")}
+                                },
+                                "choiceQuestion": {
+                                    "type": "RADIO",
+                                    "options": options,
+                                    "shuffle": False
+                                }
+                            }
+                        }
+                    },
+                    "location": {"index": idx}
+                }
+            }
+            requests.append(item)
+
+        return {"requests": requests}
