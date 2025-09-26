@@ -21,6 +21,7 @@ import logging
 from .prompt_loader import prompt_loader
 import os
 import re
+import glob
 
 from .models import (
     Subject, Document, DocumentChunk, ChatSession, ChatMessage,
@@ -1288,6 +1289,37 @@ class QuizCreateView(LoginRequiredMixin, CreateView):
         return reverse('rag_app:quiz_detail', kwargs={'pk': self.object.pk})
 
 
+class QuizUpdateView(LoginRequiredMixin, UpdateView):
+    """Edit existing quiz"""
+    model = Quiz
+    form_class = QuizCreateForm
+    template_name = 'rag_app/quiz_form.html'
+    context_object_name = 'quiz'
+    
+    def get_queryset(self):
+        return Quiz.objects.filter(created_by=self.request.user)
+    
+    def form_valid(self, form):
+        messages.success(self.request, 'Quiz updated successfully!')
+        return super().form_valid(form)
+    
+    def get_success_url(self):
+        return reverse('rag_app:quiz_detail', kwargs={'pk': self.object.pk})
+
+
+class QuizDeleteView(LoginRequiredMixin, DeleteView):
+    """Delete quiz"""
+    model = Quiz
+    template_name = 'rag_app/quiz_confirm_delete.html'
+    context_object_name = 'quiz'
+    
+    def get_queryset(self):
+        return Quiz.objects.filter(created_by=self.request.user)
+    
+    def get_success_url(self):
+        messages.success(self.request, 'Quiz deleted successfully!')
+        return reverse('rag_app:quiz_list')
+
 class QuizTakeView(LoginRequiredMixin, DetailView):
     """Take quiz view"""
     model = Quiz
@@ -1463,14 +1495,15 @@ def generate_rag_quiz(request):
             # Validate number of questions
             num_questions = min(max(1, num_questions), 15)
             
-            # Generate quiz using QuizGenerator
+            # Generate quiz using QuizGenerator (this may also attempt to create a Google Form)
             from .pipeline.quiz_generator import QuizGenerator
             generator = QuizGenerator()
             
             result = generator.generate_quiz(
                 subject_id=subject_id,
                 num_questions=num_questions,
-                specific_topics=topics if topics else None
+                specific_topics=topics if topics else None,
+                new_owner_email=request.user.email if request.user and request.user.email else None
             )
             
             if not result['success']:
@@ -1479,20 +1512,60 @@ def generate_rag_quiz(request):
                     'error': result.get('error', 'Failed to generate quiz')
                 }, status=500)
             
-            # Create quiz in database
-            quiz = generator.save_quiz(
-                subject_id=subject_id,
-                title=title or f"Quiz on {result['metadata']['subject']}",
-                questions=result['questions'],
-                created_by_id=request.user.id,
-                description=f"Auto-generated quiz covering {', '.join(result['metadata']['topics'])}"
-            )
+            # Attempt to save quiz in database, but do not fail response if DB write fails
+            quiz = None
+            save_error = None
+            try:
+                quiz = generator.save_quiz(
+                    subject_id=subject_id,
+                    title=title or f"Quiz on {result['metadata']['subject']}",
+                    questions=result['questions'],
+                    created_by_id=request.user.id,
+                    description=f"Auto-generated quiz covering {', '.join(result['metadata']['topics'])}"
+                )
+                # Save Google Form URLs if available
+                try:
+                    google_form_url = result.get('google_form_url')
+                    google_form_edit_url = result.get('google_form_edit_url')
+                    if quiz and (google_form_url or google_form_edit_url):
+                        # These fields may not exist if migrations aren't applied; guard with try/except
+                        quiz.google_form_url = google_form_url
+                        quiz.google_form_edit_url = google_form_edit_url
+                        quiz.google_form_owner_email = request.user.email if request.user and request.user.email else None
+                        quiz.save(update_fields=['google_form_url', 'google_form_edit_url', 'google_form_owner_email'])
+                except Exception as e:
+                    # Ignore silently; frontend will still receive the links in JSON
+                    save_error = str(e)
+            except Exception as e:
+                save_error = str(e)
             
+            # Persist last generation info in session for display on GET page
+            try:
+                request.session['last_generated_quiz'] = {
+                    'success': True,
+                    'quiz_id': str(quiz.id) if quiz else None,
+                    'quiz_saved': quiz is not None and save_error is None,
+                    'save_error': save_error,
+                    'questions': result['questions'],
+                    'metadata': result['metadata'],
+                    'google_form_url': result.get('google_form_url'),
+                    'google_form_edit_url': result.get('google_form_edit_url'),
+                    'ownership_transfer': result.get('ownership_transfer')
+                }
+            except Exception:
+                pass
+
+            # Always return links and metadata even if saving failed
             return JsonResponse({
                 'success': True,
-                'quiz_id': str(quiz.id),
+                'quiz_id': str(quiz.id) if quiz else None,
+                'quiz_saved': quiz is not None and save_error is None,
+                'save_error': save_error,
                 'questions': result['questions'],
-                'metadata': result['metadata']
+                'metadata': result['metadata'],
+                'google_form_url': result.get('google_form_url'),
+                'google_form_edit_url': result.get('google_form_edit_url'),
+                'ownership_transfer': result.get('ownership_transfer')
             })
             
         except Exception as e:
@@ -1502,10 +1575,12 @@ def generate_rag_quiz(request):
                 'error': str(e)
             }, status=500)
     
-    # GET request - show form
-    return render(request, 'rag_app/quiz_generate.html', {
-        'subjects': Subject.objects.filter(created_by=request.user)
-    })
+    # GET request - show form and any last generated result
+    context = {
+        'subjects': Subject.objects.filter(created_by=request.user),
+        'last_generated_quiz': request.session.get('last_generated_quiz')
+    }
+    return render(request, 'rag_app/quiz_generate.html', context)
 
 
 @login_required
@@ -1763,6 +1838,7 @@ class SlideGeneratorView(LoginRequiredMixin, View):
             title = request.POST.get('title', '')
             language = request.POST.get('language', 'en')
             instructions = request.POST.get('instructions', '')
+            background_image = request.FILES.get('background_image')
             
             # Validate slide count
             if slide_count == 'custom':
@@ -1790,7 +1866,8 @@ class SlideGeneratorView(LoginRequiredMixin, View):
                 title=title,
                 language=language,
                 instructions=instructions,
-                user=request.user
+                user=request.user,
+                background_image=background_image
             )
             
             if result['success']:
@@ -1814,6 +1891,45 @@ class SlideGeneratorView(LoginRequiredMixin, View):
             }, status=500)
 
 
+class SlidesListView(LoginRequiredMixin, View):
+    """List all generated slides for the current user"""
+    template_name = 'rag_app/slides_list.html'
+
+    def get(self, request):
+        try:
+            user_id_str = f"_{request.user.id}_"
+            slides_dir = os.path.join(settings.MEDIA_ROOT, 'generated_slides')
+            slide_entries = []
+
+            if os.path.isdir(slides_dir):
+                for filepath in glob.glob(os.path.join(slides_dir, '*.pptx')):
+                    filename = os.path.basename(filepath)
+                    if user_id_str in filename:
+                        try:
+                            mtime = os.path.getmtime(filepath)
+                            size_bytes = os.path.getsize(filepath)
+                            download_url = reverse('rag_app:slide_download', kwargs={'filename': filename})
+                            slide_entries.append({
+                                'filename': filename,
+                                'modified_ts': mtime,
+                                'size_bytes': size_bytes,
+                                'download_url': download_url,
+                            })
+                        except OSError:
+                            continue
+
+            slide_entries.sort(key=lambda x: x['modified_ts'], reverse=True)
+
+            return render(request, self.template_name, {
+                'slides': slide_entries
+            })
+        except Exception as e:
+            logger.error(f"Error listing slides: {str(e)}")
+            return render(request, self.template_name, {
+                'slides': [],
+                'error': 'Could not list slides.'
+            })
+
 class SlideProcessor:
     """Advanced helper class for processing documents and generating PowerPoint slides with existing RAG LLM"""
     
@@ -1829,7 +1945,7 @@ class SlideProcessor:
             self.rag_model = None
             self.llm_available = False
     
-    def generate_slides(self, files, slide_count, template, title, language, instructions, user):
+    def generate_slides(self, files, slide_count, template, title, language, instructions, user, background_image=None):
         """
         Main method to generate PowerPoint slides from uploaded documents using existing RAG LLM
         """
@@ -1855,7 +1971,7 @@ class SlideProcessor:
             
             # Step 4: Create PowerPoint presentation with advanced styling
             presentation_path = self._create_advanced_powerpoint(
-                slide_content_text, template, title, user
+                slide_content_text, template, title, user, background_image
             )
             
             # Step 5: Return success response with download URL
@@ -1871,6 +1987,16 @@ class SlideProcessor:
         except Exception as e:
             logger.error(f"Error in slide generation: {str(e)}")
             return {'success': False, 'error': str(e)}
+
+    def _sanitize_text(self, text):
+        try:
+            if not isinstance(text, str):
+                text = str(text)
+            text = re.sub(r"[\ud800-\udfff]", "", text)
+            text = text.encode('utf-8', 'ignore').decode('utf-8', 'ignore')
+            return text
+        except Exception:
+            return ''
     
     def _generate_ai_slide_content_with_rag(self, structured_content, slide_count, instructions, language, title):
         """Generate slide content using the existing RAG model LLM"""
@@ -2005,7 +2131,7 @@ class SlideProcessor:
             logger.warning(f"Could not load image {path_or_url}: {str(e)}")
             return None
     
-    def _create_advanced_powerpoint(self, slide_content_text, template, title, user):
+    def _create_advanced_powerpoint(self, slide_content_text, template, title, user, background_image=None):
         """Create PowerPoint presentation with advanced styling, background, and logo"""
         try:
             from pptx import Presentation
@@ -2023,19 +2149,26 @@ class SlideProcessor:
             # Define template colors
             template_colors = self._get_template_colors(template)
             
-            # Load background from media/images
-            # Try multiple possible filenames for flexibility
-            bg_image_paths = [
-                os.path.join(settings.MEDIA_ROOT, 'images', 'ppt_background.jpg'),
-                os.path.join(settings.MEDIA_ROOT, 'images', 'ppt.jpg'),
-                os.path.join(settings.MEDIA_ROOT, 'images', 'background.jpg')
-            ]
-            
+            # Load background: prefer uploaded image, fallback to media defaults
             bg_stream = None
-            for bg_path in bg_image_paths:
-                bg_stream = self._load_image_stream(bg_path)
-                if bg_stream:
-                    break
+            if background_image:
+                try:
+                    # background_image is InMemoryUploadedFile
+                    content = background_image.read()
+                    bg_stream = BytesIO(content)
+                except Exception as e:
+                    logger.warning(f"Could not read uploaded background image: {e}")
+            if not bg_stream:
+                # Try multiple possible filenames for flexibility
+                bg_image_paths = [
+                    os.path.join(settings.MEDIA_ROOT, 'images', 'ppt_background.jpg'),
+                    os.path.join(settings.MEDIA_ROOT, 'images', 'ppt.jpg'),
+                    os.path.join(settings.MEDIA_ROOT, 'images', 'background.jpg')
+                ]
+                for bg_path in bg_image_paths:
+                    bg_stream = self._load_image_stream(bg_path)
+                    if bg_stream:
+                        break
             
             # Split content into slides
             slides = slide_content_text.split("###")
@@ -2045,7 +2178,7 @@ class SlideProcessor:
                     continue
                     
                 lines = slide.strip().split("\n")
-                slide_title = lines[0].strip()
+                slide_title = self._sanitize_text(lines[0].strip())
                 
                 # Clean up slide title - remove "Slide" prefix and numbers
                 slide_title = slide_title.replace("Slide", "").strip()
@@ -2054,7 +2187,7 @@ class SlideProcessor:
                 # Remove any remaining "Slide i" patterns
                 slide_title = re.sub(r'^Slide\s+\d+\s*[-:.]?\s*', '', slide_title, flags=re.IGNORECASE).strip()
                 
-                body_lines = [l.strip() for l in lines[1:] if l.strip() and l.strip().startswith('•')]
+                body_lines = [self._sanitize_text(l.strip()) for l in lines[1:] if l.strip() and l.strip().startswith('•')]
                 
                 slide_obj = prs.slides.add_slide(slide_layout)
                 
@@ -2089,7 +2222,7 @@ class SlideProcessor:
                     centered_title = slide_title
                 
                 p = title_tf.add_paragraph()
-                p.text = centered_title
+                p.text = self._sanitize_text(centered_title)
                 # Use proper PowerPoint alignment enumeration
                 from pptx.enum.text import PP_ALIGN
                 p.alignment = PP_ALIGN.LEFT  # Left alignment since we're using spaces for centering
@@ -2115,7 +2248,7 @@ class SlideProcessor:
                         p = content_tf.add_paragraph()
                         
                         # Remove bullet symbol if present for processing
-                        clean_line = line.replace('•', '').strip()
+                        clean_line = self._sanitize_text(line.replace('•', '').strip())
                         
                         p.level = 0
                         p.space_after = Pt(8)  # Add space after each bullet point

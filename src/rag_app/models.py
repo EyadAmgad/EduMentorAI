@@ -171,6 +171,10 @@ class Quiz(models.Model):
     total_questions = models.PositiveIntegerField(default=10)
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    # Optional Google Form integration
+    google_form_url = models.URLField(null=True, blank=True)
+    google_form_edit_url = models.URLField(null=True, blank=True)
+    google_form_owner_email = models.EmailField(null=True, blank=True)
     
     def __str__(self):
         return self.title

@@ -61,25 +61,53 @@
             </div>
             
             <!-- Results Section -->
-            <div id="quizResults" class="card shadow mt-4" style="display: none;">
+            <div id="quizResults" class="card shadow mt-4" style="display: {% if last_generated_quiz %}block{% else %}none{% endif %};">
                 <div class="card-header bg-success text-white">
                     <h5 class="mb-0">Quiz Generated Successfully!</h5>
                 </div>
                 <div class="card-body">
-                    <div id="quizMetadata" class="mb-4"></div>
+                    <div id="quizMetadata" class="mb-4">
+                        {% if last_generated_quiz %}
+                        <h6>Quiz Details:</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Subject:</strong> {{ last_generated_quiz.metadata.subject }}</li>
+                            <li><strong>Questions:</strong> {{ last_generated_quiz.metadata.num_questions }}</li>
+                            <li><strong>Topics:</strong> {{ last_generated_quiz.metadata.topics|join:", " }}</li>
+                            <li><strong>Sources:</strong> {{ last_generated_quiz.metadata.sources|length }} documents</li>
+                        </ul>
+                        {% endif %}
+                    </div>
                     
                     <!-- Google Form Link (if available) -->
-                    <div id="googleFormSection" class="mb-4" style="display: none;">
+                    <div id="googleFormSection" class="mb-4" style="display: {% if last_generated_quiz and last_generated_quiz.google_form_url %}block{% else %}none{% endif %};">
                         <div class="alert alert-success">
                             <h6><i class="fas fa-check-circle me-2"></i>✅ Google Form Created Successfully!</h6>
                             <div id="formDetails" class="mb-3">
-                                <!-- Form details will be populated by JavaScript -->
+                                {% if last_generated_quiz and last_generated_quiz.google_form_url %}
+                                <p class="mb-2"><strong>Form URL:</strong><br>
+                                    <small class="text-muted font-monospace">{{ last_generated_quiz.google_form_url }}</small>
+                                </p>
+                                {% if last_generated_quiz.google_form_edit_url %}
+                                <p class="mb-2"><strong>Edit URL:</strong><br>
+                                    <small class="text-muted font-monospace">{{ last_generated_quiz.google_form_edit_url }}</small>
+                                </p>
+                                {% endif %}
+                                {% if last_generated_quiz.ownership_transfer and last_generated_quiz.ownership_transfer.status == 'success' %}
+                                <p class="mb-0"><strong>Ownership Transfer:</strong><br>
+                                    <small class="text-success">✅ Invitation sent to: {{ last_generated_quiz.ownership_transfer.new_owner }}</small>
+                                </p>
+                                {% else %}
+                                <p class="mb-0"><strong>Ownership:</strong><br>
+                                    <small class="text-warning">Ownership transfer may have failed or was not requested.</small>
+                                </p>
+                                {% endif %}
+                                {% endif %}
                             </div>
                             <div class="d-grid gap-2">
-                                <a id="googleFormLink" href="#" target="_blank" class="btn btn-success">
+                                <a id="googleFormLink" href="{% if last_generated_quiz %}{{ last_generated_quiz.google_form_url }}{% else %}#{% endif %}" target="_blank" class="btn btn-success">
                                     <i class="fas fa-external-link-alt me-2"></i> Open Google Form
                                 </a>
-                                <a id="googleFormEditLink" href="#" target="_blank" class="btn btn-outline-primary" style="display: none;">
+                                <a id="googleFormEditLink" href="{% if last_generated_quiz %}{{ last_generated_quiz.google_form_edit_url }}{% else %}#{% endif %}" target="_blank" class="btn btn-outline-primary" style="display: {% if last_generated_quiz and last_generated_quiz.google_form_edit_url %}block{% else %}none{% endif %};">
                                     <i class="fas fa-edit me-2"></i> Edit Google Form
                                 </a>
                                 <button id="copyFormLinkButton" class="btn btn-outline-success">
@@ -231,45 +259,76 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Show Google Form link if available
                 if (data.google_form_url) {
-                    googleFormLink.href = data.google_form_url;
+                    if (googleFormLink) {
+                        googleFormLink.href = data.google_form_url;
+                    }
                     
                     // Show edit link if available
                     const editLink = document.getElementById('googleFormEditLink');
-                    if (data.google_form_edit_url) {
+                    if (data.google_form_edit_url && editLink) {
                         editLink.href = data.google_form_edit_url;
                         editLink.style.display = 'block';
                     }
                     
                     // Display form details
                     const formDetails = document.getElementById('formDetails');
-                    let detailsHTML = `
-                        <p class="mb-2"><strong>Form URL:</strong><br>
-                        <small class="text-muted font-monospace">${data.google_form_url}</small></p>
-                    `;
-                    
-                    if (data.google_form_edit_url) {
-                        detailsHTML += `
-                            <p class="mb-2"><strong>Edit URL:</strong><br>
-                            <small class="text-muted font-monospace">${data.google_form_edit_url}</small></p>
+                    if (formDetails) {
+                        let detailsHTML = `
+                            <p class=\"mb-2\"><strong>Form URL:</strong><br>
+                            <small class=\"text-muted font-monospace\">${data.google_form_url}</small></p>
                         `;
+                        
+                        if (data.google_form_edit_url) {
+                            detailsHTML += `
+                                <p class=\"mb-2\"><strong>Edit URL:</strong><br>
+                                <small class=\"text-muted font-monospace\">${data.google_form_edit_url}</small></p>
+                            `;
+                        }
+                        
+                        if (data.ownership_transfer && data.ownership_transfer.status === 'success') {
+                            detailsHTML += `
+                                <p class=\"mb-0\"><strong>Ownership Transfer:</strong><br>
+                                <small class=\"text-success\">✅ Invitation sent to: ${data.ownership_transfer.new_owner}</small></p>
+                            `;
+                        } else {
+                            detailsHTML += `
+                                <p class=\"mb-0\"><strong>Ownership:</strong><br>
+                                <small class=\"text-warning\">Ownership transfer may have failed or was not requested.</small></p>
+                            `;
+                        }
+                        
+                        formDetails.innerHTML = detailsHTML;
                     }
-                    
-                    if (data.ownership_transfer && data.ownership_transfer.status === 'success') {
-                        detailsHTML += `
-                            <p class="mb-0"><strong>Ownership Transfer:</strong><br>
-                            <small class="text-success">✅ Invitation sent to: ${data.ownership_transfer.new_owner}</small></p>
-                        `;
+                    if (googleFormSection) {
+                        googleFormSection.style.display = 'block';
                     }
-                    
-                    formDetails.innerHTML = detailsHTML;
-                    googleFormSection.style.display = 'block';
                 } else {
-                    googleFormSection.style.display = 'none';
+                    if (googleFormSection) {
+                        googleFormSection.style.display = 'none';
+                    }
                 }
                 
                 // Show results
                 results.style.display = 'block';
                 results.scrollIntoView({ behavior: 'smooth' });
+
+                // Offer link to open saved quiz if persisted
+                const savedStatus = document.createElement('div');
+                savedStatus.className = 'mt-3';
+                if (data.quiz_saved && data.quiz_id) {
+                    savedStatus.innerHTML = `
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Quiz saved. <a class="fw-semibold" href="/quizzes/${data.quiz_id}/">Open saved quiz</a>
+                        </div>`;
+                } else {
+                    savedStatus.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Quiz not saved to your account yet${data.save_error ? `: <span class="text-muted">${data.save_error}</span>` : ''}.
+                        </div>`;
+                }
+                results.querySelector('.card-body').prepend(savedStatus);
             } else {
                 throw new Error(data.error);
             }
@@ -284,6 +343,22 @@ document.addEventListener('DOMContentLoaded', function() {
     // Handle View Quiz button click
     viewQuizButton.addEventListener('click', function() {
         if (!currentQuizData || !currentQuizData.questions) return;
+        
+        // Links section (shown above questions)
+        let linksHTML = '';
+        if (currentQuizData.google_form_url) {
+            linksHTML += `
+                <div class="mb-3 d-grid gap-2">
+                    <a href="${currentQuizData.google_form_url}" target="_blank" class="btn btn-success">
+                        <i class="fas fa-external-link-alt me-2"></i> Open Google Form
+                    </a>
+                    ${currentQuizData.google_form_edit_url ? `
+                    <a href="${currentQuizData.google_form_edit_url}" target="_blank" class="btn btn-outline-primary">
+                        <i class="fas fa-edit me-2"></i> Edit Google Form
+                    </a>` : ''}
+                </div>
+            `;
+        }
         
         // Generate HTML for questions
         const questionsHTML = currentQuizData.questions.map(q => `
@@ -303,8 +378,8 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `).join('');
         
-        // Update modal content
-        quizQuestions.innerHTML = questionsHTML;
+        // Update modal content: links first, then questions
+        quizQuestions.innerHTML = linksHTML + questionsHTML;
         
         // Show modal
         new bootstrap.Modal(document.getElementById('quizContentModal')).show();

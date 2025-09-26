@@ -40,8 +40,11 @@ urlpatterns = [
     
     # Quiz management
     path('quizzes/', views.QuizListView.as_view(), name='quiz_list'),
+    path('quizzes/create/', views.QuizCreateView.as_view(), name='quiz_create'),
 
     path('quizzes/<uuid:pk>/', views.QuizDetailView.as_view(), name='quiz_detail'),
+    path('quizzes/<uuid:pk>/edit/', views.QuizUpdateView.as_view(), name='quiz_edit'),
+    path('quizzes/<uuid:pk>/delete/', views.QuizDeleteView.as_view(), name='quiz_delete'),
     path('quizzes/<uuid:pk>/take/', views.QuizTakeView.as_view(), name='quiz_take'),
     path('quizzes/<uuid:pk>/results/', views.QuizResultsView.as_view(), name='quiz_results'),
     path('quizzes/<uuid:pk>/generate/', views.generate_quiz_questions, name='quiz_generate'),
@@ -58,4 +61,5 @@ urlpatterns = [
     # Slide generation
     path('slides/generate/', views.SlideGeneratorView.as_view(), name='slide_generate'),
     path('slides/download/<str:filename>/', views.SlideDownloadView.as_view(), name='slide_download'),
+    path('slides/', views.SlidesListView.as_view(), name='slides_list'),
 ]

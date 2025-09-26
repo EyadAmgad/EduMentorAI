@@ -428,6 +428,12 @@
                                     <li><a class="dropdown-item" href="{% url 'rag_app:quiz_take' quiz.id %}"><i class="fas fa-play"></i>Take Quiz</a></li>
                                     <li><a class="dropdown-item" href="{% url 'rag_app:quiz_detail' quiz.id %}"><i class="fas fa-eye"></i>View Details</a></li>
                                     <li><a class="dropdown-item" href="{% url 'rag_app:quiz_edit' quiz.id %}"><i class="fas fa-edit"></i>Edit</a></li>
+                                    {% if quiz.google_form_url %}
+                                        <li><a class="dropdown-item" href="{{ quiz.google_form_url }}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i>Preview Form</a></li>
+                                    {% endif %}
+                                    {% if quiz.google_form_edit_url %}
+                                        <li><a class="dropdown-item" href="{{ quiz.google_form_edit_url }}" target="_blank" rel="noopener"><i class="fas fa-tools"></i>Edit Form</a></li>
+                                    {% endif %}
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item text-danger" href="{% url 'rag_app:quiz_delete' quiz.id %}"><i class="fas fa-trash"></i>Delete</a></li>
                                 </ul>
@@ -482,7 +488,7 @@
                         <!-- Quick Actions -->
                         <div class="quiz-actions">
                             {% if quiz.is_active %}
-                                <a href="{% url 'rag_app:quiz_take' quiz.id %}" class="btn-quiz-action btn-quiz-primary">
+                                <a href="{% if quiz.google_form_url %}{{ quiz.google_form_url }}{% else %}{% url 'rag_app:quiz_take' quiz.id %}{% endif %}" {% if quiz.google_form_url %}target="_blank" rel="noopener"{% endif %} class="btn-quiz-action btn-quiz-primary">
                                     <i class="fas fa-play me-1"></i>Take Quiz
                                 </a>
                             {% else %}
