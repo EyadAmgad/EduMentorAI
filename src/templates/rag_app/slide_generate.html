@@ -322,6 +322,22 @@
             <div class="row">
                 <div class="col-md-6">
                     <div class="option-group">
+                        <label for="bgImage">Custom Background Image (optional)</label>
+                        <input type="file" name="background_image" id="bgImage" class="form-control" accept="image/*">
+                        <small class="text-muted">JPEG/PNG recommended. Used as slide background.</small>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="option-group" id="bgPreviewWrap" style="display: none;">
+                        <label>Background Preview</label>
+                        <img id="bgPreview" alt="Background preview" style="max-width: 100%; border-radius: 8px; border: 1px solid var(--border-color);" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="option-group">
                         <label for="presentationTitle">Presentation Title</label>
                         <input type="text" 
                                name="title" 
@@ -413,6 +429,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const customSlideCount = document.getElementById('customSlideCount');
     const form = document.getElementById('slideGeneratorForm');
     const progressContainer = document.getElementById('progressContainer');
+    const chooseBtn = uploadArea.querySelector('button.btn');
+    const initialProgressHTML = progressContainer ? progressContainer.innerHTML : '';
+    const bgInput = document.getElementById('bgImage');
+    const bgPreviewWrap = document.getElementById('bgPreviewWrap');
+    const bgPreview = document.getElementById('bgPreview');
     
     let selectedFiles = [];
 
@@ -437,6 +458,21 @@ document.addEventListener('DOMContentLoaded', function() {
         uploadArea.classList.remove('dragover');
         handleFiles(e.dataTransfer.files);
     });
+
+    // Improve UX: clicking the area or button opens the file dialog
+    uploadArea.addEventListener('click', function(e) {
+        // Avoid double-trigger when the hidden input is clicked
+        if (e.target !== fileInput) {
+            fileInput.click();
+        }
+    });
+    if (chooseBtn) {
+        chooseBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fileInput.click();
+        });
+    }
 
     // Handle slide count selection
     slideCountSelect.addEventListener('change', function() {
@@ -463,6 +499,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
         updateFilePreview();
         updateGenerateButton();
+    }
+
+    // Background image preview
+    if (bgInput) {
+        bgInput.addEventListener('change', function(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) {
+                if (bgPreviewWrap) bgPreviewWrap.style.display = 'none';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                if (bgPreview) bgPreview.src = evt.target.result;
+                if (bgPreviewWrap) bgPreviewWrap.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        });
     }
 
     // Update file preview
@@ -552,13 +605,11 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedFiles.forEach(file => {
             formData.append('documents', file);
         });
+        // background_image is already in the form if selected; no extra handling needed
 
         // Show progress
         progressContainer.classList.add('show');
         generateBtn.disabled = true;
-        
-        // Simulate progress (replace with actual AJAX call)
-        simulateProgress();
         
         // Submit to Django backend
         submitSlideGeneration(formData);
@@ -570,7 +621,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const progressText = document.getElementById('progressText');
         
         // Reset progress
-        progressBar.style.width = '0%';
+        progressBar.style.width = '10%';
         progressText.textContent = 'Uploading files...';
         
         fetch('{% url "rag_app:slide_generate" %}', {
@@ -587,9 +638,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 progressText.textContent = 'Presentation generated successfully!';
                 
                 setTimeout(() => {
-                    // Hide progress bar
-                    progressBar.parentElement.style.display = 'none';
-                    
                     // Create download section
                     const downloadSection = document.createElement('div');
                     downloadSection.className = 'text-center mt-4 p-4 bg-light rounded';
@@ -627,7 +675,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     newSessionBtn.innerHTML = '<i class="fas fa-plus me-2"></i>Generate Another';
                     newSessionBtn.style.cssText = 'font-weight: 600;';
                     newSessionBtn.addEventListener('click', function() {
-                        location.reload();
+                        // Reset UI without full page reload
+                        selectedFiles = [];
+                        if (fileList) fileList.innerHTML = '';
+                        if (filePreview) filePreview.classList.remove('show');
+                        if (progressContainer) {
+                            progressContainer.classList.remove('show');
+                            progressContainer.innerHTML = initialProgressHTML;
+                        }
+                        if (form) form.reset();
+                        updateGenerateButton();
+                        // Re-bind references after restoring HTML
+                        const newProgressBar = document.getElementById('progressBar');
+                        const newProgressText = document.getElementById('progressText');
+                        if (newProgressBar) newProgressBar.style.width = '0%';
+                        if (newProgressText) newProgressText.textContent = 'Initializing...';
                     });
                     
                     downloadSection.appendChild(newSessionBtn);
@@ -664,40 +726,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Simulate progress (backup method if needed)
-    function simulateProgress() {
-        const progressBar = document.getElementById('progressBar');
-        const progressText = document.getElementById('progressText');
-        let progress = 0;
-        
-        const steps = [
-            'Processing uploaded files...',
-            'Extracting content...',
-            'Analyzing document structure...',
-            'Generating slide content...',
-            'Creating presentation layout...',
-            'Finalizing slides...'
-        ];
-        
-        const interval = setInterval(() => {
-            progress += Math.random() * 20;
-            if (progress > 100) progress = 100;
-            
-            progressBar.style.width = progress + '%';
-            progressText.textContent = steps[Math.floor((progress / 100) * (steps.length - 1))];
-            
-            if (progress >= 100) {
-                clearInterval(interval);
-                setTimeout(() => {
-                    progressText.textContent = 'Presentation generated successfully!';
-                    generateBtn.disabled = false;
-                    progressContainer.classList.remove('show');
-                    
-                    // Note: This is backup simulation - real generation uses AJAX above
-                }, 1000);
-            }
-        }, 800);
-    }
+    // Removed simulated progress to avoid conflicting UI updates during real generation
 });
 </script>
 {% endblock %}

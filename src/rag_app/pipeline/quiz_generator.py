@@ -23,10 +23,9 @@ class Form_generator:
     def __init__(self):
         # Apps Script configuration
         self.APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxzlY5De92Jdwia7iD6YRsisFzighWJ_vy44GCZhJLyLm81ZFziqp0zF_9ry5a_HPA35A/exec'
-        self.SECRET_KEY = 'V@g@bond0603' 
-        self.TARGET_OWNER_EMAIL = 'eyad.mahmoud@ejust.edu.eg' 
+        self.SECRET_KEY = 'V@g@bond0603'
     
-    def create_quiz(self, questions_data):
+    def create_quiz(self, questions_data, new_owner_email: Optional[str] = None):
         """
         Create a Google Form quiz using Apps Script endpoint
         
@@ -54,7 +53,8 @@ class Form_generator:
             payload = {
                 'auth_key': self.SECRET_KEY,
                 'form_title': form_title,
-                'new_owner_email': self.TARGET_OWNER_EMAIL,
+                # Fallback to None if not provided; backend may default to current creator
+                'new_owner_email': new_owner_email,
                 'questions': questions
             }
             
@@ -88,7 +88,7 @@ class Form_generator:
                 if ownership_info.get('status') == 'success':
                     print(f"Ownership transfer invitation sent to: {ownership_info.get('new_owner')}")
                 else:
-                    print(f"Ownership transfer to {self.TARGET_OWNER_EMAIL} may have failed")
+                    print("Ownership transfer may have failed or was not requested")
                 
                 # Return complete form information
                 return {
@@ -159,7 +159,7 @@ class QuizGenerator:
         Remember: Your entire response must be a single, valid JSON object exactly matching the structure above.
         '''
     
-    def generate_quiz(self, subject_id: int, num_questions: int = 10, specific_topics: Optional[List[str]] = None) -> Dict[str, Any]:
+    def generate_quiz(self, subject_id: int, num_questions: int = 10, specific_topics: Optional[List[str]] = None, new_owner_email: Optional[str] = None) -> Dict[str, Any]:
         """
         Generate a complete quiz for a subject
         
@@ -193,7 +193,7 @@ class QuizGenerator:
             form_data = None
             try:
                 form_gen = Form_generator()
-                form_data = form_gen.create_quiz(questions)
+                form_data = form_gen.create_quiz(questions, new_owner_email=new_owner_email)
                 if form_data and form_data.get('success'):
                     print(f"Google Form created successfully: {form_data.get('form_url')}")
                 else:

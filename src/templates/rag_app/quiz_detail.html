@@ -59,13 +59,23 @@
                         <!-- Quiz Actions -->
                         <div class="d-flex gap-3 mb-4">
                             {% if quiz.is_active %}
-                                <a href="{% url 'rag_app:quiz_take' quiz.id %}" class="btn btn-primary btn-lg">
+                                <a href="{% if quiz.google_form_url %}{{ quiz.google_form_url }}{% else %}{% url 'rag_app:quiz_take' quiz.id %}{% endif %}" {% if quiz.google_form_url %}target="_blank" rel="noopener"{% endif %} class="btn btn-primary btn-lg">
                                     <i class="fas fa-play me-2"></i>Take Quiz
                                 </a>
                             {% endif %}
                             <a href="{% url 'rag_app:quiz_edit' quiz.id %}" class="btn btn-outline-primary btn-lg">
                                 <i class="fas fa-edit me-2"></i>Edit
                             </a>
+                            {% if quiz.google_form_url %}
+                                <a href="{{ quiz.google_form_url }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-lg">
+                                    <i class="fas fa-external-link-alt me-2"></i>Preview Form
+                                </a>
+                            {% endif %}
+                            {% if quiz.google_form_edit_url %}
+                                <a href="{{ quiz.google_form_edit_url }}" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-lg">
+                                    <i class="fas fa-tools me-2"></i>Edit Form
+                                </a>
+                            {% endif %}
                             <button class="btn btn-outline-secondary btn-lg" onclick="shareQuiz()">
                                 <i class="fas fa-share me-2"></i>Share
                             </button>
@@ -78,6 +88,9 @@
                                 <ul class="list-unstyled" style="color: var(--text-secondary);">
                                     <li class="mb-2"><i class="fas fa-clock me-2"></i>Created {{ quiz.created_at|date:"M d, Y" }}</li>
                                     <li class="mb-2"><i class="fas fa-user me-2"></i>Created by {{ quiz.created_by.get_full_name|default:quiz.created_by.username }}</li>
+                                    {% if quiz.google_form_owner_email %}
+                                        <li class="mb-2"><i class="fas fa-envelope me-2"></i>Form Owner: {{ quiz.google_form_owner_email }}</li>
+                                    {% endif %}
                                     {% if quiz.time_limit %}
                                         <li class="mb-2"><i class="fas fa-hourglass-half me-2"></i>Time Limit: {{ quiz.time_limit }} minutes</li>
                                     {% endif %}

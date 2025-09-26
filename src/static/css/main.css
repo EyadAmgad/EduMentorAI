@@ -2,6 +2,7 @@
 :root {
     --primary-color: #10b981;
     --primary-dark: #059669;
+    --primary-light: #34d399;
     --secondary-color: #374151;
     --background-light: #f9fafb;
     --background-dark: #1f2937;
@@ -32,24 +33,25 @@
 
 /* Dark mode variables - these will be applied when [data-theme="dark"] is set */
 [data-theme="dark"] {
-    --primary-color: #34d399;
-    --primary-dark: #10b981;
-    --secondary-color: #9ca3af;
-    --background-light: #111827;
-    --background-dark: #0f172a;
-    --background-color: #0f172a;
-    --text-primary: #f9fafb;
-    --text-secondary: #9ca3af;
-    --text-muted: #6b7280;
-    --border-color: #374151;
-    --border-color-dark: #4b5563;
-    --chat-bg: #1f2937;
-    --card-bg: #1f2937;
-    --input-bg: #111827;
-    --sidebar-bg: #111827;
-    --success-color: #34d399;
-    --warning-color: #fbbf24;
-    --danger-color: #f87171;
+    --primary-color: #22c55e;       /* Green 500 */
+    --primary-dark: #16a34a;        /* Green 600 */
+    --primary-light: #86efac;       /* Green 200 */
+    --secondary-color: #9ca3af;     /* Gray 400 */
+    --background-light: #111827;    /* Slate 800 */
+    --background-dark: #0b1220;     /* Custom deep slate */
+    --background-color: #0b1220;
+    --text-primary: #e5e7eb;        /* Gray 200 */
+    --text-secondary: #9ca3af;      /* Gray 400 */
+    --text-muted: #6b7280;          /* Gray 500 */
+    --border-color: #1f2937;        /* Slate 800 */
+    --border-color-dark: #374151;   /* Slate 700 */
+    --chat-bg: #111827;             /* Slate 800 */
+    --card-bg: #0f172a;             /* Slate 900 */
+    --input-bg: #0f172a;            /* Slate 900 */
+    --sidebar-bg: #0f172a;
+    --success-color: #22c55e;
+    --warning-color: #f59e0b;
+    --danger-color: #ef4444;
     --info-color: #38bdf8;
 }
 
@@ -69,6 +71,25 @@ body {
     display: flex;
     flex-direction: column;
     transition: background-color 0.3s var(--transition), color 0.3s var(--transition);
+}
+
+/* Ensure readable text/link colors in dark mode */
+[data-theme="dark"] body,
+[data-theme="dark"] p,
+[data-theme="dark"] li,
+[data-theme="dark"] span,
+[data-theme="dark"] label,
+[data-theme="dark"] small {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] a {
+    color: var(--primary-color);
+}
+
+[data-theme="dark"] a:hover,
+[data-theme="dark"] a:focus {
+    color: var(--primary-dark);
 }
 
 .main-content {

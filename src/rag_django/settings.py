@@ -228,8 +228,8 @@ else:
 
 # Email backend configuration - uses SMTP if credentials provided, console for development
 
-# --- MailHog SMTP for Local Development ---
-EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.smtp.EmailBackend')
+# --- Email (Development defaults to console backend) ---
+EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = config('EMAIL_HOST', default='localhost')
 EMAIL_PORT = config('EMAIL_PORT', default=1025, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=False, cast=bool)
@@ -244,6 +244,7 @@ LOGOUT_REDIRECT_URL = '/'
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'  # Require email verification
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_CONFIRM_EMAIL_ON_GET = True
+ACCOUNT_DEFAULT_HTTP_PROTOCOL = config('ACCOUNT_DEFAULT_HTTP_PROTOCOL', default='http')
 # Updated AllAuth settings (compatible with current version)
 ACCOUNT_AUTHENTICATION_METHOD = 'email'  # Use email instead of username
 ACCOUNT_USERNAME_REQUIRED = False
