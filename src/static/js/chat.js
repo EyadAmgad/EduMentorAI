@@ -15,8 +15,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatSidebar = document.getElementById('chatSidebar');
     const chatOverlay = document.getElementById('chatOverlay');
     
+    // Get configuration from window.chatConfig
+    const config = window.chatConfig || {};
+    
     // Track current session ID
-    let currentSessionId = {% if session %}'{{ session.id }}'{% else %}null{% endif %};
+    let currentSessionId = config.sessionId;
 
     // Auto-resize textarea
     chatInput.addEventListener('input', function() {
@@ -56,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
         chatInput.style.height = 'auto';
 
         // Prepare URL based on session
-        let url = '{% url "rag_app:chat" %}';
+        let url = config.chatUrl;
         if (currentSessionId) {
             url = '/chat/' + currentSessionId + '/';
         }
@@ -77,7 +80,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let accumulatedContent = '';
         
         // Prepare streaming URL
-        let streamUrl = '{% url "rag_app:chat_stream" %}';
+        let streamUrl = config.streamUrl;
         if (currentSessionId) {
             streamUrl = '/chat/' + currentSessionId + '/stream/';
         }
@@ -249,7 +252,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const avatar = document.createElement('div');
         avatar.className = 'message-avatar';
         if (role === 'user') {
-            avatar.textContent = '{{ request.user.username|first|upper }}';
+            avatar.textContent = config.userInitial;
         } else {
             avatar.innerHTML = '<i class="fas fa-robot"></i>';
         }
@@ -300,9 +303,9 @@ function loadChatSession(sessionId) {
 }
 
 // Start new chat
-document.getElementById('newChatBtn').addEventListener('click', function(e) {
+document.getElementById('newChatBtn')?.addEventListener('click', function(e) {
     e.preventDefault();
-    window.location.href = '{% url "rag_app:chat" %}';
+    window.location.href = window.chatConfig?.chatUrl || '/chat/';
 });
 
 // Chat mode selection
