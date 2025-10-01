@@ -6,13 +6,13 @@
 {% block content %}
 <div class="main-content">
     <div class="container-fluid py-4">
-                                                <div>
-                                            {% if attempt.score is not None %}
-                                                <div class="score-display">{{ attempt.score }}%</div>
-                                            {% else %}
-                                                <div style="color: var(--text-secondary);">In Progress</div>
-                                            {% endif %}
-                                        </div>eadcrumb -->
+                <div>
+            {% if attempt.score is not None %}
+                <div class="score-display">{{ attempt.score }}%</div>
+            {% else %}
+                <div style="color: var(--text-secondary);">In Progress</div>
+            {% endif %}
+        </div>eadcrumb -->
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb">
                 <li class="breadcrumb-item"><a href="{% url 'rag_app:dashboard' %}" style="color: var(--text-secondary);">Dashboard</a></li>
