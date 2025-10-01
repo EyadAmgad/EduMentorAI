@@ -7,8 +7,17 @@
 <link rel="stylesheet" href="{% static 'css/chat.css' %}">
 {% endblock %}
 
-
+x
 {% block extra_js %}
+<!-- Configuration for chat.js -->
+<script>
+    window.chatConfig = {
+        sessionId: {% if session %}"{{ session.id }}"{% else %}null{% endif %},
+        chatUrl: "{% url 'rag_app:chat' %}",
+        streamUrl: "{% url 'rag_app:chat_stream' %}",
+        userInitial: "{{ request.user.username|first|upper }}"
+    };
+</script>
 <script src="{% static 'js/chat.js' %}"></script>
 {% endblock %}
 
