@@ -93,7 +93,6 @@ SITE_ID = 1
 # Database configuration with SQLite fallback for development
 USE_SQLITE = config('USE_SQLITE', default=True, cast=bool)
 
-print(f"USE_SQLITE setting: {USE_SQLITE}")  # Debug line
 
 if USE_SQLITE:
     # SQLite database for development
@@ -103,15 +102,8 @@ if USE_SQLITE:
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-    print("Using SQLite database")  # Debug line
 else:
     # PostgreSQL database (Supabase) for production
-    print(config('DB_HOST', default=''))  # Debug line)
-    print(config('DB_NAME', default=''))  # Debug line)
-    print(config('DB_USER', default=''))  # Debug line)
-    print(config('SUPABASE_DB_PASSWORD', default=''))  # Debug line)
-    print(config('DB_PORT', default=''))  # Debug line)
-    print("Configuring PostgreSQL database")  # Debug line
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -125,7 +117,6 @@ else:
             },
         }
     }
-    print("Using PostgreSQL database")  # Debug line
 
 
 

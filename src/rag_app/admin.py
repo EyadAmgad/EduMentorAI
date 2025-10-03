@@ -4,7 +4,7 @@ from django.urls import reverse
 from django.utils.safestring import mark_safe
 from .models import (
     Subject, Document, DocumentChunk, ChatSession, ChatMessage,
-    Quiz, Question, AnswerChoice, QuizAttempt, QuizResponse,
+    Quiz, Question, AnswerChoice,
     UserProfile
 )
 
@@ -146,31 +146,6 @@ class AnswerChoiceAdmin(admin.ModelAdmin):
     def choice_preview(self, obj):
         return obj.choice_text[:30] + "..." if len(obj.choice_text) > 30 else obj.choice_text
     choice_preview.short_description = 'Choice'
-
-
-class QuizResponseInline(admin.TabularInline):
-    model = QuizResponse
-    extra = 0
-    readonly_fields = ['answered_at', 'is_correct', 'points_earned']
-
-
-@admin.register(QuizAttempt)
-class QuizAttemptAdmin(admin.ModelAdmin):
-    list_display = ['quiz', 'user', 'started_at', 'completed_at', 
-                   'is_completed', 'score', 'time_taken']
-    list_filter = ['is_completed', 'started_at', 'quiz__subject']
-    search_fields = ['user__username', 'quiz__title']
-    readonly_fields = ['id', 'started_at', 'time_taken']
-    inlines = [QuizResponseInline]
-
-
-@admin.register(QuizResponse)
-class QuizResponseAdmin(admin.ModelAdmin):
-    list_display = ['attempt', 'question', 'selected_choice', 'is_correct', 
-                   'points_earned', 'answered_at']
-    list_filter = ['is_correct', 'answered_at']
-    search_fields = ['attempt__user__username', 'question__question_text']
-    readonly_fields = ['answered_at']
 
 
 @admin.register(UserProfile)

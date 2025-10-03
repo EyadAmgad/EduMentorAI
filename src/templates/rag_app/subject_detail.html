@@ -150,7 +150,7 @@
                             <div class="text-center py-4">
                                 <i class="fas fa-plus-circle" style="font-size: 2rem; color: var(--text-secondary); margin-bottom: 1rem;"></i>
                                 <p style="color: var(--text-secondary); margin-bottom: 1rem;">No quizzes created yet</p>
-                                <a href="{% url 'rag_app:quiz_create' %}?subject={{ subject.id }}" class="btn btn-primary">
+                                <a href="{% url 'rag_app:generate_rag_quiz' %}?subject={{ subject.id }}" class="btn btn-primary">
                                     <i class="fas fa-question-circle me-2"></i>Create First Quiz
                                 </a>
                             </div>

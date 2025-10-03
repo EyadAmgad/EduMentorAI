@@ -37,23 +37,14 @@ urlpatterns = [
     path('chat/ajax/new-session/', views.new_chat_session, name='new_chat_session'),
     path('chat/ajax/subject/', views.chat_with_subject, name='chat_with_subject'),
     path('ajax/subjects/<int:subject_id>/documents/', views.get_subject_documents, name='subject_documents'),
+    path('ajax/slide-generation-data/', views.get_slide_generation_data, name='slide_generation_data'),
     
-    # Quiz management
+    # Quiz management (Google Forms tracking)
     path('quizzes/', views.QuizListView.as_view(), name='quiz_list'),
-    path('quizzes/create/', views.QuizCreateView.as_view(), name='quiz_create'),
-
-    path('quizzes/<uuid:pk>/', views.QuizDetailView.as_view(), name='quiz_detail'),
-    path('quizzes/<uuid:pk>/edit/', views.QuizUpdateView.as_view(), name='quiz_edit'),
-    path('quizzes/<uuid:pk>/delete/', views.QuizDeleteView.as_view(), name='quiz_delete'),
-    path('quizzes/<uuid:pk>/take/', views.QuizTakeView.as_view(), name='quiz_take'),
-    path('quizzes/<uuid:pk>/results/', views.QuizResultsView.as_view(), name='quiz_results'),
-    path('quizzes/<uuid:pk>/generate/', views.generate_quiz_questions, name='quiz_generate'),
-    path('quizzes/generate-from-rag/', views.generate_rag_quiz, name='generate_rag_quiz'),
-    path('quizzes/generate-form-link/', views.generate_quiz_form_link, name='generate_form_link'),
+    path('ajax/quizzes/<uuid:pk>/questions/', views.get_quiz_questions, name='quiz_questions_ajax'),
     
-    # Quiz attempts
-    path('quiz-attempts/<uuid:pk>/', views.QuizAttemptDetailView.as_view(), name='quiz_attempt_detail'),
-    path('quiz-attempts/<uuid:pk>/submit/', views.submit_quiz_attempt, name='quiz_attempt_submit'),
+    # Quiz generation (Google Forms only) 
+    path('quizzes/generate-from-rag/', views.generate_rag_quiz, name='generate_rag_quiz'),
     
     # User profile
     path('profile/', views.ProfileView.as_view(), name='profile'),

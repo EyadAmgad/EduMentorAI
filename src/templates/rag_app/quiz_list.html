@@ -7,9 +7,12 @@
 <link rel="stylesheet" href="{% static 'css/quiz_list.css' %}">
 {% endblock %}
 
-
+{% block extra_js %}
+<script src="{% static 'js/quiz_list.js' %}"></script>
+{% endblock %}
 
 {% block content %}
+{% csrf_token %}
 <!-- Hero Section -->
 <section class="quizzes-hero">
     <div class="container">
@@ -18,8 +21,8 @@
             <p class="hero-subtitle">Test your knowledge with AI-powered quizzes and track your learning progress.</p>
 
             <div class="hero-actions">
-                <a href="{% url 'rag_app:quiz_create' %}" class="btn-hero-action">
-                    <i class="fas fa-plus me-2"></i>Create New Quiz
+                <a href="{% url 'rag_app:generate_rag_quiz' %}" class="btn-hero-action">
+                    <i class="fas fa-plus me-2"></i>Generate New Quiz
                 </a>
                 <a href="{% url 'rag_app:document_list' %}" class="btn-hero-action">
                     <i class="fas fa-file-alt me-2"></i>Upload Documents
@@ -45,15 +48,13 @@
                                     <i class="fas fa-ellipsis-v"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_take' quiz.id %}"><i class="fas fa-play"></i>Take Quiz</a></li>
-                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_detail' quiz.id %}"><i class="fas fa-eye"></i>View Details</a></li>
-                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_edit' quiz.id %}"><i class="fas fa-edit"></i>Edit</a></li>
                                     {% if quiz.google_form_url %}
-                                        <li><a class="dropdown-item" href="{{ quiz.google_form_url }}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i>Preview Form</a></li>
+                                        <li><a class="dropdown-item" href="{{ quiz.google_form_url }}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i>Open Google Form</a></li>
                                     {% endif %}
                                     {% if quiz.google_form_edit_url %}
-                                        <li><a class="dropdown-item" href="{{ quiz.google_form_edit_url }}" target="_blank" rel="noopener"><i class="fas fa-tools"></i>Edit Form</a></li>
+                                        <li><a class="dropdown-item" href="{{ quiz.google_form_edit_url }}" target="_blank" rel="noopener"><i class="fas fa-tools"></i>Edit Google Form</a></li>
                                     {% endif %}
+                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_detail' quiz.id %}"><i class="fas fa-eye"></i>View Details</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     <li><a class="dropdown-item text-danger" href="{% url 'rag_app:quiz_delete' quiz.id %}"><i class="fas fa-trash"></i>Delete</a></li>
                                 </ul>
@@ -66,56 +67,50 @@
                             <span class="badge" style="background: var(--primary-color); color: white; margin-bottom: 0.75rem;">{{ quiz.subject.name }}</span>
                         {% endif %}
 
+                         {% if quiz.total_questions %}
+                            <span class="badge" style="background: var(--primary-color); color: white; margin-bottom: 0.75rem;">{{ quiz.total_questions }} questions</span>
+                        {% endif %}
+
+
                         {% if quiz.description %}
                             <p class="quiz-description">{{ quiz.description }}</p>
                         {% endif %}
 
-                        <!-- Quiz Stats -->
-                        <div class="quiz-stats">
-                            <div class="stat-item">
-                                <div class="stat-value">{{ quiz.questions.count }}</div>
-                                <div class="stat-label">Questions</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value">{{ quiz.attempts.count }}</div>
-                                <div class="stat-label">Attempts</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value">{{ quiz.difficulty|title }}</div>
-                                <div class="stat-label">Difficulty</div>
-                            </div>
-                        </div>
 
                         <!-- Quiz Status -->
-                        {% if quiz.is_active %}
+                        {% if quiz.google_form_url %}
                             <div class="quiz-status active">
-                                <i class="fas fa-check-circle me-1"></i>Active
+                                <i class="fas fa-external-link-alt me-1"></i>Google Form Available
                             </div>
                         {% else %}
                             <div class="quiz-status inactive">
-                                <i class="fas fa-pause-circle me-1"></i>Inactive
+                                <i class="fas fa-exclamation-triangle me-1"></i>No Google Form
                             </div>
                         {% endif %}
 
-                        <!-- Recent Performance -->
-                        {% if quiz.user_best_score %}
-                            <div class="best-score">
-                                <div class="best-score-label">Your Best Score</div>
-                                <div class="best-score-value">{{ quiz.user_best_score }}%</div>
+                        <!-- Google Form Links -->
+                        {% if quiz.google_form_url or quiz.google_form_edit_url %}
+                            <div class="google-form-links">
+                                {% if quiz.google_form_url %}
+                                    <div class="form-link">
+                                        <i class="fas fa-link me-1"></i>
+                                        <a href="{{ quiz.google_form_url }}" target="_blank" rel="noopener">View Form</a>
+                                    </div>
+                                {% endif %}
+                                {% if quiz.google_form_edit_url %}
+                                    <div class="form-link">
+                                        <i class="fas fa-edit me-1"></i>
+                                        <a href="{{ quiz.google_form_edit_url }}" target="_blank" rel="noopener">Edit Form</a>
+                                    </div>
+                                {% endif %}
                             </div>
                         {% endif %}
 
                         <!-- Quick Actions -->
                         <div class="quiz-actions">
-                            {% if quiz.is_active %}
-                                <a href="{% if quiz.google_form_url %}{{ quiz.google_form_url }}{% else %}{% url 'rag_app:quiz_take' quiz.id %}{% endif %}" {% if quiz.google_form_url %}target="_blank" rel="noopener"{% endif %} class="btn-quiz-action btn-quiz-primary">
-                                    <i class="fas fa-play me-1"></i>Take Quiz
-                                </a>
-                            {% else %}
-                                <a href="{% url 'rag_app:quiz_detail' quiz.id %}" class="btn-quiz-action btn-quiz-secondary">
-                                    <i class="fas fa-eye me-1"></i>View Details
-                                </a>
-                            {% endif %}
+                            <button class="btn-quiz-action btn-quiz-primary view-questions-btn" data-quiz-id="{{ quiz.id }}">
+                                <i class="fas fa-list-ul me-1"></i>Generated Questions
+                            </button>
                         </div>
 
                         <div class="quiz-meta">
@@ -130,12 +125,34 @@
             <div class="empty-state-icon">
                 <i class="fas fa-question-circle"></i>
             </div>
-            <h3 class="empty-state-title">No quizzes yet</h3>
-            <p class="empty-state-text">Create your first quiz to test your knowledge. Generate questions from your uploaded documents or create custom quizzes.</p>
-            <a href="{% url 'rag_app:quiz_create' %}" class="btn btn-primary btn-lg">
-                <i class="fas fa-plus me-2"></i>Create Your First Quiz
+            <h3 class="empty-state-title">No Google Forms quizzes yet</h3>
+            <p class="empty-state-text">Generate your first AI-powered quiz using your uploaded documents. Questions will be automatically created and exported to Google Forms.</p>
+            <a href="{% url 'rag_app:generate_rag_quiz' %}" class="btn btn-primary btn-lg">
+                <i class="fas fa-plus me-2"></i>Generate Your First Quiz
             </a>
         </div>
     {% endif %}
 </div>
+
+<!-- View Quiz Modal -->
+<div class="modal fade" id="quizContentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Generated Quiz Questions</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="quizQuestions" class="questions-list">
+                    <!-- Questions will be inserted here -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 {% endblock %}

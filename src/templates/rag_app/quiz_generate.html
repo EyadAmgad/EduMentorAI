@@ -3,6 +3,10 @@
 
 {% block title %}Generate Quiz - {{ block.super }}{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/quiz_generate.css' %}">
+{% endblock %}
+
 {% block extra_js %}
 <script src="{% static 'js/quiz_generate.js' %}"></script>
 {% endblock %}
@@ -64,67 +68,25 @@
                 </div>
             </div>
             
-            <!-- Results Section -->
-            <div id="quizResults" class="card shadow mt-4" style="display: {% if last_generated_quiz %}block{% else %}none{% endif %};">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">Quiz Generated Successfully!</h5>
-                </div>
-                <div class="card-body">
-                    <div id="quizMetadata" class="mb-4">
-                        {% if last_generated_quiz %}
-                        <h6>Quiz Details:</h6>
-                        <ul class="list-unstyled">
-                            <li><strong>Subject:</strong> {{ last_generated_quiz.metadata.subject }}</li>
-                            <li><strong>Questions:</strong> {{ last_generated_quiz.metadata.num_questions }}</li>
-                            <li><strong>Topics:</strong> {{ last_generated_quiz.metadata.topics|join:", " }}</li>
-                            <li><strong>Sources:</strong> {{ last_generated_quiz.metadata.sources|length }} documents</li>
-                        </ul>
-                        {% endif %}
-                    </div>
-                    
-                    <!-- Google Form Link (if available) -->
-                    <div id="googleFormSection" class="mb-4" style="display: {% if last_generated_quiz and last_generated_quiz.google_form_url %}block{% else %}none{% endif %};">
-                        <div class="alert alert-success">
-                            <h6><i class="fas fa-check-circle me-2"></i>✅ Google Form Created Successfully!</h6>
-                            <div id="formDetails" class="mb-3">
-                                {% if last_generated_quiz and last_generated_quiz.google_form_url %}
-                                <p class="mb-2"><strong>Form URL:</strong><br>
-                                    <small class="text-muted font-monospace">{{ last_generated_quiz.google_form_url }}</small>
-                                </p>
-                                {% if last_generated_quiz.google_form_edit_url %}
-                                <p class="mb-2"><strong>Edit URL:</strong><br>
-                                    <small class="text-muted font-monospace">{{ last_generated_quiz.google_form_edit_url }}</small>
-                                </p>
-                                {% endif %}
-                                {% if last_generated_quiz.ownership_transfer and last_generated_quiz.ownership_transfer.status == 'success' %}
-                                <p class="mb-0"><strong>Ownership Transfer:</strong><br>
-                                    <small class="text-success">✅ Invitation sent to: {{ last_generated_quiz.ownership_transfer.new_owner }}</small>
-                                </p>
-                                {% else %}
-                                <p class="mb-0"><strong>Ownership:</strong><br>
-                                    <small class="text-warning">Ownership transfer may have failed or was not requested.</small>
-                                </p>
-                                {% endif %}
-                                {% endif %}
-                            </div>
-                            <div class="d-grid gap-2">
-                                <a id="googleFormLink" href="{% if last_generated_quiz %}{{ last_generated_quiz.google_form_url }}{% else %}#{% endif %}" target="_blank" class="btn btn-success">
-                                    <i class="fas fa-external-link-alt me-2"></i> Open Google Form
-                                </a>
-                                <a id="googleFormEditLink" href="{% if last_generated_quiz %}{{ last_generated_quiz.google_form_edit_url }}{% else %}#{% endif %}" target="_blank" class="btn btn-outline-primary" style="display: {% if last_generated_quiz and last_generated_quiz.google_form_edit_url %}block{% else %}none{% endif %};">
-                                    <i class="fas fa-edit me-2"></i> Edit Google Form
-                                </a>
-                                <button id="copyFormLinkButton" class="btn btn-outline-success">
-                                    <i class="fas fa-copy me-2"></i> Copy Form Link
+                    <!-- Action Buttons -->
+                    <div class="quiz-action-buttons">
+                        <div class="row g-2">
+                            <div class="col-md-4">
+                                <button id="viewQuizButton" class="btn btn-primary w-100" style="display: none;">
+                                    <i class="fas fa-list"></i> Generated Questions
                                 </button>
                             </div>
+                            <div class="col-md-4">
+                                <a id="viewQuizLinkButton" href="#" target="_blank" class="btn btn-success w-100" style="display: none;">
+                                    <i class="fas fa-eye"></i> View Quiz
+                                </a>
+                            </div>
+                            <div class="col-md-4">
+                                <a id="editQuizLinkButton" href="#" target="_blank" class="btn btn-outline-primary w-100" style="display: none;">
+                                    <i class="fas fa-edit"></i> Edit Quiz
+                                </a>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="d-grid gap-2">
-                        <button id="viewQuizButton" class="btn btn-primary">
-                            <i class="fas fa-eye me-2"></i> View Generated Questions
-                        </button>
                     </div>
                 </div>
             </div>
@@ -148,58 +110,7 @@
                     </div>
                 </div>
             </div>
-            
-
-
-            <style>
-            .questions-list {
-                counter-reset: question;
-            }
-            .question-item {
-                margin-bottom: 2rem;
-                padding: 1rem;
-                border: 1px solid #dee2e6;
-                border-radius: 0.5rem;
-                background-color: #f8f9fa;
-            }
-            .question-item::before {
-                counter-increment: question;
-                content: "Question " counter(question);
-                display: block;
-                font-weight: bold;
-                margin-bottom: 0.5rem;
-                color: #0d6efd;
-            }
-            .question-text {
-                font-size: 1.1rem;
-                margin-bottom: 1rem;
-            }
-            .choices-list {
-                list-style: none;
-                padding-left: 0;
-            }
-            .choice-item {
-                margin-bottom: 0.5rem;
-                padding: 0.5rem;
-                border: 1px solid #dee2e6;
-                border-radius: 0.25rem;
-                background-color: white;
-            }
-            .choice-item.correct {
-                border-color: #198754;
-                background-color: #d1e7dd;
-            }
-            .explanation {
-                margin-top: 1rem;
-                padding: 0.75rem;
-                background-color: #e9ecef;
-                border-radius: 0.25rem;
-                font-style: italic;
-            }
-            </style>
         </div>
     </div>
 </div>
 {% endblock %}
-
-

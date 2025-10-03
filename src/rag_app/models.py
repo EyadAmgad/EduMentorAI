@@ -218,52 +218,6 @@ class AnswerChoice(models.Model):
         unique_together = ['question', 'order']
 
 
-class QuizAttempt(models.Model):
-    """User quiz attempts"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='attempts')
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    started_at = models.DateTimeField(auto_now_add=True)
-    completed_at = models.DateTimeField(null=True, blank=True)
-    score = models.FloatField(null=True, blank=True)  # Percentage score
-    total_points = models.PositiveIntegerField(default=0)
-    earned_points = models.PositiveIntegerField(default=0)
-    time_taken = models.DurationField(null=True, blank=True)
-    is_completed = models.BooleanField(default=False)
-    
-    def __str__(self):
-        status = "Completed" if self.is_completed else "In Progress"
-        return f"{self.user.username} - {self.quiz.title} ({status})"
-    
-    def calculate_score(self):
-        """Calculate and update the score"""
-        if self.total_points > 0:
-            self.score = (self.earned_points / self.total_points) * 100
-        else:
-            self.score = 0
-        self.save()
-    
-    class Meta:
-        ordering = ['-started_at']
-
-
-class QuizResponse(models.Model):
-    """Individual question responses"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    attempt = models.ForeignKey(QuizAttempt, on_delete=models.CASCADE, related_name='responses')
-    question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    selected_choice = models.ForeignKey(AnswerChoice, on_delete=models.CASCADE, null=True, blank=True)
-    text_answer = models.TextField(blank=True)  # For short answer questions
-    is_correct = models.BooleanField(default=False)
-    points_earned = models.PositiveIntegerField(default=0)
-    answered_at = models.DateTimeField(auto_now_add=True)
-    
-    def __str__(self):
-        return f"{self.question.question_text[:30]}... - {self.attempt.user.username}"
-    
-    class Meta:
-        unique_together = ['attempt', 'question']
-
 
 class UserProfile(models.Model):
     """Extended user profile"""
