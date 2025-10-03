@@ -39,6 +39,131 @@
     <form id="slideGeneratorForm" method="post" enctype="multipart/form-data">
         {% csrf_token %}
         
+        <!-- Content Source Selection -->
+        <div class="content-source-selection">
+            <h5 class="fw-bold text-primary mb-4">
+                <i class="fas fa-file-alt me-2"></i>
+                Content Source
+            </h5>
+            
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="content-option">
+                        <input type="radio" id="uploadOption" name="content_source" value="upload" checked>
+                        <label for="uploadOption" class="content-option-label">
+                            <div class="content-option-icon">
+                                <i class="fas fa-upload"></i>
+                            </div>
+                            <h6>Upload New Files</h6>
+                            <small class="text-muted">Upload documents from your device</small>
+                        </label>
+                    </div>
+                </div>
+                
+                {% if documents %}
+                <div class="col-md-4">
+                    <div class="content-option">
+                        <input type="radio" id="existingOption" name="content_source" value="existing_documents">
+                        <label for="existingOption" class="content-option-label">
+                            <div class="content-option-icon">
+                                <i class="fas fa-file-alt"></i>
+                            </div>
+                            <h6>Select Existing Documents</h6>
+                            <small class="text-muted">Choose from {{ documents.count }} uploaded documents</small>
+                        </label>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if subjects %}
+                <div class="col-md-4">
+                    <div class="content-option">
+                        <input type="radio" id="subjectOption" name="content_source" value="subject">
+                        <label for="subjectOption" class="content-option-label">
+                            <div class="content-option-icon">
+                                <i class="fas fa-book"></i>
+                            </div>
+                            <h6>Use Subject Documents</h6>
+                            <small class="text-muted">Generate from all documents in a subject</small>
+                        </label>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Existing Documents Selection -->
+        {% if documents %}
+        <div class="document-selection" id="documentSelection" style="display: none;">
+            <h5 class="fw-bold text-primary mb-3">
+                <i class="fas fa-files me-2"></i>
+                Select Documents
+            </h5>
+            <div class="document-list">
+                {% for document in documents %}
+                <div class="document-item">
+                    <input type="checkbox" name="selected_documents" value="{{ document.id }}" id="doc_{{ document.id }}">
+                    <label for="doc_{{ document.id }}" class="document-item-label">
+                        <div class="document-info">
+                            <div class="document-title">{{ document.title }}</div>
+                            <div class="document-meta">
+                                <span class="subject-badge">{{ document.subject.name|default:"No Subject" }}</span>
+                                <span class="file-type">{{ document.document_type|upper }}</span>
+                                {% if document.page_count %}
+                                <span class="page-count">{{ document.page_count }} pages</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="document-icon">
+                            {% if document.document_type == 'pdf' %}
+                                <i class="fas fa-file-pdf text-danger"></i>
+                            {% elif document.document_type == 'docx' %}
+                                <i class="fas fa-file-word text-primary"></i>
+                            {% elif document.document_type == 'txt' %}
+                                <i class="fas fa-file-alt text-secondary"></i>
+                            {% else %}
+                                <i class="fas fa-file text-muted"></i>
+                            {% endif %}
+                        </div>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Subject Selection -->
+        {% if subjects %}
+        <div class="subject-selection" id="subjectSelection" style="display: none;">
+            <h5 class="fw-bold text-primary mb-3">
+                <i class="fas fa-book me-2"></i>
+                Select Subject
+            </h5>
+            <div class="subject-list">
+                {% for subject in subjects %}
+                <div class="subject-item">
+                    <input type="radio" name="selected_subject" value="{{ subject.id }}" id="subj_{{ subject.id }}">
+                    <label for="subj_{{ subject.id }}" class="subject-item-label">
+                        <div class="subject-info">
+                            <div class="subject-title">{{ subject.name }}</div>
+                            <div class="subject-code">{{ subject.code }}</div>
+                            <div class="subject-meta">
+                                <span class="document-count">{{ subject.documents.count }} document{{ subject.documents.count|pluralize }}</span>
+                                {% if subject.description %}
+                                <span class="subject-description">{{ subject.description|truncatechars:80 }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="subject-icon">
+                            <i class="fas fa-graduation-cap"></i>
+                        </div>
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
         <!-- File Upload Area -->
         <div class="upload-area" id="uploadArea">
             <i class="fas fa-cloud-upload-alt upload-icon"></i>

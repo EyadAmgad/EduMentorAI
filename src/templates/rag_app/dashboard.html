@@ -159,11 +159,7 @@
                                     {{ quiz.subject.name }} • {{ quiz.total_questions }} questions • {{ quiz.time_limit }} min
                                 </div>
                             </div>
-                            <div class="activity-status">
-                                <a href="{% url 'rag_app:quiz_take' quiz.pk %}" class="btn-hero-action" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
-                                    Take Quiz
-                                </a>
-                            </div>
+                            
                         </div>
                         {% endfor %}
                     {% else %}
