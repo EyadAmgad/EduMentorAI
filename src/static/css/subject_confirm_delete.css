@@ -1,0 +1,109 @@
+.delete-container {
+        background: white;
+        border-radius: 1rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 2rem;
+        margin: 2rem 0;
+        max-width: 600px;
+}
+
+.delete-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.delete-icon {
+    font-size: 4rem;
+    color: #dc2626;
+    margin-bottom: 1rem;
+}
+
+.delete-title {
+    color: #1e293b;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.delete-subtitle {
+    color: #6b7280;
+    margin: 0;
+}
+
+.subject-info {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    margin: 2rem 0;
+}
+
+.subject-info h5 {
+    color: #991b1b;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.subject-detail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.subject-detail:last-child {
+    margin-bottom: 0;
+}
+
+.warning-box {
+    background: #fffbeb;
+    border: 1px solid #fed7aa;
+    border-left: 4px solid #f59e0b;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 1.5rem 0;
+}
+
+.warning-box h6 {
+    color: #92400e;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.warning-box p {
+    color: #92400e;
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+.btn-danger {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    color: white;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-danger:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+}
+
+.btn-secondary {
+    background: #6b7280;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    color: white;
+    text-decoration: none;
+    display: inline-block;
+    transition: background-color 0.2s ease;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+    color: white;
+    text-decoration: none;
+}
