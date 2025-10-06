@@ -143,6 +143,7 @@ class VectorStore:
     def search(self, 
                query: str, 
                subject_id: Optional[int] = None,
+               document_id: Optional[int] = None,
                k: int = 5,
                score_threshold: float = 0.0) -> List[Dict[str, Any]]:
         """
@@ -151,6 +152,7 @@ class VectorStore:
         Args:
             query: Search query
             subject_id: Optional subject ID to filter results
+            document_id: Optional document ID to filter to a specific document
             k: Number of results to return
             score_threshold: Minimum similarity score
             
@@ -159,8 +161,21 @@ class VectorStore:
         """
         try:
             # Build index if not exists or if subject filtering changed
-            if self.index is None or (subject_id and not self._is_index_for_subject(subject_id)):
-                build_result = self.build_index(subject_id)
+            # For document_id filtering, we build index for that document's subject or all docs
+            filter_id = document_id if document_id else subject_id
+            if self.index is None or (filter_id and not self._is_index_for_subject(subject_id)):
+                # If document_id is provided, get its subject_id for building index
+                if document_id:
+                    try:
+                        from ..models import Document
+                        doc = Document.objects.get(id=document_id)
+                        build_subject_id = doc.subject_id if doc.subject else None
+                    except:
+                        build_subject_id = None
+                else:
+                    build_subject_id = subject_id
+                    
+                build_result = self.build_index(build_subject_id)
                 if not build_result['success']:
                     return []
             
@@ -172,7 +187,7 @@ class VectorStore:
             faiss.normalize_L2(query_embedding)
             
             # Search
-            scores, indices = self.index.search(query_embedding, min(k, len(self.chunk_ids)))
+            scores, indices = self.index.search(query_embedding, min(k * 3, len(self.chunk_ids)))  # Get more results for filtering
             
             # Process results
             results = []
@@ -186,6 +201,10 @@ class VectorStore:
                 try:
                     chunk_id = self.chunk_ids[idx]
                     chunk = DocumentChunk.objects.select_related('document', 'document__subject').get(id=chunk_id)
+                    
+                    # Filter by document_id if provided
+                    if document_id and chunk.document_id != document_id:
+                        continue
                     
                     result = {
                         'chunk_id': str(chunk.id),
@@ -201,6 +220,10 @@ class VectorStore:
                     }
                     
                     results.append(result)
+                    
+                    # Stop if we have enough results
+                    if len(results) >= k:
+                        break
                     
                 except DocumentChunk.DoesNotExist:
                     logger.warning(f"Chunk {chunk_id} not found in database")
@@ -219,6 +242,7 @@ class VectorStore:
     def hybrid_search(self,
                       query: str,
                       subject_id: Optional[int] = None,
+                      document_id: Optional[int] = None,
                       k: int = 5,
                       semantic_weight: float = 0.7) -> List[Dict[str, Any]]:
         """
@@ -227,6 +251,7 @@ class VectorStore:
         Args:
             query: Search query
             subject_id: Optional subject ID to filter results
+            document_id: Optional document ID to filter to a specific document
             k: Number of results to return
             semantic_weight: Weight for semantic search (1 - semantic_weight for keyword)
             
@@ -235,10 +260,10 @@ class VectorStore:
         """
         try:
             # Get semantic search results
-            semantic_results = self.search(query, subject_id, k * 2)  # Get more for reranking
+            semantic_results = self.search(query, subject_id, document_id, k * 2)  # Get more for reranking
             
             # Get keyword search results
-            keyword_results = self._keyword_search(query, subject_id, k * 2)
+            keyword_results = self._keyword_search(query, subject_id, document_id, k * 2)
             
             # Combine and rerank results
             combined_results = self._combine_search_results(
@@ -249,9 +274,9 @@ class VectorStore:
             
         except Exception as e:
             logger.error(f"Error in hybrid search: {e}")
-            return self.search(query, subject_id, k)  # Fallback to semantic search
+            return self.search(query, subject_id, document_id, k)  # Fallback to semantic search
     
-    def _keyword_search(self, query: str, subject_id: Optional[int] = None, k: int = 10) -> List[Dict[str, Any]]:
+    def _keyword_search(self, query: str, subject_id: Optional[int] = None, document_id: Optional[int] = None, k: int = 10) -> List[Dict[str, Any]]:
         """
         Perform keyword-based search on document chunks
         """
@@ -259,7 +284,10 @@ class VectorStore:
             # Build query filter
             chunks_query = Q(content__icontains=query)
             
-            if subject_id:
+            if document_id:
+                # Filter by specific document (takes precedence over subject_id)
+                chunks_query &= Q(document_id=document_id)
+            elif subject_id:
                 chunks_query &= Q(document__subject_id=subject_id)
             
             chunks_query &= Q(document__processed=True)
