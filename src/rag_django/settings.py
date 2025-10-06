@@ -64,6 +64,7 @@ MIDDLEWARE = [
     'rag_app.email_verification_middleware.EmailVerificationMiddleware',  # Email verification
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',  # AllAuth middleware'
 ]# --- URL and Template Configuration ---
 
 ROOT_URLCONF = 'rag_django.urls'

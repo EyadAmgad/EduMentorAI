@@ -1,11 +1,14 @@
+
+
+
 .subjects-hero {
-        background: linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%);
-        padding: 3rem 0;
-        position: relative;
-        overflow: hidden;
-        color: white;
-        margin-top: -1rem;
-        margin-bottom: 3rem;
+    background: linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%);
+    padding: 3rem 0;
+    position: relative;
+    overflow: hidden;
+    color: white;
+    margin-top: -1rem;
+    margin-bottom: 3rem;
 }
 
 .subjects-hero::before {
@@ -136,7 +139,7 @@
     margin-bottom: 1rem;
     position: relative;
     overflow: hidden;
-    background: linear-gradient(135deg, #059669, #047857);
+    background: linear-gradient(135deg, var(--primary-color), #047857); /* Using variable here */
 }
 
 .subject-icon::before {
@@ -155,6 +158,17 @@
     z-index: 1;
     color: white;
 }
+
+/* This is the three-dot action button */
+.btn-document-action {
+    color: var(--text-secondary); /* FIX: Was hardcoded to white */
+    background: transparent;
+    border: none;
+}
+.btn-document-action:hover {
+    color: var(--text-primary);
+}
+
 
 .subject-title {
     font-size: 1.1rem;
@@ -196,7 +210,7 @@
 .stat-value {
     font-size: 1.25rem;
     font-weight: 700;
-    color: #059669;
+    color: var(--primary-color); /* Kept as brand color */
     margin-bottom: 0.25rem;
 }
 
@@ -225,7 +239,7 @@
 }
 
 .btn-subject-primary {
-    background: linear-gradient(135deg, #059669, #047857);
+    background: linear-gradient(135deg, var(--primary-color), #047857); /* Using variable */
     color: white;
     border: none;
 }
@@ -301,7 +315,7 @@
     font-size: 4rem;
     margin-bottom: 1.5rem;
     opacity: 0.5;
-    color: #059669;
+    color: var(--primary-color);
 }
 
 .empty-state-title {
@@ -347,3 +361,26 @@
         gap: 0.5rem;
     }
 }
+
+@media (prefers-color-scheme: dark) {
+  .btn-hero-action {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50px;
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+    margin: 0.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+}
+
+[data-theme="dark"] .subjects-hero {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+}   

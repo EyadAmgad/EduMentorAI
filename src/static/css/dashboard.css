@@ -1,3 +1,6 @@
+a{
+    text-decoration: none;
+}
 .dashboard-hero {
         background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 50%, #047857 100%);
         padding: 4rem 0;

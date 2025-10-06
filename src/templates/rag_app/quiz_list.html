@@ -21,10 +21,10 @@
             <p class="hero-subtitle">Test your knowledge with AI-powered quizzes and track your learning progress.</p>
 
             <div class="hero-actions">
-                <a href="{% url 'rag_app:generate_rag_quiz' %}" class="btn-hero-action">
+                <a href="{% url 'rag_app:generate_rag_quiz' %}" class="btn-hero-action text-white">
                     <i class="fas fa-plus me-2"></i>Generate New Quiz
                 </a>
-                <a href="{% url 'rag_app:document_list' %}" class="btn-hero-action">
+                <a href="{% url 'rag_app:document_list' %}" class="btn-hero-action text-white">
                     <i class="fas fa-file-alt me-2"></i>Upload Documents
                 </a>
             </div>
@@ -54,9 +54,7 @@
                                     {% if quiz.google_form_edit_url %}
                                         <li><a class="dropdown-item" href="{{ quiz.google_form_edit_url }}" target="_blank" rel="noopener"><i class="fas fa-tools"></i>Edit Google Form</a></li>
                                     {% endif %}
-                                    <li><a class="dropdown-item" href="{% url 'rag_app:quiz_detail' quiz.id %}"><i class="fas fa-eye"></i>View Details</a></li>
                                     <li><hr class="dropdown-divider"></li>
-                                    <li><a class="dropdown-item text-danger" href="{% url 'rag_app:quiz_delete' quiz.id %}"><i class="fas fa-trash"></i>Delete</a></li>
                                 </ul>
                             </div>
                         </div>

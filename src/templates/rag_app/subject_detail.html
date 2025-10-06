@@ -141,9 +141,7 @@
                                         <div style="font-weight: 500; color: var(--text-primary);">{{ quiz.title }}</div>
                                         <small style="color: var(--text-secondary);">{{ quiz.questions.count }} questions • {{ quiz.created_at|date:"M d" }}</small>
                                     </div>
-                                    <a href="{% url 'rag_app:quiz_detail' quiz.id %}" class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-play"></i>
-                                    </a>
+                                   
                                 </div>
                             {% endfor %}
                         {% else %}
