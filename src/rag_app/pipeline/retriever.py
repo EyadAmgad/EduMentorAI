@@ -45,6 +45,7 @@ class DocumentRetriever:
     def retrieve_for_query(self,
                           query: str,
                           subject_id: Optional[int] = None,
+                          document_id: Optional[int] = None,
                           retrieval_strategy: str = 'hybrid',
                           max_chunks: int = 5,
                           score_threshold: float = 0.1) -> Dict[str, Any]:
@@ -54,6 +55,7 @@ class DocumentRetriever:
         Args:
             query: User query
             subject_id: Optional subject ID to filter documents
+            document_id: Optional document ID to filter to a specific document
             retrieval_strategy: 'semantic', 'keyword', or 'hybrid'
             max_chunks: Maximum number of chunks to retrieve
             score_threshold: Minimum relevance score
@@ -69,6 +71,7 @@ class DocumentRetriever:
                 chunks = self.vector_store.search(
                     query=query,
                     subject_id=subject_id,
+                    document_id=document_id,
                     k=max_chunks,
                     score_threshold=score_threshold
                 )
@@ -76,10 +79,11 @@ class DocumentRetriever:
                 chunks = self.vector_store.hybrid_search(
                     query=query,
                     subject_id=subject_id,
+                    document_id=document_id,
                     k=max_chunks
                 )
             elif retrieval_strategy == 'keyword':
-                chunks = self._keyword_only_search(query, subject_id, max_chunks)
+                chunks = self._keyword_only_search(query, subject_id, document_id, max_chunks)
             else:
                 raise RetrieverError(f"Unknown retrieval strategy: {retrieval_strategy}")
             
@@ -93,6 +97,7 @@ class DocumentRetriever:
                         'query': query,
                         'strategy': retrieval_strategy,
                         'subject_id': subject_id,
+                        'document_id': document_id,
                         'chunks_found': 0
                     }
                 }
@@ -105,6 +110,7 @@ class DocumentRetriever:
                 'query': query,
                 'strategy': retrieval_strategy,
                 'subject_id': subject_id,
+                'document_id': document_id,
                 'chunks_found': len(chunks),
                 'context_length': len(context),
                 'avg_score': sum(chunk['score'] for chunk in chunks) / len(chunks),
@@ -242,6 +248,7 @@ class DocumentRetriever:
     def _keyword_only_search(self,
                             query: str,
                             subject_id: Optional[int] = None,
+                            document_id: Optional[int] = None,
                             max_chunks: int = 5) -> List[Dict[str, Any]]:
         """
         Perform keyword-only search
@@ -255,7 +262,10 @@ class DocumentRetriever:
             for word in query_words:
                 chunks_query |= Q(content__icontains=word)
             
-            if subject_id:
+            if document_id:
+                # Filter by specific document (takes precedence over subject_id)
+                chunks_query &= Q(document_id=document_id)
+            elif subject_id:
                 chunks_query &= Q(document__subject_id=subject_id)
             
             chunks_query &= Q(document__processed=True)

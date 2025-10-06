@@ -73,6 +73,7 @@ class RAGModel:
     def query(self,
               question: str,
               subject_id: Optional[int] = None,
+              document_id: Optional[int] = None,
               chat_session: Optional[ChatSession] = None,
               retrieval_strategy: str = 'hybrid',
               max_chunks: int = 5) -> Dict[str, Any]:
@@ -82,6 +83,7 @@ class RAGModel:
         Args:
             question: User question
             subject_id: Optional subject ID for filtering
+            document_id: Optional document ID for filtering to a specific document
             chat_session: Optional chat session for history
             retrieval_strategy: Retrieval strategy to use
             max_chunks: Maximum chunks to retrieve
@@ -98,6 +100,7 @@ class RAGModel:
             retrieval_result = self.retriever.retrieve_for_query(
                 query=question,
                 subject_id=subject_id,
+                document_id=document_id,
                 retrieval_strategy=retrieval_strategy,
                 max_chunks=max_chunks
             )

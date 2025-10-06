@@ -466,6 +466,15 @@ class ChatView(LoginRequiredMixin, View):
                         temp_document=session.temp_document,
                         chat_session=session
                     )
+                elif session.document:
+                    # Specific document chat (stored document)
+                    rag_result = rag_model.query(
+                        question=message_text,
+                        document_id=session.document.id,
+                        chat_session=session,
+                        retrieval_strategy='hybrid',
+                        max_chunks=5
+                    )
                 elif session.subject:
                     # Subject-based chat with all documents from the subject
                     subject_has_docs = Document.objects.filter(subject=session.subject).exists()
@@ -606,15 +615,26 @@ def send_message(request):
                         chat_session=session
                     )
                 elif session.chat_type == 'document' and session.document:
-                    # Specific document chat
+                    # Specific document chat (for stored documents)
                     if not session.document.processed:
                         ai_response = f"The document '{session.document.title}' is still being processed. Please wait a moment and try again."
                     else:
-                        rag_result = rag_model.query_document(
+                        rag_result = rag_model.query(
                             question=message_text,
-                            document=session.document,
-                            chat_session=session
+                            document_id=session.document.id,
+                            chat_session=session,
+                            retrieval_strategy='hybrid',
+                            max_chunks=5
                         )
+                elif session.document:
+                    # Session has a document but chat_type is not 'document' - still filter by document
+                    rag_result = rag_model.query(
+                        question=message_text,
+                        document_id=session.document.id,
+                        chat_session=session,
+                        retrieval_strategy='hybrid',
+                        max_chunks=5
+                    )
                 elif session.subject:
                     # Subject-based chat with all documents from the subject
                     subject_has_docs = Document.objects.filter(subject=session.subject).exists()
@@ -913,6 +933,19 @@ def stream_chat_response(request, session_id=None):
                     
                     context = f"Document: {session.temp_document.title}\n\n{document_content[:8000]}"
                     subject_id = None
+                    document_id = None
+                    
+                elif session.document:
+                    # Get retrieval context for specific document
+                    retrieval_result = rag_model.retriever.retrieve_for_query(
+                        query=message_text,
+                        document_id=session.document.id,
+                        retrieval_strategy='hybrid',
+                        max_chunks=5
+                    )
+                    context = retrieval_result.get('context', '') if retrieval_result['success'] else ''
+                    subject_id = None
+                    document_id = session.document.id
                     
                 elif session.subject:
                     # Get retrieval context for subject
@@ -924,6 +957,7 @@ def stream_chat_response(request, session_id=None):
                     )
                     context = retrieval_result.get('context', '') if retrieval_result['success'] else ''
                     subject_id = session.subject.id
+                    document_id = None
                     
                 elif user_has_documents or user_has_subjects_with_docs:
                     # Get general retrieval context
@@ -935,6 +969,7 @@ def stream_chat_response(request, session_id=None):
                     )
                     context = retrieval_result.get('context', '') if retrieval_result['success'] else ''
                     subject_id = None
+                    document_id = None
                     
                 else:
                     # No documents - provide guidance
