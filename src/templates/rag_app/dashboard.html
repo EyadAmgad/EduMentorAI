@@ -23,13 +23,13 @@
             <p class="hero-subtitle">Ready to continue your learning journey? Here's what's happening with your progress.</p>
 
             <div class="hero-actions">
-                <a href="{% url 'rag_app:document_upload' %}" class="btn-hero-action">
+                <a href="{% url 'rag_app:document_upload' %}" class="btn-hero-action text-white">
                     <i class="fas fa-plus me-2"></i>Upload Document
                 </a>
-                <a href="{% url 'rag_app:chat' %}" class="btn-hero-action">
+                <a href="{% url 'rag_app:chat' %}" class="btn-hero-action text-white">
                     <i class="fas fa-comments me-2"></i>Start Chat
-                </a>
-                <a href="{% url 'rag_app:generate_rag_quiz' %}" class="btn-hero-action">
+                </a>    
+                <a href="{% url 'rag_app:generate_rag_quiz' %}" class="btn-hero-action text-white">
                     <i class="fas fa-question me-2"></i>Generate Quiz
                 </a>
             </div>
@@ -67,14 +67,14 @@
             <div class="stat-description">Tests to challenge your knowledge</div>
         </div>
 
-        <div class="stat-card-revolutionary">
+        <!-- <div class="stat-card-revolutionary">
             <div class="stat-icon" style="background: linear-gradient(135deg, var(--info-color), #5b21b6); color: white;">
                 <i class="fas fa-chart-line"></i>
             </div>
             <span class="stat-number">{{ average_quiz_score|floatformat:0 }}%</span>
             <div class="stat-label">Average Score</div>
             <div class="stat-description">Your overall performance</div>
-        </div>
+        </div> -->
     </div>
 
     <!-- Main Dashboard Content -->
@@ -134,7 +134,7 @@
                             </div>
                             <div class="empty-title">No documents yet</div>
                             <div class="empty-description">Upload your first document to get started with your learning journey.</div>
-                            <a href="{% url 'rag_app:document_upload' %}" class="btn btn-hero-action">
+                            <a href="{% url 'rag_app:document_upload' %}" class="btn btn-hero-action text-white">
                                 <i class="fas fa-plus me-2"></i>Upload Document
                             </a>
                         </div>
@@ -150,11 +150,6 @@
                                 <i class="fas fa-question"></i>
                             </div>
                             <div class="activity-info">
-                                <h6>
-                                    <a href="{% url 'rag_app:quiz_detail' quiz.pk %}" style="text-decoration: none; color: inherit;">
-                                        {{ quiz.title }}
-                                    </a>
-                                </h6>
                                 <div class="activity-meta">
                                     {{ quiz.subject.name }} • {{ quiz.total_questions }} questions • {{ quiz.time_limit }} min
                                 </div>
@@ -222,7 +217,7 @@
             <p>Jump into your most common tasks with these shortcuts</p>
 
             <div class="quick-actions-grid">
-                <a href="{% url 'rag_app:document_upload' %}" class="quick-action-card">
+                <a href="{% url 'rag_app:document_upload' %}" class="quick-action-card text-white">
                     <div class="quick-action-icon">
                         <i class="fas fa-upload"></i>
                     </div>
@@ -230,7 +225,7 @@
                     <div class="quick-action-description">Add new study materials to your library</div>
                 </a>
 
-                <a href="{% url 'rag_app:generate_rag_quiz' %}" class="quick-action-card">
+                <a href="{% url 'rag_app:generate_rag_quiz' %}" class="quick-action-card text-white">
                     <div class="quick-action-icon">
                         <i class="fas fa-magic"></i>
                     </div>
@@ -238,7 +233,7 @@
                     <div class="quick-action-description">Create AI-powered quizzes from your documents</div>
                 </a>
 
-                <a href="{% url 'rag_app:chat' %}" class="quick-action-card">
+                <a href="{% url 'rag_app:chat' %}" class="quick-action-card text-white">
                     <div class="quick-action-icon">
                         <i class="fas fa-comments"></i>
                     </div>
@@ -246,7 +241,7 @@
                     <div class="quick-action-description">Get instant help with your studies</div>
                 </a>
 
-                <a href="{% url 'rag_app:subject_create' %}" class="quick-action-card">
+                <a href="{% url 'rag_app:subject_create' %}" class="quick-action-card text-white">
                     <div class="quick-action-icon">
                         <i class="fas fa-plus-circle"></i>
                     </div>

@@ -84,10 +84,10 @@ class DocumentChunk(models.Model):
 class ChatSession(models.Model):
     """Chat session model"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, null=True, blank=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="user_chats")
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, null=True, blank=True, related_name="subject_chats")
     # For specific document chat
-    document = models.ForeignKey(Document, on_delete=models.CASCADE, null=True, blank=True)
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, null=True, blank=True, related_name="document_chats")
     # For anonymous document chat
     temp_document = models.ForeignKey('TempDocument', on_delete=models.CASCADE, null=True, blank=True)
     title = models.CharField(max_length=255, blank=True)

@@ -739,4 +739,26 @@
 [data-theme="dark"] .explanation:hover {
     background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 50%, #1d4ed8 100%);
     box-shadow: 0 4px 12px rgba(56, 189, 248, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+
 }
+
+[dark-theme="dark"] .btn-document-action{
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50px;
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+    margin: 0.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
+}
+
+
+[data-theme="dark"] .quizzes-hero {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+}   

@@ -3,13 +3,11 @@
 
 {% block title %}Subjects - EduMentorAI{% endblock %}
 
-
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/subject_list.css' %}">
 {% endblock %}
 
 {% block content %}
-<!-- Hero Section -->
 <section class="subjects-hero">
     <div class="container">
         <div class="hero-content">
@@ -17,10 +15,10 @@
             <p class="hero-subtitle">Organize your learning journey by grouping related documents and materials.</p>
 
             <div class="hero-actions">
-                <a href="{% url 'rag_app:subject_create' %}" class="btn-hero-action">
+                <a href="{% url 'rag_app:subject_create' %}" class="btn-hero-action text-white">
                     <i class="fas fa-plus me-2"></i>Create New Subject
                 </a>
-                <a href="{% url 'rag_app:document_list' %}" class="btn-hero-action">
+                <a href="{% url 'rag_app:document_list' %}" class="btn-hero-action text-white">
                     <i class="fas fa-file-alt me-2"></i>View Documents
                 </a>
             </div>
@@ -39,7 +37,6 @@
     {% endif %}
 
     {% if subjects %}
-        <!-- Subjects Grid -->
         <div class="row g-4">
             {% for subject in subjects %}
                 <div class="col-lg-4 col-md-6">
@@ -61,13 +58,12 @@
                             </div>
                         </div>
 
-                        <h5 class="subject-title">{{ subject.name }}</h5>
+                        <h5 class="subject-title">{{ subject.name }} ({{ subject.code }})</h5>
 
                         {% if subject.description %}
                             <p class="subject-description">{{ subject.description }}</p>
                         {% endif %}
 
-                        <!-- Subject Stats -->
                         <div class="subject-stats">
                             <div class="stat-item">
                                 <div class="stat-value">{{ subject.documents.count }}</div>
@@ -78,14 +74,13 @@
                                 <div class="stat-label">Quizzes</div>
                             </div>
                             <div class="stat-item">
-                                <div class="stat-value">{{ subject.chat_sessions.count }}</div>
+                                <div class="stat-value">{{ subject.chats.count }}</div>
                                 <div class="stat-label">Chats</div>
                             </div>
                         </div>
 
-                        <!-- Quick Actions -->
                         <div class="subject-actions">
-                            <a href="{% url 'rag_app:subject_detail' subject.id %}" class="btn-subject-action btn-subject-primary">
+                            <a href="{% url 'rag_app:subject_detail' subject.id %}" class="btn-subject-action btn-subject-primary text-white">
                                 <i class="fas fa-arrow-right me-1"></i>Open Subject
                             </a>
                             {% if subject.documents.count > 0 %}
@@ -95,9 +90,7 @@
                             {% endif %}
                         </div>
 
-                        <div class="subject-meta">
-                            <i class="fas fa-clock me-1"></i>Updated {{ subject.updated_at|timesince }} ago
-                        </div>
+                        
                     </div>
                 </div>
             {% endfor %}
