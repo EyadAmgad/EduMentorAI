@@ -47,10 +47,11 @@
                                            placeholder="Enter your email address"
                                            autocomplete="email"
                                            required
-                                           aria-describedby="{% if form.login.errors %}email-error{% endif %}">
+                                           aria-describedby="{% if form.login.errors %}email-error{% endif %} email-validation">
                                     <label for="{{ form.login.id_for_label }}">
                                         <i class="fas fa-envelope me-2"></i>Email Address
                                     </label>
+                                    <div class="validation-icon"></div>
                                     {% if form.login.errors %}
                                         <div class="invalid-feedback" id="email-error">
                                             {% for error in form.login.errors %}
@@ -58,6 +59,9 @@
                                             {% endfor %}
                                         </div>
                                     {% endif %}
+                                    <div class="valid-feedback" id="email-validation">
+                                        Email format is valid
+                                    </div>
                                 </div>
 
                                 <div class="form-floating">
@@ -67,14 +71,16 @@
                                            name="{{ form.password.name }}"
                                            placeholder="Enter your password"
                                            autocomplete="current-password"
+                                           minlength="1"
                                            required
-                                           aria-describedby="{% if form.password.errors %}password-error{% endif %}">
+                                           aria-describedby="{% if form.password.errors %}password-error{% endif %} password-validation">
                                     <label for="{{ form.password.id_for_label }}">
                                         <i class="fas fa-lock me-2"></i>Password
                                     </label>
                                     <button type="button" class="password-toggle" aria-label="Toggle password visibility" tabindex="-1">
                                         <i class="fas fa-eye" id="password-toggle-icon"></i>
                                     </button>
+                                    <div class="validation-icon"></div>
                                     {% if form.password.errors %}
                                         <div class="invalid-feedback" id="password-error">
                                             {% for error in form.password.errors %}
@@ -82,6 +88,9 @@
                                             {% endfor %}
                                         </div>
                                     {% endif %}
+                                    <div class="valid-feedback" id="password-validation">
+                                        Password entered
+                                    </div>
                                 </div>
 
                                 <div class="form-check">
@@ -91,7 +100,7 @@
                                            name="{{ form.remember.name }}"
                                            {% if form.remember.value %}checked{% endif %}>
                                     <label class="form-check-label" for="{{ form.remember.id_for_label }}">
-                                        <i class="fas fa-remember me-1"></i>Remember me for 30 days
+                                        <i class="fas fa-clock me-1"></i>Remember me for 30 days
                                     </label>
                                 </div>
 
@@ -104,7 +113,7 @@
                                     </div>
                                 {% endif %}
 
-                                <button type="submit" class="btn btn-auth" id="loginButton">
+                                <button type="submit" class="btn btn-auth" id="loginButton" disabled>
                                     <span class="button-text">
                                         <i class="fas fa-sign-in-alt me-2"></i>Sign In
                                     </span>
@@ -146,10 +155,100 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitButton = document.getElementById('loginButton');
     const buttonText = submitButton.querySelector('.button-text');
     const buttonLoading = submitButton.querySelector('.button-loading');
+    
+    // Form inputs
+    const emailInput = document.getElementById('{{ form.login.id_for_label }}');
     const passwordInput = document.getElementById('{{ form.password.id_for_label }}');
+    
+    // Password toggle
     const passwordToggle = document.querySelector('.password-toggle');
     const passwordToggleIcon = document.getElementById('password-toggle-icon');
-
+    
+    // Validation state
+    const validationState = {
+        email: false,
+        password: false
+    };
+    
+    // Email validation
+    function validateEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+    
+    function setFieldValidation(input, isValid, validMessage, invalidMessage) {
+        const validationIcon = input.parentElement.querySelector('.validation-icon');
+        const validFeedback = input.parentElement.querySelector('.valid-feedback');
+        const invalidFeedback = input.parentElement.querySelector('.invalid-feedback');
+        
+        input.classList.remove('is-valid', 'is-invalid');
+        
+        if (isValid) {
+            input.classList.add('is-valid');
+            if (validFeedback && validMessage) {
+                validFeedback.textContent = validMessage;
+            }
+        } else if (input.value.length > 0) {
+            input.classList.add('is-invalid');
+            if (invalidFeedback && invalidMessage && !invalidFeedback.textContent) {
+                const errorDiv = input.parentElement.querySelector('.invalid-feedback:not([id])');
+                if (!errorDiv) {
+                    const newErrorDiv = document.createElement('div');
+                    newErrorDiv.className = 'invalid-feedback';
+                    newErrorDiv.textContent = invalidMessage;
+                    input.parentElement.appendChild(newErrorDiv);
+                }
+            }
+        }
+    }
+    
+    function updateSubmitButton() {
+        const allValid = Object.values(validationState).every(state => state);
+        submitButton.disabled = !allValid;
+        
+        if (allValid) {
+            submitButton.classList.add('btn-ready');
+        } else {
+            submitButton.classList.remove('btn-ready');
+        }
+    }
+    
+    // Email input validation
+    emailInput.addEventListener('input', function() {
+        const isValid = validateEmail(this.value);
+        validationState.email = isValid;
+        setFieldValidation(this, isValid, 'Email format is valid', 'Please enter a valid email address');
+        updateSubmitButton();
+    });
+    
+    emailInput.addEventListener('blur', function() {
+        if (this.value.length > 0) {
+            const isValid = validateEmail(this.value);
+            validationState.email = isValid;
+            setFieldValidation(this, isValid, 'Email format is valid', 'Please enter a valid email address');
+            updateSubmitButton();
+        }
+    });
+    
+    // Password input validation
+    passwordInput.addEventListener('input', function() {
+        const isValid = this.value.length > 0;
+        validationState.password = isValid;
+        setFieldValidation(this, isValid, 'Password entered', 'Password is required');
+        updateSubmitButton();
+    });
+    
+    passwordInput.addEventListener('blur', function() {
+        if (this.value.length > 0) {
+            validationState.password = true;
+            setFieldValidation(this, true, 'Password entered', 'Password is required');
+        } else {
+            validationState.password = false;
+            setFieldValidation(this, false, 'Password entered', 'Password is required');
+        }
+        updateSubmitButton();
+    });
+    
     // Password visibility toggle
     if (passwordToggle && passwordInput) {
         passwordToggle.addEventListener('click', function() {
@@ -167,51 +266,123 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-
-    // Form submission with loading state
+    
+    // Caps Lock detection
+    let capsLockWarning = null;
+    
+    passwordInput.addEventListener('keydown', function(e) {
+        if (e.key && e.key.length === 1) {
+            const isCapsLock = e.key.toUpperCase() === e.key && e.key.toLowerCase() !== e.key && !e.shiftKey;
+            
+            if (isCapsLock && !capsLockWarning) {
+                capsLockWarning = document.createElement('div');
+                capsLockWarning.className = 'caps-lock-warning';
+                capsLockWarning.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i>Caps Lock is on';
+                passwordInput.parentElement.appendChild(capsLockWarning);
+            } else if (!isCapsLock && capsLockWarning) {
+                capsLockWarning.remove();
+                capsLockWarning = null;
+            }
+        }
+    });
+    
+    // Remove caps lock warning on blur
+    passwordInput.addEventListener('blur', function() {
+        if (capsLockWarning) {
+            capsLockWarning.remove();
+            capsLockWarning = null;
+        }
+    });
+    
+    // Form submission with loading state and validation
     form.addEventListener('submit', function(e) {
-        // Basic validation
-        const email = document.getElementById('{{ form.login.id_for_label }}').value;
-        const password = document.getElementById('{{ form.password.id_for_label }}').value;
+        // Final validation check
+        const email = emailInput.value.trim();
+        const password = passwordInput.value;
+        const emailValid = validateEmail(email);
+        const passwordValid = password.length > 0;
         
-        if (!email || !password) {
+        if (!emailValid || !passwordValid) {
             e.preventDefault();
+            
+            // Show validation errors
+            if (!emailValid) {
+                setFieldValidation(emailInput, false, '', 'Please enter a valid email address');
+            }
+            if (!passwordValid) {
+                setFieldValidation(passwordInput, false, '', 'Password is required');
+            }
+            
+            // Focus on first invalid field
+            const firstInvalidField = form.querySelector('.is-invalid');
+            if (firstInvalidField) {
+                firstInvalidField.focus();
+            }
             return;
         }
-
+        
         // Show loading state
         submitButton.disabled = true;
         buttonText.style.display = 'none';
         buttonLoading.style.display = 'inline-flex';
         
-        // Re-enable button after 10 seconds (fallback)
-        setTimeout(function() {
-            submitButton.disabled = false;
-            buttonText.style.display = 'inline-flex';
-            buttonLoading.style.display = 'none';
-        }, 10000);
+        // Add a slight delay to show loading state
+        setTimeout(() => {
+            // Re-enable button after 10 seconds (fallback)
+            setTimeout(function() {
+                submitButton.disabled = false;
+                buttonText.style.display = 'inline-flex';
+                buttonLoading.style.display = 'none';
+            }, 10000);
+        }, 100);
     });
-
-    // Enhanced form validation feedback
-    const inputs = form.querySelectorAll('.form-control');
-    inputs.forEach(input => {
-        input.addEventListener('blur', function() {
-            if (this.checkValidity()) {
-                this.classList.remove('is-invalid');
-                this.classList.add('is-valid');
-            }
-        });
-        
-        input.addEventListener('input', function() {
-            if (this.classList.contains('is-invalid') && this.value.trim() !== '') {
-                this.classList.remove('is-invalid');
-            }
-        });
-    });
+    
+    // Initialize validation state based on existing values
+    if (emailInput.value) {
+        const isValid = validateEmail(emailInput.value);
+        validationState.email = isValid;
+        setFieldValidation(emailInput, isValid, 'Email format is valid', 'Please enter a valid email address');
+    }
+    
+    if (passwordInput.value) {
+        validationState.password = true;
+        setFieldValidation(passwordInput, true, 'Password entered', 'Password is required');
+    }
+    
+    updateSubmitButton();
+    
+    // Auto-focus email field if empty
+    if (!emailInput.value) {
+        emailInput.focus();
+    }
 });
 </script>
 
 <style>
+/* Validation Icons */
+.validation-icon {
+    position: absolute;
+    right: 3.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    z-index: 10;
+}
+
+.form-control.is-valid ~ .validation-icon::before {
+    content: '\f058';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    color: var(--success-color);
+}
+
+.form-control.is-invalid ~ .validation-icon::before {
+    content: '\f057';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    color: #dc2626;
+}
+
 /* Password toggle button */
 .password-toggle {
     position: absolute;
@@ -225,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
     padding: 0.25rem;
     border-radius: 4px;
     transition: color 0.3s ease;
-    z-index: 10;
+    z-index: 11;
 }
 
 .password-toggle:hover {
@@ -237,13 +408,84 @@ document.addEventListener('DOMContentLoaded', function() {
     outline-offset: 2px;
 }
 
-/* Form validation styles */
-.form-control.is-valid {
-    border-color: var(--success-color);
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2322c55e' d='m2.3 6.73.94-.94L4.5 7.055l2.97-2.97.94.94L4.5 8.944l-2.2-2.214z'/%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right calc(0.375em + 0.1875rem) center;
-    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+/* Caps Lock Warning */
+.caps-lock-warning {
+    position: absolute;
+    right: 1rem;
+    bottom: -1.5rem;
+    background: #f59e0b;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    z-index: 12;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.caps-lock-warning::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 4px solid #f59e0b;
+}
+
+/* Submit button states */
+.btn-auth.btn-ready {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    cursor: pointer;
+}
+
+.btn-auth.btn-ready:hover {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+    box-shadow: 0 15px 35px rgba(16, 185, 129, 0.4);
+}
+
+.btn-auth:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--text-muted);
+}
+
+/* Form validation feedback */
+.valid-feedback {
+    display: none;
+    color: var(--success-color);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    font-weight: 500;
+}
+
+.form-control.is-valid ~ .valid-feedback {
+    display: block;
+}
+
+.invalid-feedback {
+    color: #dc2626;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    font-weight: 500;
+}
+
+[data-theme="dark"] .invalid-feedback {
+    color: #fca5a5;
 }
 
 /* Loading button styles */
@@ -255,6 +497,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 /* Enhanced responsive adjustments */
 @media (max-width: 576px) {
+    .validation-icon {
+        right: 2.5rem;
+    }
+    
+    .password-toggle {
+        right: 0.75rem;
+    }
+    
+    .caps-lock-warning {
+        right: 0.75rem;
+        font-size: 0.7rem;
+    }
+    
     .auth-links {
         font-size: 0.875rem;
     }
