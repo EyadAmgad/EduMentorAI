@@ -1,0 +1,46 @@
+# Pytest configuration for EduMentorAI
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "rag_django.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+python_classes = ["Test*", "*Tests", "*Test"]
+python_functions = ["test_*"]
+
+# Test discovery
+testpaths = [
+    "rag_app/tests",
+]
+
+# Add markers for different test types
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests", 
+    "slow: Tests that take a long time to run",
+    "external: Tests that require external services",
+    "pipeline: Tests for RAG pipeline components",
+    "models: Tests for Django models",
+    "views: Tests for Django views",
+    "forms: Tests for Django forms",
+]
+
+# Coverage configuration
+addopts = [
+    "--cov=rag_app",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "--cov-fail-under=80",
+    "--strict-markers",
+    "--disable-warnings",
+    "-v",
+]
+
+# Django configuration
+django_find_project = false
+
+# Minimum version
+minversion = "7.0"
+
+# Test timeout (in seconds)
+timeout = 300
+
+# Parallel execution (uncomment to enable)
+# addopts = ["--numprocesses=auto"]

@@ -1,0 +1,363 @@
+/* Quiz Generation Page Styles */
+
+/* Action Buttons Styling */
+.quiz-action-buttons {
+    margin-top: 1.5rem;
+}
+
+.quiz-action-buttons .btn {
+    border-radius: var(--border-radius);
+    font-weight: 500;
+    padding: 0.75rem 1rem;
+    transition: var(--transition);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    min-height: 48px;
+}
+
+.quiz-action-buttons .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.quiz-action-buttons .btn:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+}
+
+.quiz-action-buttons .btn i {
+    font-size: 0.875rem;
+}
+
+/* Primary button (Generated Questions) */
+.quiz-action-buttons .btn-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    border: none;
+    color: white;
+}
+
+.quiz-action-buttons .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--primary-dark), #047857);
+    color: white;
+}
+
+.quiz-action-buttons .btn-primary:disabled {
+    background: var(--text-muted);
+    color: var(--background-color);
+    cursor: not-allowed;
+    opacity: 0.6;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Success button (View Quiz) */
+.quiz-action-buttons .btn-success {
+    background: linear-gradient(135deg, var(--success-color), #047857);
+    border: none;
+    color: white;
+}
+
+.quiz-action-buttons .btn-success:hover {
+    background: linear-gradient(135deg, #047857, #065f46);
+    color: white;
+}
+
+/* Outline primary button (Edit Quiz) */
+.quiz-action-buttons .btn-outline-primary {
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+    background: transparent;
+}
+
+.quiz-action-buttons .btn-outline-primary:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* Responsive button adjustments */
+@media (max-width: 768px) {
+    .quiz-action-buttons .row {
+        gap: 0.5rem;
+    }
+    
+    .quiz-action-buttons .btn {
+        font-size: 0.875rem;
+        padding: 0.625rem 0.75rem;
+        min-height: 44px;
+    }
+}
+
+/* Quiz Questions Modal Styles */
+.questions-list {
+    counter-reset: question;
+}
+
+.question-item {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    background-color: var(--background-light);
+    transition: var(--transition);
+    position: relative;
+}
+
+.question-item:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.question-item::before {
+    counter-increment: question;
+    content: "Question " counter(question);
+    display: inline-block;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+    background: var(--primary-color);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--border-radius-sm);
+    font-size: 0.875rem;
+    position: absolute;
+    top: -0.5rem;
+    left: 1rem;
+}
+
+.question-text {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.6;
+    margin-top: 1rem;
+}
+
+.choices-list {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: 1.5rem;
+}
+
+.choice-item {
+    margin-bottom: 0.75rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    background-color: var(--card-bg);
+    transition: var(--transition);
+    position: relative;
+    cursor: pointer;
+}
+
+.choice-item:hover {
+    border-color: var(--primary-color);
+    background-color: var(--background-light);
+}
+
+.choice-item.correct {
+    border-color: var(--success-color);
+    background-color: rgba(16, 185, 129, 0.1);
+    border-width: 2px;
+}
+
+.choice-item.correct::after {
+    content: "✓";
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--success-color);
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.explanation {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background-color: var(--background-light);
+    border-radius: var(--border-radius);
+    border-left: 4px solid var(--info-color);
+    font-style: italic;
+    color: var(--text-secondary);
+    position: relative;
+}
+
+.explanation::before {
+    content: "💡";
+    position: absolute;
+    top: 1rem;
+    left: -0.25rem;
+    font-size: 1.2rem;
+}
+
+.explanation strong {
+    color: var(--text-primary);
+    font-style: normal;
+}
+
+/* Modal Enhancements */
+.modal-content {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-xl);
+}
+
+.modal-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    border-bottom: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+}
+
+.modal-body {
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+.modal-footer {
+    background-color: var(--card-bg);
+    border-top: 1px solid var(--border-color);
+    border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
+}
+
+/* Custom scrollbar for modal */
+.modal-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.modal-body::-webkit-scrollbar-track {
+    background: var(--background-light);
+    border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+.modal-body::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* Quiz Form Enhancements */
+.card-header.bg-primary {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)) !important;
+}
+
+/* Animation for showing results */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+/* Error Message Styles */
+.quiz-error-message {
+    background-color: #fee2e2;
+    border-color: #f87171;
+    color: #dc2626;
+}
+
+[data-theme="dark"] .quiz-error-message {
+    background-color: #7f1d1d;
+    border-color: #dc2626;
+    color: #fca5a5;
+}
+
+.quiz-inline-error {
+    border-left: 4px solid var(--danger-color);
+    background-color: rgba(220, 38, 38, 0.1);
+    border-color: var(--danger-color);
+    animation: slideInUp 0.3s ease-out;
+}
+
+[data-theme="dark"] .quiz-inline-error {
+    background-color: rgba(248, 113, 113, 0.1);
+}
+
+/* Success Message Styles */
+.quiz-success-message {
+    background-color: #dcfce7;
+    border-color: #22c55e;
+    color: #16a34a;
+}
+
+[data-theme="dark"] .quiz-success-message {
+    background-color: #14532d;
+    border-color: #22c55e;
+    color: #86efac;
+}
+
+/* Loading state improvements */
+.btn .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15rem;
+}
+
+/* Dark mode specific adjustments */
+[data-theme="dark"] .choice-item.correct {
+    background-color: rgba(52, 211, 153, 0.15);
+}
+
+[data-theme="dark"] .explanation {
+    background-color: var(--background-dark);
+}
+
+[data-theme="dark"] .modal-content {
+    background-color: var(--card-bg);
+    border-color: var(--border-color-dark);
+}
+
+[data-theme="dark"] .alert-success {
+    background-color: rgba(52, 211, 153, 0.1) !important;
+    border-color: var(--success-color) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Placeholder text color for dark mode */
+[data-theme="dark"] .form-control::placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+[data-theme="dark"] .form-control::-webkit-input-placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+[data-theme="dark"] .form-control::-moz-placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+    opacity: 1;
+}
+
+[data-theme="dark"] .form-control:-ms-input-placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+[data-theme="dark"] .form-control:-moz-placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+    opacity: 1;
+}
+

@@ -104,13 +104,13 @@ if USE_SQLITE:
         }
     }
 else:
-    # PostgreSQL database (Supabase) for production
+    # PostgreSQL database (Aiven) for production
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': config('DB_NAME', default='postgres'),
             'USER': config('DB_USER', default='postgres'),
-            'PASSWORD': config('SUPABASE_DB_PASSWORD', default=''),
+            'PASSWORD': config('DB_PASSWORD', default=''),
             'HOST': config('DB_HOST', default=''),
             'PORT': config('DB_PORT', default='5432'),
             'OPTIONS': {
@@ -194,12 +194,7 @@ CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='http://localhost:
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# --- Supabase and AI Keys ---
-
-SUPABASE_URL = config('SUPABASE_URL', default='')
-SUPABASE_KEY = config('SUPABASE_KEY', default='')
-SUPABASE_SERVICE_ROLE_KEY = config('SUPABASE_SERVICE_ROLE_KEY', default='')
-SUPABASE_STORAGE_BUCKET = config('SUPABASE_STORAGE_BUCKET', default='documents')
+# --- AI API Keys ---
 
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 OPENROUTER_API_KEY = config('OPENROUTER_API_KEY', default='')
