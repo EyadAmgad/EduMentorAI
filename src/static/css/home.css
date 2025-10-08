@@ -452,3 +452,11 @@
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.1);
 }
+
+
+.btn-cta:hover{
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: white;
+}
+

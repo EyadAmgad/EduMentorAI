@@ -256,7 +256,7 @@ a{
 }
 
 .activity-tab:hover {
-    background: var(--primary-color);
+    background: var(--card-bg);
     color: white;
     transform: translateY(-1px);
 }
@@ -537,10 +537,8 @@ a{
 .activity-tab:hover {
     border-color: var(--primary-color);
     color: var(--primary-color);
+    background: var(--card-bg);
 }
-
-.activity-content {
-    padding: 0 2rem 2rem;
 }
 
 .activity-item {

@@ -89,7 +89,7 @@ body {
 
 [data-theme="dark"] a:hover,
 [data-theme="dark"] a:focus {
-    color: var(--primary-dark);
+    color: var(--primary-color);
 }
 
 .main-content {
