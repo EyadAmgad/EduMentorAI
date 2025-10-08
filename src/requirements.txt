@@ -35,12 +35,9 @@ PyYAML
 gunicorn
 whitenoise
 python-dotenv
-whitenoise
-whitenoise
-python-dotenv
-whitenoise
-python-dotenv
 django-axes
+
+# Google API
 sseclient-py
 google-auth
 google-auth-oauthlib
