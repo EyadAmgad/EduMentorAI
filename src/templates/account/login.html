@@ -14,28 +14,28 @@
     <div class="auth-container">
         <div class="container">
             <div class="row justify-content-center">
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-8 col-lg-6 col-xl-5">
                     <div class="auth-card">
                         <div class="auth-header">
                             <div class="auth-header-content">
-                                <h2 class="auth-title">
+                                <h1 class="auth-title">
                                     <i class="fas fa-sign-in-alt me-2"></i>Welcome Back
-                                </h2>
-                                <p class="auth-subtitle">Sign in to continue your learning journey</p>
+                                </h1>
+                                <p class="auth-subtitle">Sign in to continue your AI-powered learning journey</p>
                             </div>
                         </div>
                         <div class="auth-body">
                             {% if messages %}
                                 {% for message in messages %}
                                     <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                                        <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                                        <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' or message.tags == 'danger' %}exclamation-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
                                         {{ message }}
-                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                     </div>
                                 {% endfor %}
                             {% endif %}
 
-                            <form method="post" action="{% url 'account_login' %}">
+                            <form method="post" action="{% url 'account_login' %}" id="loginForm" novalidate>
                                 {% csrf_token %}
 
                                 <div class="form-floating">
@@ -45,12 +45,14 @@
                                            name="{{ form.login.name }}"
                                            value="{{ form.login.value|default:'' }}"
                                            placeholder="Enter your email address"
-                                           required>
+                                           autocomplete="email"
+                                           required
+                                           aria-describedby="{% if form.login.errors %}email-error{% endif %}">
                                     <label for="{{ form.login.id_for_label }}">
-                                        <i class="fas fa-envelope me-1"></i>Email Address
+                                        <i class="fas fa-envelope me-2"></i>Email Address
                                     </label>
                                     {% if form.login.errors %}
-                                        <div class="invalid-feedback">
+                                        <div class="invalid-feedback" id="email-error">
                                             {% for error in form.login.errors %}
                                                 {{ error }}
                                             {% endfor %}
@@ -64,12 +66,17 @@
                                            id="{{ form.password.id_for_label }}"
                                            name="{{ form.password.name }}"
                                            placeholder="Enter your password"
-                                           required>
+                                           autocomplete="current-password"
+                                           required
+                                           aria-describedby="{% if form.password.errors %}password-error{% endif %}">
                                     <label for="{{ form.password.id_for_label }}">
-                                        <i class="fas fa-lock me-1"></i>Password
+                                        <i class="fas fa-lock me-2"></i>Password
                                     </label>
+                                    <button type="button" class="password-toggle" aria-label="Toggle password visibility" tabindex="-1">
+                                        <i class="fas fa-eye" id="password-toggle-icon"></i>
+                                    </button>
                                     {% if form.password.errors %}
-                                        <div class="invalid-feedback">
+                                        <div class="invalid-feedback" id="password-error">
                                             {% for error in form.password.errors %}
                                                 {{ error }}
                                             {% endfor %}
@@ -84,20 +91,27 @@
                                            name="{{ form.remember.name }}"
                                            {% if form.remember.value %}checked{% endif %}>
                                     <label class="form-check-label" for="{{ form.remember.id_for_label }}">
-                                        Remember me
+                                        <i class="fas fa-remember me-1"></i>Remember me for 30 days
                                     </label>
                                 </div>
 
                                 {% if form.non_field_errors %}
-                                    <div class="alert alert-danger">
+                                    <div class="alert alert-danger" role="alert">
+                                        <i class="fas fa-exclamation-circle me-2"></i>
                                         {% for error in form.non_field_errors %}
                                             {{ error }}
                                         {% endfor %}
                                     </div>
                                 {% endif %}
 
-                                <button type="submit" class="btn btn-auth">
-                                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                                <button type="submit" class="btn btn-auth" id="loginButton">
+                                    <span class="button-text">
+                                        <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                                    </span>
+                                    <span class="button-loading" style="display: none;">
+                                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        Signing in...
+                                    </span>
                                 </button>
                             </form>
 
@@ -108,11 +122,13 @@
                             <div class="auth-links">
                                 <a href="{% url 'account_reset_password' %}" class="auth-link">
                                     <i class="fas fa-key"></i>Forgot your password?
-                                </a><br>
-                                <span style="color: #6b7280; font-size: 0.875rem;">Don't have an account?</span>
-                                <a href="{% url 'account_signup' %}" class="auth-link">
-                                    <i class="fas fa-user-plus"></i>Sign up here
                                 </a>
+                                <div class="mt-3">
+                                    <span>Don't have an account?</span>
+                                    <a href="{% url 'account_signup' %}" class="auth-link">
+                                        <i class="fas fa-user-plus"></i>Sign up here
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -121,4 +137,131 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('loginForm');
+    const submitButton = document.getElementById('loginButton');
+    const buttonText = submitButton.querySelector('.button-text');
+    const buttonLoading = submitButton.querySelector('.button-loading');
+    const passwordInput = document.getElementById('{{ form.password.id_for_label }}');
+    const passwordToggle = document.querySelector('.password-toggle');
+    const passwordToggleIcon = document.getElementById('password-toggle-icon');
+
+    // Password visibility toggle
+    if (passwordToggle && passwordInput) {
+        passwordToggle.addEventListener('click', function() {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            if (type === 'text') {
+                passwordToggleIcon.classList.remove('fa-eye');
+                passwordToggleIcon.classList.add('fa-eye-slash');
+                passwordToggle.setAttribute('aria-label', 'Hide password');
+            } else {
+                passwordToggleIcon.classList.remove('fa-eye-slash');
+                passwordToggleIcon.classList.add('fa-eye');
+                passwordToggle.setAttribute('aria-label', 'Show password');
+            }
+        });
+    }
+
+    // Form submission with loading state
+    form.addEventListener('submit', function(e) {
+        // Basic validation
+        const email = document.getElementById('{{ form.login.id_for_label }}').value;
+        const password = document.getElementById('{{ form.password.id_for_label }}').value;
+        
+        if (!email || !password) {
+            e.preventDefault();
+            return;
+        }
+
+        // Show loading state
+        submitButton.disabled = true;
+        buttonText.style.display = 'none';
+        buttonLoading.style.display = 'inline-flex';
+        
+        // Re-enable button after 10 seconds (fallback)
+        setTimeout(function() {
+            submitButton.disabled = false;
+            buttonText.style.display = 'inline-flex';
+            buttonLoading.style.display = 'none';
+        }, 10000);
+    });
+
+    // Enhanced form validation feedback
+    const inputs = form.querySelectorAll('.form-control');
+    inputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.checkValidity()) {
+                this.classList.remove('is-invalid');
+                this.classList.add('is-valid');
+            }
+        });
+        
+        input.addEventListener('input', function() {
+            if (this.classList.contains('is-invalid') && this.value.trim() !== '') {
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+});
+</script>
+
+<style>
+/* Password toggle button */
+.password-toggle {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: color 0.3s ease;
+    z-index: 10;
+}
+
+.password-toggle:hover {
+    color: var(--primary-color);
+}
+
+.password-toggle:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Form validation styles */
+.form-control.is-valid {
+    border-color: var(--success-color);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%2322c55e' d='m2.3 6.73.94-.94L4.5 7.055l2.97-2.97.94.94L4.5 8.944l-2.2-2.214z'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right calc(0.375em + 0.1875rem) center;
+    background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem);
+}
+
+/* Loading button styles */
+.button-loading {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Enhanced responsive adjustments */
+@media (max-width: 576px) {
+    .auth-links {
+        font-size: 0.875rem;
+    }
+    
+    .auth-links > div {
+        margin-top: 1rem;
+    }
+}
+</style>
 {% endblock %}
