@@ -14,13 +14,13 @@
     <div class="auth-container">
         <div class="container">
             <div class="row justify-content-center">
-                <div class="col-md-6 col-lg-4">
+                <div class="col-md-8 col-lg-6 col-xl-5">
                     <div class="auth-card">
                         <div class="auth-header">
                             <div class="auth-header-content">
-                                <h2 class="auth-title">
+                                <h1 class="auth-title">
                                     <i class="fas fa-user-plus me-2"></i>Create Account
-                                </h2>
+                                </h1>
                                 <p class="auth-subtitle">Join EduMentorAI and start your AI-powered learning journey</p>
                             </div>
                         </div>
@@ -28,14 +28,14 @@
                             {% if messages %}
                                 {% for message in messages %}
                                     <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                                        <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' %}exclamation-circle{% else %}info-circle{% endif %} me-2"></i>
+                                        <i class="fas fa-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' or message.tags == 'danger' %}exclamation-circle{% elif message.tags == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
                                         {{ message }}
-                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                     </div>
                                 {% endfor %}
                             {% endif %}
 
-                            <form method="post" action="{% url 'account_signup' %}">
+                            <form method="post" action="{% url 'account_signup' %}" id="signupForm" novalidate>
                                 {% csrf_token %}
 
                                 <div class="form-floating">
@@ -45,17 +45,23 @@
                                            name="{{ form.email.name }}"
                                            value="{{ form.email.value|default:'' }}"
                                            placeholder="Enter your email address"
-                                           required>
+                                           autocomplete="email"
+                                           required
+                                           aria-describedby="{% if form.email.errors %}email-error{% endif %} email-validation">
                                     <label for="{{ form.email.id_for_label }}">
-                                        <i class="fas fa-envelope me-1"></i>Email Address
+                                        <i class="fas fa-envelope me-2"></i>Email Address
                                     </label>
+                                    <div class="validation-icon"></div>
                                     {% if form.email.errors %}
-                                        <div class="invalid-feedback">
+                                        <div class="invalid-feedback" id="email-error">
                                             {% for error in form.email.errors %}
                                                 {{ error }}
                                             {% endfor %}
                                         </div>
                                     {% endif %}
+                                    <div class="valid-feedback" id="email-validation">
+                                        Email format looks good!
+                                    </div>
                                 </div>
 
                                 {% if form.username %}
@@ -66,17 +72,29 @@
                                            name="{{ form.username.name }}"
                                            value="{{ form.username.value|default:'' }}"
                                            placeholder="Choose a username"
-                                           required>
+                                           autocomplete="username"
+                                           minlength="3"
+                                           maxlength="30"
+                                           pattern="^[a-zA-Z0-9_]+$"
+                                           required
+                                           aria-describedby="{% if form.username.errors %}username-error{% endif %} username-validation">
                                     <label for="{{ form.username.id_for_label }}">
-                                        <i class="fas fa-user me-1"></i>Username
+                                        <i class="fas fa-user me-2"></i>Username
                                     </label>
+                                    <div class="validation-icon"></div>
                                     {% if form.username.errors %}
-                                        <div class="invalid-feedback">
+                                        <div class="invalid-feedback" id="username-error">
                                             {% for error in form.username.errors %}
                                                 {{ error }}
                                             {% endfor %}
                                         </div>
                                     {% endif %}
+                                    <div class="valid-feedback" id="username-validation">
+                                        Username is available!
+                                    </div>
+                                    <div class="form-text text-muted mt-1">
+                                        3-30 characters, letters, numbers, and underscores only
+                                    </div>
                                 </div>
                                 {% endif %}
 
@@ -86,24 +104,55 @@
                                            id="{{ form.password1.id_for_label }}"
                                            name="{{ form.password1.name }}"
                                            placeholder="Create a password"
-                                           required>
+                                           autocomplete="new-password"
+                                           minlength="8"
+                                           required
+                                           aria-describedby="{% if form.password1.errors %}password1-error{% endif %} password-requirements password-strength">
                                     <label for="{{ form.password1.id_for_label }}">
-                                        <i class="fas fa-lock me-1"></i>Password
+                                        <i class="fas fa-lock me-2"></i>Password
                                     </label>
+                                    <button type="button" class="password-toggle" aria-label="Toggle password visibility" tabindex="-1">
+                                        <i class="fas fa-eye" id="password1-toggle-icon"></i>
+                                    </button>
+                                    <div class="validation-icon"></div>
                                     {% if form.password1.errors %}
-                                        <div class="invalid-feedback">
+                                        <div class="invalid-feedback" id="password1-error">
                                             {% for error in form.password1.errors %}
                                                 {{ error }}
                                             {% endfor %}
                                         </div>
                                     {% endif %}
-                                    <div class="password-requirements">
+                                    
+                                    <!-- Password Strength Indicator -->
+                                    <div class="password-strength mt-2" id="password-strength" style="display: none;">
+                                        <div class="strength-bar" id="strength-bar"></div>
+                                        <div class="strength-text" id="strength-text"></div>
+                                    </div>
+                                    
+                                    <!-- Password Requirements -->
+                                    <div class="password-requirements" id="password-requirements">
                                         <strong>Password requirements:</strong>
                                         <ul>
-                                            <li>At least 8 characters long</li>
-                                            <li>Cannot be too similar to your email</li>
-                                            <li>Cannot be a commonly used password</li>
-                                            <li>Cannot be entirely numeric</li>
+                                            <li id="req-length" class="requirement">
+                                                <i class="fas fa-times requirement-icon"></i>
+                                                At least 8 characters long
+                                            </li>
+                                            <li id="req-uppercase" class="requirement">
+                                                <i class="fas fa-times requirement-icon"></i>
+                                                At least one uppercase letter
+                                            </li>
+                                            <li id="req-lowercase" class="requirement">
+                                                <i class="fas fa-times requirement-icon"></i>
+                                                At least one lowercase letter
+                                            </li>
+                                            <li id="req-number" class="requirement">
+                                                <i class="fas fa-times requirement-icon"></i>
+                                                At least one number
+                                            </li>
+                                            <li id="req-special" class="requirement">
+                                                <i class="fas fa-times requirement-icon"></i>
+                                                At least one special character (!@#$%^&*)
+                                            </li>
                                         </ul>
                                     </div>
                                 </div>
@@ -114,29 +163,45 @@
                                            id="{{ form.password2.id_for_label }}"
                                            name="{{ form.password2.name }}"
                                            placeholder="Confirm your password"
-                                           required>
+                                           autocomplete="new-password"
+                                           required
+                                           aria-describedby="{% if form.password2.errors %}password2-error{% endif %} password2-validation">
                                     <label for="{{ form.password2.id_for_label }}">
-                                        <i class="fas fa-lock me-1"></i>Confirm Password
+                                        <i class="fas fa-lock me-2"></i>Confirm Password
                                     </label>
+                                    <button type="button" class="password-toggle" aria-label="Toggle password visibility" tabindex="-1">
+                                        <i class="fas fa-eye" id="password2-toggle-icon"></i>
+                                    </button>
+                                    <div class="validation-icon"></div>
                                     {% if form.password2.errors %}
-                                        <div class="invalid-feedback">
+                                        <div class="invalid-feedback" id="password2-error">
                                             {% for error in form.password2.errors %}
                                                 {{ error }}
                                             {% endfor %}
                                         </div>
                                     {% endif %}
+                                    <div class="valid-feedback" id="password2-validation">
+                                        Passwords match!
+                                    </div>
                                 </div>
 
                                 {% if form.non_field_errors %}
-                                    <div class="alert alert-danger">
+                                    <div class="alert alert-danger" role="alert">
+                                        <i class="fas fa-exclamation-circle me-2"></i>
                                         {% for error in form.non_field_errors %}
                                             {{ error }}
                                         {% endfor %}
                                     </div>
                                 {% endif %}
 
-                                <button type="submit" class="btn btn-auth">
-                                    <i class="fas fa-user-plus me-2"></i>Create Account
+                                <button type="submit" class="btn btn-auth" id="signupButton" disabled>
+                                    <span class="button-text">
+                                        <i class="fas fa-user-plus me-2"></i>Create Account
+                                    </span>
+                                    <span class="button-loading" style="display: none;">
+                                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        Creating account...
+                                    </span>
                                 </button>
                             </form>
 
@@ -145,10 +210,12 @@
                             </div>
 
                             <div class="auth-links">
-                                <span style="color: #6b7280; font-size: 0.875rem;">Already have an account?</span>
-                                <a href="{% url 'account_login' %}" class="auth-link">
-                                    <i class="fas fa-sign-in-alt"></i>Sign in here
-                                </a>
+                                <div>
+                                    <span>Already have an account?</span>
+                                    <a href="{% url 'account_login' %}" class="auth-link">
+                                        <i class="fas fa-sign-in-alt"></i>Sign in here
+                                    </a>
+                                </div>
                             </div>
 
                             <div class="terms-notice">
@@ -165,4 +232,406 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('signupForm');
+    const submitButton = document.getElementById('signupButton');
+    const buttonText = submitButton.querySelector('.button-text');
+    const buttonLoading = submitButton.querySelector('.button-loading');
+    
+    // Form inputs
+    const emailInput = document.getElementById('{{ form.email.id_for_label }}');
+    const usernameInput = document.getElementById('{{ form.username.id_for_label }}') || null;
+    const password1Input = document.getElementById('{{ form.password1.id_for_label }}');
+    const password2Input = document.getElementById('{{ form.password2.id_for_label }}');
+    
+    // Password toggles
+    const password1Toggle = password1Input.nextElementSibling.nextElementSibling;
+    const password2Toggle = password2Input.nextElementSibling.nextElementSibling;
+    const password1ToggleIcon = document.getElementById('password1-toggle-icon');
+    const password2ToggleIcon = document.getElementById('password2-toggle-icon');
+    
+    // Password strength elements
+    const strengthIndicator = document.getElementById('password-strength');
+    const strengthBar = document.getElementById('strength-bar');
+    const strengthText = document.getElementById('strength-text');
+    
+    // Validation state
+    const validationState = {
+        email: false,
+        username: usernameInput ? false : true, // If no username field, consider it valid
+        password1: false,
+        password2: false
+    };
+    
+    // Email validation
+    function validateEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+    
+    // Username validation
+    function validateUsername(username) {
+        if (!username) return false;
+        const usernameRegex = /^[a-zA-Z0-9_]{3,30}$/;
+        return usernameRegex.test(username);
+    }
+    
+    // Password strength calculation
+    function calculatePasswordStrength(password) {
+        let score = 0;
+        const checks = {
+            length: password.length >= 8,
+            uppercase: /[A-Z]/.test(password),
+            lowercase: /[a-z]/.test(password),
+            number: /\d/.test(password),
+            special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
+        };
+        
+        Object.values(checks).forEach(check => {
+            if (check) score++;
+        });
+        
+        // Update requirement indicators
+        updateRequirementIndicator('req-length', checks.length);
+        updateRequirementIndicator('req-uppercase', checks.uppercase);
+        updateRequirementIndicator('req-lowercase', checks.lowercase);
+        updateRequirementIndicator('req-number', checks.number);
+        updateRequirementIndicator('req-special', checks.special);
+        
+        return { score, checks };
+    }
+    
+    function updateRequirementIndicator(id, met) {
+        const element = document.getElementById(id);
+        const icon = element.querySelector('.requirement-icon');
+        
+        if (met) {
+            element.classList.add('requirement-met');
+            icon.className = 'fas fa-check requirement-icon';
+        } else {
+            element.classList.remove('requirement-met');
+            icon.className = 'fas fa-times requirement-icon';
+        }
+    }
+    
+    function updatePasswordStrength(password) {
+        if (!password) {
+            strengthIndicator.style.display = 'none';
+            return;
+        }
+        
+        const { score } = calculatePasswordStrength(password);
+        strengthIndicator.style.display = 'block';
+        
+        // Update strength bar and text
+        strengthBar.className = 'strength-bar';
+        
+        if (score < 2) {
+            strengthBar.classList.add('strength-weak');
+            strengthText.textContent = 'Weak';
+            strengthText.className = 'strength-text text-danger';
+        } else if (score < 4) {
+            strengthBar.classList.add('strength-medium');
+            strengthText.textContent = 'Medium';
+            strengthText.className = 'strength-text text-warning';
+        } else {
+            strengthBar.classList.add('strength-strong');
+            strengthText.textContent = 'Strong';
+            strengthText.className = 'strength-text text-success';
+        }
+        
+        return score >= 4;
+    }
+    
+    function setFieldValidation(input, isValid, validMessage, invalidMessage) {
+        const validationIcon = input.parentElement.querySelector('.validation-icon');
+        const validFeedback = input.parentElement.querySelector('.valid-feedback');
+        const invalidFeedback = input.parentElement.querySelector('.invalid-feedback');
+        
+        input.classList.remove('is-valid', 'is-invalid');
+        
+        if (isValid) {
+            input.classList.add('is-valid');
+            if (validFeedback && validMessage) {
+                validFeedback.textContent = validMessage;
+            }
+        } else if (input.value.length > 0) {
+            input.classList.add('is-invalid');
+            if (invalidFeedback && invalidMessage && !invalidFeedback.textContent) {
+                invalidFeedback.textContent = invalidMessage;
+            }
+        }
+    }
+    
+    function updateSubmitButton() {
+        const allValid = Object.values(validationState).every(state => state);
+        submitButton.disabled = !allValid;
+        
+        if (allValid) {
+            submitButton.classList.add('btn-ready');
+        } else {
+            submitButton.classList.remove('btn-ready');
+        }
+    }
+    
+    // Email input validation
+    emailInput.addEventListener('input', function() {
+        const isValid = validateEmail(this.value);
+        validationState.email = isValid;
+        setFieldValidation(this, isValid, 'Email format looks good!', 'Please enter a valid email address');
+        updateSubmitButton();
+    });
+    
+    // Username input validation
+    if (usernameInput) {
+        usernameInput.addEventListener('input', function() {
+            const isValid = validateUsername(this.value);
+            validationState.username = isValid;
+            setFieldValidation(this, isValid, 'Username is available!', 'Username must be 3-30 characters, letters, numbers, and underscores only');
+            updateSubmitButton();
+        });
+    }
+    
+    // Password input validation
+    password1Input.addEventListener('input', function() {
+        const isStrong = updatePasswordStrength(this.value);
+        const { score } = calculatePasswordStrength(this.value);
+        const isValid = this.value.length >= 8 && score >= 3;
+        
+        validationState.password1 = isValid;
+        setFieldValidation(this, isValid, 'Password meets requirements!', '');
+        
+        // Revalidate password confirmation
+        if (password2Input.value) {
+            const passwordsMatch = this.value === password2Input.value;
+            validationState.password2 = passwordsMatch;
+            setFieldValidation(password2Input, passwordsMatch, 'Passwords match!', 'Passwords do not match');
+        }
+        
+        updateSubmitButton();
+    });
+    
+    // Password confirmation validation
+    password2Input.addEventListener('input', function() {
+        const passwordsMatch = this.value === password1Input.value && this.value.length > 0;
+        validationState.password2 = passwordsMatch;
+        setFieldValidation(this, passwordsMatch, 'Passwords match!', 'Passwords do not match');
+        updateSubmitButton();
+    });
+    
+    // Password visibility toggles
+    function setupPasswordToggle(input, toggle, icon) {
+        if (toggle) {
+            toggle.addEventListener('click', function() {
+                const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                input.setAttribute('type', type);
+                
+                if (type === 'text') {
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                    toggle.setAttribute('aria-label', 'Hide password');
+                } else {
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                    toggle.setAttribute('aria-label', 'Show password');
+                }
+            });
+        }
+    }
+    
+    setupPasswordToggle(password1Input, password1Toggle, password1ToggleIcon);
+    setupPasswordToggle(password2Input, password2Toggle, password2ToggleIcon);
+    
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        // Final validation check
+        const allValid = Object.values(validationState).every(state => state);
+        
+        if (!allValid) {
+            e.preventDefault();
+            // Focus on first invalid field
+            const firstInvalidField = form.querySelector('.is-invalid, input:invalid');
+            if (firstInvalidField) {
+                firstInvalidField.focus();
+            }
+            return;
+        }
+        
+        // Show loading state
+        submitButton.disabled = true;
+        buttonText.style.display = 'none';
+        buttonLoading.style.display = 'inline-flex';
+        
+        // Re-enable button after 15 seconds (fallback)
+        setTimeout(function() {
+            submitButton.disabled = false;
+            buttonText.style.display = 'inline-flex';
+            buttonLoading.style.display = 'none';
+        }, 15000);
+    });
+    
+    // Initial validation state
+    updateSubmitButton();
+});
+</script>
+
+<style>
+/* Validation Icons */
+.validation-icon {
+    position: absolute;
+    right: 3.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1rem;
+    z-index: 10;
+}
+
+.form-control.is-valid ~ .validation-icon::before {
+    content: '\f058';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    color: var(--success-color);
+}
+
+.form-control.is-invalid ~ .validation-icon::before {
+    content: '\f057';
+    font-family: 'Font Awesome 5 Free';
+    font-weight: 900;
+    color: #dc2626;
+}
+
+/* Password toggle button */
+.password-toggle {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition: color 0.3s ease;
+    z-index: 11;
+}
+
+.password-toggle:hover {
+    color: var(--primary-color);
+}
+
+.password-toggle:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Enhanced Password Requirements */
+.requirement {
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.requirement-icon {
+    width: 12px;
+    font-size: 0.75rem;
+    color: #dc2626;
+    transition: color 0.3s ease;
+}
+
+.requirement-met .requirement-icon {
+    color: var(--success-color);
+}
+
+.requirement-met {
+    color: var(--success-color);
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+
+/* Password Strength Indicator */
+.password-strength {
+    margin-top: 0.75rem;
+}
+
+.strength-bar {
+    height: 6px;
+    border-radius: 3px;
+    transition: all 0.3s ease;
+    margin-bottom: 0.5rem;
+}
+
+.strength-weak {
+    background: #ef4444;
+    width: 25%;
+}
+
+.strength-medium {
+    background: #f59e0b;
+    width: 60%;
+}
+
+.strength-strong {
+    background: var(--success-color);
+    width: 100%;
+}
+
+.strength-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: center;
+}
+
+/* Submit button states */
+.btn-auth.btn-ready {
+    background: linear-gradient(135deg, var(--success-color) 0%, #047857 100%);
+}
+
+.btn-auth.btn-ready:hover {
+    background: linear-gradient(135deg, #047857 0%, var(--success-color) 100%);
+    box-shadow: 0 15px 35px rgba(5, 150, 105, 0.4);
+}
+
+/* Form validation feedback */
+.valid-feedback {
+    display: none;
+    color: var(--success-color);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    font-weight: 500;
+}
+
+.form-control.is-valid ~ .valid-feedback {
+    display: block;
+}
+
+.form-text {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+/* Enhanced responsive adjustments */
+@media (max-width: 576px) {
+    .validation-icon {
+        right: 2.5rem;
+    }
+    
+    .password-toggle {
+        right: 0.75rem;
+    }
+    
+    .password-requirements {
+        font-size: 0.8rem;
+    }
+    
+    .requirement {
+        gap: 0.375rem;
+    }
+}
+</style>
 {% endblock %}
