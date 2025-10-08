@@ -295,6 +295,8 @@
     align-items: flex-end;
     max-width: 1000px;
     margin: 0 auto;
+    background: var(--card-bg);
+
 }
 
 .chat-input {
@@ -309,6 +311,7 @@
     color: var(--text-primary);
     transition: var(--transition);
 }
+
 
 .chat-input:focus {
     outline: none;
@@ -411,4 +414,7 @@
     .mobile-sidebar-toggle {
         display: none;
     }
+}
+[data-theme="dark"] a{
+    color: var(--dark-primary)
 }

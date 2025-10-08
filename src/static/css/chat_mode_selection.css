@@ -34,7 +34,7 @@
 
 .mode-option:hover {
     border-color: var(--primary-color);
-    background: white;
+    background: var(--card-bg);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
 }

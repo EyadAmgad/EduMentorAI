@@ -606,3 +606,12 @@
     [data-theme="dark"] .subject-hero {
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
     }   
+
+main {
+    flex-grow: 1;
+    padding: 20px;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    /* The line below might exist and should be removed or commented out */
+    height: calc(100vh - 60px); /* REMOVE THIS LINE */
+}

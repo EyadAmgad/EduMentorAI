@@ -1,3 +1,5 @@
+// src/static/js/chat.js
+
 document.addEventListener('DOMContentLoaded', function() {
     // Configure marked for safe rendering
     marked.setOptions({
@@ -68,6 +70,16 @@ document.addEventListener('DOMContentLoaded', function() {
         sendStreamingMessage(message);
     });
 
+    // *** FIX: Listen for Enter key to send message ***
+    chatInput.addEventListener('keydown', function(event) {
+        // Check if 'Enter' is pressed without the Shift key
+        if (event.key === 'Enter' && !event.shiftKey) {
+            // Prevent default action (new line)
+            event.preventDefault();
+            // Trigger the send button click
+            sendBtn.click();
+        }
+    });
 
 
     // Send streaming message with real-time display
