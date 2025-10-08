@@ -229,6 +229,7 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='EduMentorAI <noreply@edumetorai.com>')
 SERVER_EMAIL = config('SERVER_EMAIL', default='EduMentorAI <noreply@edumetorai.com>')
 
+
 # AllAuth Configuration
 LOGIN_REDIRECT_URL = '/dashboard/'
 LOGOUT_REDIRECT_URL = '/'
