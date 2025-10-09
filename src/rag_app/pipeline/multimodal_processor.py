@@ -9,6 +9,7 @@ import fitz  # PyMuPDF
 import hashlib
 import json
 from pathlib import Path
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,11 @@ class MultimodalProcessor:
     """
     Handles image extraction and description for multimodal RAG.
     Integrates with OpenRouter free vision models for educational content analysis.
+    
+    Based on best practices from:
+    - PyMuPDF documentation for robust image extraction
+    - Multimodal RAG implementations from research papers
+    - Production-ready error handling and caching
     """
     
     def __init__(self, openrouter_api_key: str):
@@ -55,14 +61,16 @@ class MultimodalProcessor:
             with open(cache_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     'description': description,
-                    'timestamp': str(pd.Timestamp.now())
+                    'timestamp': datetime.now().isoformat()
                 }, f, ensure_ascii=False, indent=2)
         except Exception as e:
             logger.warning(f"Error saving to cache file {cache_file}: {e}")
     
     def extract_images_from_pdf(self, pdf_path: str) -> List[Dict]:
-        """Extract images from PDF using PyMuPDF"""
+        """Extract images from PDF using PyMuPDF with improved error handling"""
         images = []
+        doc = None
+        
         try:
             doc = fitz.open(pdf_path)
             logger.info(f"Processing PDF with {len(doc)} pages: {pdf_path}")
@@ -73,6 +81,8 @@ class MultimodalProcessor:
                     break
                     
                 page = doc.load_page(page_num)
+                
+                # Get images using the recommended PyMuPDF approach
                 image_list = page.get_images(full=True)
                 
                 for img_index, img in enumerate(image_list):
@@ -80,65 +90,124 @@ class MultimodalProcessor:
                         break
                         
                     try:
+                        # Extract image using xref (cross-reference number)
                         xref = img[0]
-                        pix = fitz.Pixmap(doc, xref)
                         
-                        # Skip if not RGB/RGBA or too small
-                        if pix.n - pix.alpha < 4 and pix.width > 50 and pix.height > 50:
-                            img_data = pix.tobytes("png")
-                            bbox = page.get_image_bbox(img)
+                        # Method 1: Extract image data directly (recommended for reliability)
+                        img_dict = doc.extract_image(xref)
+                        img_data = img_dict["image"]
+                        img_ext = img_dict["ext"]
+                        width = img_dict["width"]
+                        height = img_dict["height"]
+                        
+                        # Skip very small images (likely decorative elements)
+                        if width < 50 or height < 50:
+                            logger.debug(f"Skipping small image: {width}x{height}")
+                            continue
+                        
+                        # Convert to PIL Image to ensure format compatibility
+                        try:
+                            pil_image = Image.open(io.BytesIO(img_data))
+                            
+                            # Convert to RGB if necessary (remove alpha channel for vision models)
+                            if pil_image.mode in ('RGBA', 'LA', 'P'):
+                                pil_image = pil_image.convert('RGB')
+                            
+                            # Save as PNG for consistency
+                            img_buffer = io.BytesIO()
+                            pil_image.save(img_buffer, format='PNG')
+                            processed_img_data = img_buffer.getvalue()
+                            
+                            # Get image bbox for location context
+                            try:
+                                bbox = page.get_image_bbox(img)
+                            except:
+                                bbox = None
                             
                             images.append({
-                                'data': img_data,
+                                'data': processed_img_data,
                                 'page': page_num + 1,
                                 'index': img_index,
                                 'bbox': bbox,
-                                'width': pix.width,
-                                'height': pix.height,
-                                'size_bytes': len(img_data)
+                                'width': width,
+                                'height': height,
+                                'size_bytes': len(processed_img_data),
+                                'original_format': img_ext,
+                                'xref': xref
                             })
                             
-                            logger.debug(f"Extracted image {len(images)} from page {page_num + 1}")
+                            logger.debug(f"Extracted image {len(images)} from page {page_num + 1} ({width}x{height}, {img_ext})")
+                            
+                        except Exception as e:
+                            logger.warning(f"Error processing image data for xref {xref}: {e}")
+                            continue
                         
-                        pix = None
                     except Exception as e:
                         logger.warning(f"Error extracting image {img_index} from page {page_num + 1}: {e}")
                         continue
             
-            doc.close()
-            logger.info(f"Extracted {len(images)} images from PDF")
+            logger.info(f"Successfully extracted {len(images)} images from PDF")
             
         except Exception as e:
             logger.error(f"Error processing PDF {pdf_path}: {e}")
+        finally:
+            if doc:
+                doc.close()
             
         return images
     
     def extract_images_from_docx(self, docx_path: str) -> List[Dict]:
-        """Extract images from DOCX files"""
+        """Extract images from DOCX files with improved error handling"""
         images = []
         try:
             from docx import Document
-            from docx.document import Document as DocumentType
             
             doc = Document(docx_path)
             logger.info(f"Processing DOCX: {docx_path}")
             
             # Extract images from document relationships
-            for rel in doc.part.rels.values():
-                if "image" in rel.target_ref:
+            for rel_id, rel in doc.part.rels.items():
+                if "image" in rel.target_ref.lower():
                     if len(images) >= self.max_images_per_doc:
                         break
                         
                     try:
                         img_data = rel.target_part.blob
-                        images.append({
-                            'data': img_data,
-                            'page': 1,  # DOCX doesn't have clear page concept
-                            'index': len(images),
-                            'size_bytes': len(img_data),
-                            'filename': rel.target_ref
-                        })
-                        logger.debug(f"Extracted image {len(images)} from DOCX")
+                        
+                        # Process image similar to PDF
+                        try:
+                            pil_image = Image.open(io.BytesIO(img_data))
+                            
+                            # Skip very small images
+                            if pil_image.width < 50 or pil_image.height < 50:
+                                continue
+                            
+                            # Convert to RGB for consistency
+                            if pil_image.mode in ('RGBA', 'LA', 'P'):
+                                pil_image = pil_image.convert('RGB')
+                            
+                            # Save as PNG
+                            img_buffer = io.BytesIO()
+                            pil_image.save(img_buffer, format='PNG')
+                            processed_img_data = img_buffer.getvalue()
+                            
+                            images.append({
+                                'data': processed_img_data,
+                                'page': 1,  # DOCX doesn't have clear page concept
+                                'index': len(images),
+                                'width': pil_image.width,
+                                'height': pil_image.height,
+                                'size_bytes': len(processed_img_data),
+                                'filename': rel.target_ref,
+                                'rel_id': rel_id
+                            })
+                            
+                            logger.debug(f"Extracted image {len(images)} from DOCX ({pil_image.width}x{pil_image.height})")
+                            
+                        except Exception as e:
+                            logger.warning(f"Error processing DOCX image data: {e}")
+                            continue
+                            
                     except Exception as e:
                         logger.warning(f"Error extracting image from DOCX: {e}")
                         continue
@@ -153,7 +222,7 @@ class MultimodalProcessor:
         return images
     
     def extract_images_from_pptx(self, pptx_path: str) -> List[Dict]:
-        """Extract images from PPTX files"""
+        """Extract images from PPTX files with improved error handling"""
         images = []
         try:
             from pptx import Presentation
@@ -164,22 +233,60 @@ class MultimodalProcessor:
             for slide_num, slide in enumerate(prs.slides):
                 if len(images) >= self.max_images_per_doc:
                     break
+                
+                # Get slide title if available
+                slide_title = ""
+                try:
+                    if slide.shapes.title and slide.shapes.title.text:
+                        slide_title = slide.shapes.title.text.strip()
+                    else:
+                        slide_title = f"Slide {slide_num + 1}"
+                except:
+                    slide_title = f"Slide {slide_num + 1}"
                     
                 for shape in slide.shapes:
                     if len(images) >= self.max_images_per_doc:
                         break
                         
-                    if hasattr(shape, 'image'):
+                    # Check if shape contains an image
+                    if hasattr(shape, 'image') and shape.image:
                         try:
                             img_data = shape.image.blob
-                            images.append({
-                                'data': img_data,
-                                'page': slide_num + 1,
-                                'index': len(images),
-                                'size_bytes': len(img_data),
-                                'slide_title': slide.shapes.title.text if slide.shapes.title else f"Slide {slide_num + 1}"
-                            })
-                            logger.debug(f"Extracted image {len(images)} from slide {slide_num + 1}")
+                            
+                            # Process image
+                            try:
+                                pil_image = Image.open(io.BytesIO(img_data))
+                                
+                                # Skip very small images
+                                if pil_image.width < 50 or pil_image.height < 50:
+                                    continue
+                                
+                                # Convert to RGB for consistency
+                                if pil_image.mode in ('RGBA', 'LA', 'P'):
+                                    pil_image = pil_image.convert('RGB')
+                                
+                                # Save as PNG
+                                img_buffer = io.BytesIO()
+                                pil_image.save(img_buffer, format='PNG')
+                                processed_img_data = img_buffer.getvalue()
+                                
+                                images.append({
+                                    'data': processed_img_data,
+                                    'page': slide_num + 1,
+                                    'index': len(images),
+                                    'width': pil_image.width,
+                                    'height': pil_image.height,
+                                    'size_bytes': len(processed_img_data),
+                                    'slide_title': slide_title,
+                                    'shape_id': shape.shape_id if hasattr(shape, 'shape_id') else None
+                                })
+                                
+                                logger.debug(f"Extracted image {len(images)} from slide {slide_num + 1} ({pil_image.width}x{pil_image.height})")
+                                
+                            except Exception as e:
+                                logger.warning(f"Error processing PPTX image data: {e}")
+                                continue
+                                
                         except Exception as e:
                             logger.warning(f"Error extracting image from slide {slide_num + 1}: {e}")
                             continue
@@ -204,24 +311,29 @@ class MultimodalProcessor:
             return cached_desc
         
         try:
+            # Validate image data
+            if not image_data or len(image_data) == 0:
+                return "[IMAGE DESCRIPTION UNAVAILABLE - No image data]"
+            
             # Convert image to base64
             image_b64 = base64.b64encode(image_data).decode('utf-8')
             
-            # Create educational prompt
-            prompt = f"""You are analyzing an educational document. Describe this image in detail for learning purposes, focusing on:
+            # Create educational prompt optimized for learning
+            prompt = f"""You are an educational AI assistant analyzing a document image. Provide a detailed description focusing on:
 
-1. Any text, formulas, equations, or mathematical expressions visible
-2. Charts, graphs, diagrams, tables, and their data/meaning
-3. Educational concepts, theories, or principles being illustrated
-4. Relationships between visual elements and their significance
-5. Any step-by-step processes or workflows shown
-6. Scientific, technical, or academic content
+1. **Text Content**: Any text, formulas, equations, or mathematical expressions visible
+2. **Visual Elements**: Charts, graphs, diagrams, tables, and their data/meaning
+3. **Educational Concepts**: Theories, principles, or concepts being illustrated
+4. **Relationships**: Connections between visual elements and their significance
+5. **Processes**: Any step-by-step workflows or procedures shown
+6. **Academic Content**: Scientific, technical, or scholarly information
 
-Context from surrounding text: {context[:300] if context else 'No context available'}
-Page/Location info: {page_info}
+Context: {context[:300] if context else 'Educational document analysis'}
+Location: {page_info if page_info else 'Document image'}
 
-Provide a comprehensive, educational description that would help students understand the content and answer questions about it. Be specific about numbers, data, formulas, and key concepts shown."""
+Provide a comprehensive description that helps students understand and learn from this visual content. Be specific about data, formulas, and key concepts."""
             
+            # Make API request to OpenRouter
             response = requests.post(
                 f"{self.base_url}/chat/completions",
                 headers={
@@ -247,26 +359,34 @@ Provide a comprehensive, educational description that would help students unders
                         }
                     ],
                     "max_tokens": 1500,
-                    "temperature": 0.2  # Lower temperature for more consistent descriptions
+                    "temperature": 0.1  # Very low temperature for consistent educational descriptions
                 },
-                timeout=30
+                timeout=60  # Increased timeout for vision models
             )
             
             if response.status_code == 200:
-                description = response.json()['choices'][0]['message']['content']
-                
-                # Cache the description
-                self._save_cached_description(cache_key, description)
-                
-                logger.info("Successfully generated image description")
-                return description
+                result = response.json()
+                if 'choices' in result and len(result['choices']) > 0:
+                    description = result['choices'][0]['message']['content']
+                    
+                    # Cache the description
+                    self._save_cached_description(cache_key, description)
+                    
+                    logger.info("Successfully generated image description")
+                    return description
+                else:
+                    logger.error(f"Invalid response format from OpenRouter: {result}")
+                    return "[IMAGE DESCRIPTION UNAVAILABLE - Invalid API Response]"
             else:
                 logger.error(f"OpenRouter API error: {response.status_code} - {response.text}")
-                return f"[IMAGE DESCRIPTION UNAVAILABLE - API Error: {response.status_code}]"
+                return f"[IMAGE DESCRIPTION UNAVAILABLE - API Error {response.status_code}]"
                 
         except requests.exceptions.Timeout:
             logger.error("Timeout while calling vision model API")
             return "[IMAGE DESCRIPTION UNAVAILABLE - API Timeout]"
+        except requests.exceptions.ConnectionError:
+            logger.error("Connection error while calling vision model API")
+            return "[IMAGE DESCRIPTION UNAVAILABLE - Connection Error]"
         except Exception as e:
             logger.error(f"Error describing image: {e}")
             return f"[IMAGE DESCRIPTION UNAVAILABLE - Error: {str(e)}]"
@@ -277,6 +397,11 @@ Provide a comprehensive, educational description that would help students unders
         images = []
         
         logger.info(f"Processing images from {file_path} (type: {file_ext})")
+        
+        # Validate file exists
+        if not os.path.exists(file_path):
+            logger.error(f"File not found: {file_path}")
+            return []
         
         # Extract images based on file type
         if file_ext == '.pdf':
@@ -289,11 +414,19 @@ Provide a comprehensive, educational description that would help students unders
             logger.warning(f"Unsupported file type for image extraction: {file_ext}")
             return []
         
+        if not images:
+            logger.info("No images found in document")
+            return []
+        
         # Generate descriptions for extracted images
         described_images = []
         for i, img in enumerate(images):
             try:
                 page_info = f"Page {img['page']}" if 'page' in img else f"Image {i+1}"
+                if 'slide_title' in img and img['slide_title']:
+                    page_info += f" ({img['slide_title']})"
+                
+                logger.info(f"Processing image {i+1}/{len(images)} from {page_info}")
                 
                 description = self.describe_image(
                     img['data'],
@@ -310,14 +443,27 @@ Provide a comprehensive, educational description that would help students unders
                     'height': img.get('height'),
                     'slide_title': img.get('slide_title', ''),
                     'filename': img.get('filename', ''),
-                    'bbox': img.get('bbox')
+                    'bbox': img.get('bbox'),
+                    'original_format': img.get('original_format', 'unknown'),
+                    'processing_success': not description.startswith('[IMAGE DESCRIPTION UNAVAILABLE')
                 })
                 
-                logger.info(f"Processed image {i+1}/{len(images)} from {page_info}")
+                logger.info(f"Successfully processed image {i+1}/{len(images)} from {page_info}")
                 
             except Exception as e:
                 logger.error(f"Error processing image {i+1}: {e}")
+                # Still add the image with error info
+                described_images.append({
+                    'page': img.get('page', 1),
+                    'index': img.get('index', i),
+                    'description': f"[IMAGE PROCESSING ERROR: {str(e)}]",
+                    'size_bytes': img.get('size_bytes', 0),
+                    'width': img.get('width'),
+                    'height': img.get('height'),
+                    'processing_success': False
+                })
                 continue
         
-        logger.info(f"Successfully processed {len(described_images)} images")
+        success_count = sum(1 for img in described_images if img.get('processing_success', False))
+        logger.info(f"Successfully processed {success_count}/{len(described_images)} images")
         return described_images
