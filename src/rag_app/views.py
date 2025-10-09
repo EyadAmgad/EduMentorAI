@@ -1805,7 +1805,8 @@ class SlideGeneratorView(LoginRequiredMixin, View):
                 language=language,
                 instructions=instructions,
                 user=request.user,
-                background_image=background_image
+                background_image=background_image,
+                documents=documents if 'documents' in locals() else None  # Pass Document objects for image support
             )
             
             if result['success']:
