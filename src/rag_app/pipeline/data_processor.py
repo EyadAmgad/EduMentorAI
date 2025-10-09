@@ -10,8 +10,10 @@ import pickle
 import numpy as np
 from django.conf import settings
 from django.utils import timezone
-from ..models import Document as DocumentModel, DocumentChunk
+from django.core.files.base import ContentFile
+from ..models import Document as DocumentModel, DocumentChunk, DocumentImage
 from .multimodal_processor import MultimodalProcessor
+from .ocr_processor import PDFImageExtractor, OCRProcessor, extract_images_and_ocr_from_pdf
 
 # Import packages with proper error handling
 try:
@@ -163,8 +165,56 @@ class DocumentProcessor:
             # Extract text based on file type
             text_content, metadata = self._extract_text_with_metadata(document)
             
+            # Extract images with OCR from PDFs (do this BEFORE checking text content)
+            # For scanned PDFs, OCR text from images will be the main content
+            ocr_images_processed = 0
+            ocr_text_from_images = ""
+            if document.document_type.lower() == 'pdf':
+                try:
+                    logger.info(f"📸 PDF DETECTED: Extracting images with OCR from {document.title}")
+                    ocr_images = self._extract_and_save_images_with_ocr(document)
+                    ocr_images_processed = len(ocr_images)
+                    metadata['ocr_images_processed'] = ocr_images_processed
+                    
+                    # Collect OCR text from all images
+                    ocr_texts = [img.ocr_text for img in ocr_images if img.ocr_text]
+                    ocr_text_from_images = "\n\n".join(ocr_texts)
+                    
+                    logger.info(f"✅ SUCCESS: Extracted and processed {ocr_images_processed} images with OCR from {document.title}")
+                    logger.info(f"📝 OCR text from images: {len(ocr_text_from_images)} characters")
+                except Exception as e:
+                    logger.error(f"❌ ERROR extracting images with OCR from {document.title}: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    metadata['ocr_image_error'] = str(e)
+                    metadata['ocr_images_processed'] = 0
+            else:
+                logger.info(f"ℹ️ Document {document.title} is type '{document.document_type}', skipping image extraction")
+            
+            # If no text was extracted, use OCR text from images as fallback
             if not text_content or not text_content.strip():
-                raise DocumentProcessingError("No text content extracted from document")
+                if ocr_text_from_images:
+                    logger.warning(f"⚠️ No text extracted from PDF, using OCR text from {ocr_images_processed} images instead")
+                    text_content = ocr_text_from_images
+                    metadata['is_scanned_pdf'] = True
+                else:
+                    # Document has no text and no images with OCR
+                    logger.warning(f"⚠️ WARNING: Document '{document.title}' appears to be empty (no text and no images)")
+                    
+                    # Create a minimal placeholder text so processing can continue
+                    text_content = f"[Empty Document: {document.title}]\n\nThis document appears to have no extractable text content or images."
+                    metadata['is_empty_document'] = True
+                    metadata['empty_reason'] = 'No text content extracted and no OCR text available'
+            
+            # Combine document text with OCR text for complete text version
+            combined_text = text_content
+            if ocr_text_from_images and not metadata.get('is_scanned_pdf') and not metadata.get('is_empty_document'):
+                # If we have both document text and OCR text, combine them
+                combined_text = text_content + "\n\n--- Text from Images (OCR) ---\n\n" + ocr_text_from_images
+                logger.info(f"📄 Combined document text ({len(text_content)} chars) with OCR text ({len(ocr_text_from_images)} chars)")
+            
+            # Save the clean combined text to the document model
+            document.processed_text = combined_text
             
             logger.info(f"Extracted {len(text_content)} characters from {document.title}")
             
@@ -191,7 +241,8 @@ class DocumentProcessor:
                     metadata['images_processed'] = 0
             
             # Create chunks (including image descriptions)
-            chunks = self._create_chunks_with_images(text_content, image_descriptions, document, metadata)
+            # Use combined_text (document text + OCR) for better coverage
+            chunks = self._create_chunks_with_images(combined_text, image_descriptions, document, metadata)
             
             if not chunks:
                 raise DocumentProcessingError("No chunks created from document")
@@ -217,6 +268,7 @@ class DocumentProcessor:
                 'processing_time': processing_time,
                 'page_count': metadata.get('page_count', 0),
                 'images_processed': metadata.get('images_processed', 0),
+                'ocr_images_processed': metadata.get('ocr_images_processed', 0),
                 'multimodal_enabled': self.multimodal_enabled,
                 'metadata': metadata
             }
@@ -707,3 +759,68 @@ class DocumentProcessor:
         except Exception as e:
             logger.error(f"Error extracting text from temp document {temp_doc.id}: {e}")
             return f"Error reading content from {temp_doc.title}: {str(e)}"
+    
+    def _extract_and_save_images_with_ocr(self, document: DocumentModel) -> List[DocumentImage]:
+        """
+        Extract images from PDF, perform OCR, and save to DocumentImage model
+        
+        Args:
+            document: Django Document model instance
+            
+        Returns:
+            List of saved DocumentImage instances
+        """
+        # Delete existing images for this document
+        DocumentImage.objects.filter(document=document).delete()
+        
+        # Extract images with OCR
+        try:
+            extracted_images = extract_images_and_ocr_from_pdf(
+                document.file.path,
+                languages=['en']  # Can be configurable
+            )
+        except Exception as e:
+            logger.error(f"Failed to extract images from PDF: {e}")
+            return []
+        
+        saved_images = []
+        
+        for img_data in extracted_images:
+            try:
+                # Generate filename
+                filename = f"{document.id}_page{img_data['page_number']}_img{img_data['image_index']}.{img_data['format']}"
+                
+                # Create ContentFile from image bytes
+                image_file = ContentFile(img_data['image_bytes'], name=filename)
+                
+                # Create embedding for OCR text if available
+                embedding_bytes = None
+                if img_data.get('ocr_text') and self.embedding_model:
+                    try:
+                        embedding = self.embedding_model.encode(img_data['ocr_text'])
+                        embedding_bytes = pickle.dumps(embedding.astype(np.float32))
+                    except Exception as e:
+                        logger.error(f"Error creating embedding for image OCR text: {e}")
+                
+                # Create DocumentImage record
+                doc_image = DocumentImage.objects.create(
+                    document=document,
+                    image_file=image_file,
+                    page_number=img_data['page_number'],
+                    image_index=img_data['image_index'],
+                    ocr_text=img_data.get('ocr_text', ''),
+                    ocr_processed=img_data.get('has_text', False),
+                    embedding_vector=embedding_bytes,
+                    width=img_data.get('width'),
+                    height=img_data.get('height')
+                )
+                
+                saved_images.append(doc_image)
+                logger.info(f"Saved image {doc_image.id} from page {img_data['page_number']} with {len(img_data.get('ocr_text', ''))} OCR characters")
+                
+            except Exception as e:
+                logger.error(f"Error saving image from page {img_data.get('page_number')}: {e}")
+                continue
+        
+        logger.info(f"Saved {len(saved_images)} images with OCR for document {document.id}")
+        return saved_images
