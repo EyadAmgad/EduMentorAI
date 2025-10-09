@@ -1,6 +1,6 @@
 """
-Professional Document Processor for RAG System
-Handles document upload, text extraction, chunking, and embedding generation
+Professional Document Processor for RAG System with Multimodal Support
+Handles document upload, text extraction, chunking, embedding generation, and image processing
 """
 
 import os
@@ -11,6 +11,7 @@ import numpy as np
 from django.conf import settings
 from django.utils import timezone
 from ..models import Document as DocumentModel, DocumentChunk
+from .multimodal_processor import MultimodalProcessor
 
 # Import packages with proper error handling
 try:
@@ -56,6 +57,12 @@ try:
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
 
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+except ImportError:
+    PANDAS_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -66,12 +73,13 @@ class DocumentProcessingError(Exception):
 
 class DocumentProcessor:
     """
-    Professional document processor for RAG system
+    Professional document processor for RAG system with multimodal support
     
     Features:
     - Supports multiple file formats (PDF, DOCX, TXT, PPTX)
     - Intelligent text chunking with LangChain
     - Embedding generation with SentenceTransformers
+    - Image extraction and description using vision models
     - Database integration with Django models
     - Comprehensive error handling and logging
     """
@@ -91,6 +99,23 @@ class DocumentProcessor:
         self.chunk_size = chunk_size
         self.chunk_overlap = chunk_overlap
         self.embedding_model_name = embedding_model
+        
+        # Initialize multimodal processor if enabled
+        self.multimodal_enabled = os.getenv('ENABLE_MULTIMODAL', 'False').lower() == 'true'
+        self.multimodal_processor = None
+        
+        if self.multimodal_enabled:
+            api_key = os.getenv('OPEN_ROUTER_API_KEY')
+            if api_key:
+                try:
+                    self.multimodal_processor = MultimodalProcessor(api_key)
+                    logger.info("Multimodal processing enabled")
+                except Exception as e:
+                    logger.warning(f"Failed to initialize multimodal processor: {e}")
+                    self.multimodal_enabled = False
+            else:
+                logger.warning("OPEN_ROUTER_API_KEY not found, multimodal processing disabled")
+                self.multimodal_enabled = False
         
         # Initialize text splitter
         if LANGCHAIN_AVAILABLE:
@@ -118,7 +143,7 @@ class DocumentProcessor:
     
     def process_document(self, document: DocumentModel) -> Dict[str, Any]:
         """
-        Process a document and create chunks with embeddings
+        Process a document and create chunks with embeddings (including image processing)
         
         Args:
             document: Django Document model instance
@@ -143,8 +168,30 @@ class DocumentProcessor:
             
             logger.info(f"Extracted {len(text_content)} characters from {document.title}")
             
-            # Create chunks
-            chunks = self._create_chunks(text_content, document, metadata)
+            # Process images if multimodal is enabled
+            image_descriptions = []
+            if self.multimodal_enabled and self.multimodal_processor:
+                try:
+                    logger.info(f"Processing images from {document.title}")
+                    image_descriptions = self.multimodal_processor.process_document_images(
+                        document.file.path, 
+                        document_context=text_content[:1000]  # First 1000 chars as context
+                    )
+                    
+                    if image_descriptions:
+                        logger.info(f"Successfully processed {len(image_descriptions)} images")
+                        metadata['images_processed'] = len(image_descriptions)
+                    else:
+                        logger.info("No images found in document")
+                        metadata['images_processed'] = 0
+                        
+                except Exception as e:
+                    logger.error(f"Error processing images: {e}")
+                    metadata['image_processing_error'] = str(e)
+                    metadata['images_processed'] = 0
+            
+            # Create chunks (including image descriptions)
+            chunks = self._create_chunks_with_images(text_content, image_descriptions, document, metadata)
             
             if not chunks:
                 raise DocumentProcessingError("No chunks created from document")
@@ -169,6 +216,8 @@ class DocumentProcessor:
                 'total_characters': len(text_content),
                 'processing_time': processing_time,
                 'page_count': metadata.get('page_count', 0),
+                'images_processed': metadata.get('images_processed', 0),
+                'multimodal_enabled': self.multimodal_enabled,
                 'metadata': metadata
             }
             
@@ -188,7 +237,7 @@ class DocumentProcessor:
     
     def process_temp_document(self, temp_doc) -> Dict[str, Any]:
         """
-        Process a temporary document for anonymous chat
+        Process a temporary document for anonymous chat (with multimodal support)
         
         Args:
             temp_doc: TempDocument instance
@@ -213,11 +262,40 @@ class DocumentProcessor:
             
             logger.info(f"Extracted {len(text_content)} characters from temp document {temp_doc.title}")
             
-            # Store the extracted text content in a cache for later retrieval
-            # For simplicity, we'll store it as a file attribute or in cache
+            # Process images if multimodal is enabled
+            image_content = ""
+            images_processed = 0
+            if self.multimodal_enabled and self.multimodal_processor:
+                try:
+                    logger.info(f"Processing images from temp document {temp_doc.title}")
+                    image_descriptions = self.multimodal_processor.process_document_images(
+                        temp_doc.file.path,
+                        document_context=text_content[:1000]
+                    )
+                    
+                    if image_descriptions:
+                        # Convert image descriptions to text format
+                        image_parts = []
+                        for i, img_desc in enumerate(image_descriptions):
+                            page_info = f"Page {img_desc['page']}" if img_desc.get('page') else f"Image {i+1}"
+                            image_parts.append(f"\n[IMAGE DESCRIPTION - {page_info}]: {img_desc['description']}")
+                        
+                        image_content = "\n".join(image_parts)
+                        images_processed = len(image_descriptions)
+                        logger.info(f"Successfully processed {images_processed} images from temp document")
+                    
+                except Exception as e:
+                    logger.error(f"Error processing images from temp document: {e}")
+            
+            # Combine text and image content
+            full_content = text_content
+            if image_content:
+                full_content += "\n\n=== IMAGES IN DOCUMENT ===" + image_content
+            
+            # Store the extracted content in cache for later retrieval
             cache_key = f"temp_doc_content_{temp_doc.id}"
             from django.core.cache import cache
-            cache.set(cache_key, text_content, timeout=86400)  # 24 hours
+            cache.set(cache_key, full_content, timeout=86400)  # 24 hours
             
             temp_doc.processed = True
             temp_doc.save()
@@ -231,6 +309,9 @@ class DocumentProcessor:
                 'temp_document_id': str(temp_doc.id),
                 'processing_time': processing_time,
                 'text_length': len(text_content),
+                'images_processed': images_processed,
+                'total_content_length': len(full_content),
+                'multimodal_enabled': self.multimodal_enabled,
                 'message': 'Temporary document processed successfully'
             }
             
@@ -242,6 +323,64 @@ class DocumentProcessor:
                 'error': str(e),
                 'processing_time': (timezone.now() - start_time).total_seconds()
             }
+    
+    def _create_chunks_with_images(self, text: str, image_descriptions: List[Dict], 
+                                   document: DocumentModel, metadata: Dict[str, Any]) -> List[Document]:
+        """
+        Create text chunks and integrate image descriptions
+        
+        Args:
+            text: Main document text
+            image_descriptions: List of image description dictionaries
+            document: Document model instance
+            metadata: Document metadata
+        
+        Returns:
+            List of Document objects with combined text and image content
+        """
+        base_metadata = {
+            'source': document.title,
+            'document_id': str(document.id),
+            'subject_id': str(document.subject.id) if document.subject else None,
+            'subject_name': document.subject.name if document.subject else None,
+            'uploaded_by': document.uploaded_by.username,
+            'file_type': metadata.get('file_type'),
+            'page_count': metadata.get('page_count', 0),
+            'images_processed': len(image_descriptions)
+        }
+        
+        # Create regular text chunks
+        text_chunks = self._create_chunks(text, document, metadata)
+        
+        # Create image description chunks
+        image_chunks = []
+        for i, img_desc in enumerate(image_descriptions):
+            page_info = f"Page {img_desc['page']}" if img_desc.get('page') else f"Image {i+1}"
+            slide_info = f" - {img_desc['slide_title']}" if img_desc.get('slide_title') else ""
+            
+            # Create comprehensive image content
+            image_content = f"[IMAGE DESCRIPTION - {page_info}{slide_info}]\n\n{img_desc['description']}"
+            
+            # Add image-specific metadata
+            img_metadata = base_metadata.copy()
+            img_metadata.update({
+                'chunk_type': 'image_description',
+                'image_page': img_desc.get('page', 1),
+                'image_index': img_desc.get('index', i),
+                'slide_title': img_desc.get('slide_title', ''),
+                'image_size_bytes': img_desc.get('size_bytes', 0)
+            })
+            
+            image_chunks.append(Document(
+                page_content=image_content,
+                metadata=img_metadata
+            ))
+        
+        # Combine text and image chunks
+        all_chunks = text_chunks + image_chunks
+        
+        logger.info(f"Created {len(text_chunks)} text chunks and {len(image_chunks)} image chunks")
+        return all_chunks
     
     def _extract_text_with_metadata(self, document: DocumentModel) -> Tuple[str, Dict[str, Any]]:
         """
@@ -401,7 +540,8 @@ class DocumentProcessor:
             'subject_name': document.subject.name if document.subject else None,
             'uploaded_by': document.uploaded_by.username,
             'file_type': metadata.get('file_type'),
-            'page_count': metadata.get('page_count', 0)
+            'page_count': metadata.get('page_count', 0),
+            'chunk_type': 'text'
         }
         
         if LANGCHAIN_AVAILABLE and self.text_splitter:
@@ -468,13 +608,18 @@ class DocumentProcessor:
                 # Extract page number from content if available
                 page_number = self._extract_page_number(chunk.page_content)
                 
+                # Determine chunk type
+                chunk_type = chunk.metadata.get('chunk_type', 'text')
+                
                 # Create and save chunk
                 doc_chunk = DocumentChunk.objects.create(
                     document=document,
                     content=chunk.page_content,
                     chunk_index=i,
-                    page_number=page_number,
-                    embedding_vector=embedding_bytes
+                    page_number=page_number or chunk.metadata.get('image_page', None),
+                    embedding_vector=embedding_bytes,
+                    # Store additional metadata as JSON if needed
+                    # metadata=chunk.metadata  # Uncomment if you add a metadata field
                 )
                 
                 saved_chunks.append(doc_chunk)
@@ -490,10 +635,10 @@ class DocumentProcessor:
         """Extract page number from chunk content if present"""
         import re
         
-        # Look for page markers like "--- Page 1 ---"
-        page_match = re.search(r'--- Page (\d+) ---', content)
+        # Look for page markers like "--- Page 1 ---" or "[IMAGE DESCRIPTION - Page 1]"
+        page_match = re.search(r'--- Page (\d+) ---|Page (\d+)', content)
         if page_match:
-            return int(page_match.group(1))
+            return int(page_match.group(1) or page_match.group(2))
         
         return None
     
@@ -512,12 +657,20 @@ class DocumentProcessor:
         """Get processing statistics"""
         from django.db.models import Count, Sum
         
+        # Basic stats
         stats = {
             'total_documents': DocumentModel.objects.filter(processed=True).count(),
             'total_chunks': DocumentChunk.objects.count(),
             'documents_by_type': DocumentModel.objects.filter(processed=True).values('document_type').annotate(count=Count('id')),
-            'chunks_by_document': DocumentChunk.objects.values('document__title').annotate(count=Count('id')).order_by('-count')[:10]
+            'chunks_by_document': DocumentChunk.objects.values('document__title').annotate(count=Count('id')).order_by('-count')[:10],
+            'multimodal_enabled': self.multimodal_enabled
         }
+        
+        # Add multimodal stats if available
+        if self.multimodal_enabled:
+            # Count chunks that likely contain image descriptions
+            image_chunks = DocumentChunk.objects.filter(content__icontains='[IMAGE DESCRIPTION').count()
+            stats['image_description_chunks'] = image_chunks
         
         return stats
     
@@ -545,7 +698,8 @@ class DocumentProcessor:
             elif file_extension == '.txt':
                 return self._extract_txt_text(file_path)
             elif file_extension == '.pptx':
-                return self._extract_pptx_text(file_path)
+                text, _ = self._extract_pptx_text(file_path)
+                return text
             else:
                 logger.warning(f"Unsupported file type for temp document: {file_extension}")
                 return f"Content of {temp_doc.title} (unsupported file type: {file_extension})"
