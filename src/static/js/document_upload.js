@@ -197,3 +197,60 @@ document.addEventListener('DOMContentLoaded', function() {
         handleFiles(fileInput.files);
     }
 });
+
+// Processing mode selection functionality
+function selectProcessingMode(mode) {
+    // Remove active class from all options
+    document.querySelectorAll('.processing-option').forEach(option => {
+        option.style.border = '2px solid var(--border-color)';
+        option.style.transform = 'none';
+        option.style.boxShadow = 'none';
+    });
+    
+    // Select the radio button
+    const radioButton = document.getElementById(mode + '_mode');
+    if (radioButton) {
+        radioButton.checked = true;
+        
+        // Add active styling to selected option
+        const selectedOption = radioButton.closest('.processing-option');
+        if (mode === 'fast') {
+            selectedOption.style.border = '2px solid #28a745';
+            selectedOption.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.2)';
+        } else {
+            selectedOption.style.border = '2px solid #6f42c1';
+            selectedOption.style.boxShadow = '0 4px 15px rgba(111, 66, 193, 0.2)';
+        }
+        selectedOption.style.transform = 'translateY(-2px)';
+        
+        // Update submit button text
+        updateSubmitButtonText(mode);
+    }
+}
+
+function updateSubmitButtonText(mode) {
+    const uploadBtn = document.getElementById('upload-btn');
+    if (uploadBtn) {
+        if (mode === 'fast') {
+            uploadBtn.innerHTML = '<i class="fas fa-bolt me-2"></i>Upload & Process (Fast)';
+        } else {
+            uploadBtn.innerHTML = '<i class="fas fa-eye me-2"></i>Upload & Process (Advanced OCR)';
+        }
+    }
+}
+
+// Initialize processing mode styling on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Set initial styling for fast mode (default)
+    selectProcessingMode('fast');
+    
+    // Add click handlers for processing options
+    document.querySelectorAll('.processing-option').forEach(option => {
+        option.addEventListener('click', function() {
+            const radioButton = this.querySelector('input[type="radio"]');
+            if (radioButton) {
+                selectProcessingMode(radioButton.value);
+            }
+        });
+    });
+});

@@ -74,7 +74,7 @@ class DocumentUploadForm(forms.ModelForm):
     
     class Meta:
         model = Document
-        fields = ['title', 'file', 'subject']
+        fields = ['title', 'file', 'subject', 'processing_mode']
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -86,6 +86,9 @@ class DocumentUploadForm(forms.ModelForm):
             }),
             'subject': forms.Select(attrs={
                 'class': 'form-control'
+            }),
+            'processing_mode': forms.RadioSelect(attrs={
+                'class': 'form-check-input'
             })
         }
     
@@ -98,6 +101,7 @@ class DocumentUploadForm(forms.ModelForm):
         
         # Add help text
         self.fields['file'].help_text = 'Supported formats: PDF, DOCX, TXT, PPTX (Max 50MB)'
+        self.fields['processing_mode'].help_text = 'Choose processing mode based on your document type and time preference'
         
         # Make title optional and auto-generate from filename if not provided
         self.fields['title'].required = False

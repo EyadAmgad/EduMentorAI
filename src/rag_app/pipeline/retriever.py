@@ -305,9 +305,10 @@ class DocumentRetriever:
     def _prepare_context(self, chunks: List[Dict[str, Any]]) -> str:
         """
         Prepare context string from retrieved chunks
+        Uses processed_text (document + OCR text) when available
         
         Args:
-            chunks: List of retrieved chunks
+            chunks: List of retrieved chunks (can include both text chunks and images)
             
         Returns:
             Formatted context string
@@ -318,23 +319,54 @@ class DocumentRetriever:
         context_parts = []
         current_length = 0
         
-        # Group chunks by document for better organization
-        docs_chunks = {}
-        for chunk in chunks:
-            doc_id = chunk['document_id']
-            if doc_id not in docs_chunks:
-                docs_chunks[doc_id] = []
-            docs_chunks[doc_id].append(chunk)
+        # Group items by document for better organization
+        docs_items = {}
+        for item in chunks:
+            doc_id = item['document_id']
+            if doc_id not in docs_items:
+                docs_items[doc_id] = []
+            docs_items[doc_id].append(item)
         
         # Format context by document
-        for doc_id, doc_chunks in docs_chunks.items():
-            # Sort chunks by index for coherent reading
-            doc_chunks.sort(key=lambda x: x['chunk_index'])
+        for doc_id, doc_items in docs_items.items():
+            # Sort items by index (chunk_index or image_index) for coherent reading
+            doc_items.sort(key=lambda x: x.get('chunk_index', x.get('image_index', 0)))
             
-            doc_title = doc_chunks[0]['document_title']
-            subject_name = doc_chunks[0]['subject_name'] or 'General'
+            doc_title = doc_items[0]['document_title']
+            subject_name = doc_items[0]['subject_name'] or 'General'
             
-            # Add document header
+            # Try to get the processed_text (document text + OCR text) from the document
+            try:
+                document = Document.objects.get(id=doc_id)
+                if document.processed_text and document.processed_text.strip():
+                    # Use the enhanced processed_text that includes OCR text
+                    doc_header = f"\n--- From: {doc_title} (Subject: {subject_name}) ---\n"
+                    processed_content = document.processed_text.strip()
+                    
+                    # Check if we can fit it
+                    total_length = len(doc_header) + len(processed_content)
+                    
+                    if current_length + total_length > self.max_context_length:
+                        # Truncate the processed text to fit
+                        available_space = self.max_context_length - current_length - len(doc_header) - 50
+                        if available_space > 200:  # Only add if we have reasonable space
+                            context_parts.append(doc_header)
+                            context_parts.append(processed_content[:available_space])
+                            context_parts.append("\n[Content truncated due to length limit]\n")
+                            current_length = self.max_context_length
+                        break
+                    else:
+                        context_parts.append(doc_header)
+                        context_parts.append(processed_content + "\n")
+                        current_length += total_length
+                        continue  # Skip item-based processing for this document
+                        
+            except Document.DoesNotExist:
+                logger.warning(f"Document {doc_id} not found, falling back to items")
+            except Exception as e:
+                logger.warning(f"Error retrieving processed_text for document {doc_id}: {e}")
+            
+            # Fallback: Use original item-based approach if processed_text is not available
             doc_header = f"\n--- From: {doc_title} (Subject: {subject_name}) ---\n"
             
             if current_length + len(doc_header) > self.max_context_length:
@@ -343,24 +375,24 @@ class DocumentRetriever:
             context_parts.append(doc_header)
             current_length += len(doc_header)
             
-            # Add chunks from this document
-            for chunk in doc_chunks:
-                chunk_content = chunk['content'].strip()
+            # Add items from this document (chunks or images)
+            for item in doc_items:
+                item_content = item['content'].strip()
                 
                 # Add page number if available
                 page_info = ""
-                if chunk['page_number']:
-                    page_info = f"[Page {chunk['page_number']}] "
+                if item.get('page_number'):
+                    page_info = f"[Page {item['page_number']}] "
                 
-                chunk_text = f"{page_info}{chunk_content}\n"
+                item_text = f"{page_info}{item_content}\n"
                 
-                if current_length + len(chunk_text) > self.max_context_length:
+                if current_length + len(item_text) > self.max_context_length:
                     # Add truncation notice
-                    context_parts.append("\n[Context truncated due to length limit]\n")
+                    context_parts.append("\n[Content truncated due to length limit]\n")
                     break
                 
-                context_parts.append(chunk_text)
-                current_length += len(chunk_text)
+                context_parts.append(item_text)
+                current_length += len(item_text)
             
             if current_length >= self.max_context_length:
                 break

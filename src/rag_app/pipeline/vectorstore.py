@@ -1,6 +1,7 @@
 """
 Professional Vector Store for RAG System
 Handles vector similarity search and retrieval using FAISS and embeddings
+Includes support for OCR text from images
 """
 
 import logging
@@ -10,7 +11,7 @@ from typing import List, Dict, Any, Tuple, Optional
 import faiss
 from sentence_transformers import SentenceTransformer
 from django.db.models import Q
-from ..models import DocumentChunk, Document, Subject
+from ..models import DocumentChunk, Document, Subject, DocumentImage
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +44,8 @@ class VectorStore:
         self.embedding_model = None
         self.index = None
         self.chunk_ids = []  # Maps FAISS index positions to chunk IDs
+        self.image_ids = []  # Maps FAISS index positions to image IDs
+        self.item_types = []  # Maps index positions to 'chunk' or 'image'
         self.last_build_time = None
         
         # Initialize embedding model
@@ -55,7 +58,7 @@ class VectorStore:
     
     def build_index(self, subject_id: Optional[int] = None, force_rebuild: bool = False) -> Dict[str, Any]:
         """
-        Build or rebuild the FAISS index
+        Build or rebuild the FAISS index (including both text chunks and image OCR)
         
         Args:
             subject_id: Optional subject ID to filter documents
@@ -74,38 +77,69 @@ class VectorStore:
                     document__processed=True,
                     embedding_vector__isnull=False
                 ).select_related('document').order_by('document__title', 'chunk_index')
+                
+                images = DocumentImage.objects.filter(
+                    document__subject_id=subject_id,
+                    document__processed=True,
+                    ocr_processed=True,
+                    embedding_vector__isnull=False
+                ).select_related('document').order_by('document__title', 'page_number', 'image_index')
             else:
                 chunks = DocumentChunk.objects.filter(
                     document__processed=True,
                     embedding_vector__isnull=False
                 ).select_related('document').order_by('document__title', 'chunk_index')
+                
+                images = DocumentImage.objects.filter(
+                    document__processed=True,
+                    ocr_processed=True,
+                    embedding_vector__isnull=False
+                ).select_related('document').order_by('document__title', 'page_number', 'image_index')
             
-            if not chunks.exists():
-                logger.warning("No chunks with embeddings found")
+            if not chunks.exists() and not images.exists():
+                logger.warning("No chunks or images with embeddings found")
                 return {
                     'success': False,
                     'error': 'No processed documents with embeddings found',
-                    'chunks_count': 0
+                    'chunks_count': 0,
+                    'images_count': 0
                 }
             
-            # Extract embeddings and chunk IDs
+            # Extract embeddings from chunks
             embeddings = []
             chunk_ids = []
+            image_ids = []
+            item_types = []
             
             for chunk in chunks:
                 try:
                     embedding = pickle.loads(chunk.embedding_vector)
                     embeddings.append(embedding)
                     chunk_ids.append(chunk.id)
+                    image_ids.append(None)
+                    item_types.append('chunk')
                 except Exception as e:
                     logger.warning(f"Failed to load embedding for chunk {chunk.id}: {e}")
+                    continue
+            
+            # Extract embeddings from images
+            for image in images:
+                try:
+                    embedding = pickle.loads(image.embedding_vector)
+                    embeddings.append(embedding)
+                    chunk_ids.append(None)
+                    image_ids.append(image.id)
+                    item_types.append('image')
+                except Exception as e:
+                    logger.warning(f"Failed to load embedding for image {image.id}: {e}")
                     continue
             
             if not embeddings:
                 return {
                     'success': False,
                     'error': 'No valid embeddings found',
-                    'chunks_count': 0
+                    'chunks_count': 0,
+                    'images_count': 0
                 }
             
             # Create FAISS index
@@ -121,15 +155,19 @@ class VectorStore:
             # Add to index
             self.index.add(embeddings_array)
             self.chunk_ids = chunk_ids
+            self.image_ids = image_ids
+            self.item_types = item_types
             
             result = {
                 'success': True,
-                'chunks_count': len(embeddings),
+                'chunks_count': sum(1 for t in item_types if t == 'chunk'),
+                'images_count': sum(1 for t in item_types if t == 'image'),
+                'total_embeddings': len(embeddings),
                 'index_dimension': dimension,
                 'subject_id': subject_id
             }
             
-            logger.info(f"Built vector index with {len(embeddings)} chunks")
+            logger.info(f"Built vector index with {result['chunks_count']} chunks and {result['images_count']} images")
             return result
             
         except Exception as e:
@@ -137,7 +175,8 @@ class VectorStore:
             return {
                 'success': False,
                 'error': str(e),
-                'chunks_count': 0
+                'chunks_count': 0,
+                'images_count': 0
             }
     
     def search(self, 
@@ -187,7 +226,7 @@ class VectorStore:
             faiss.normalize_L2(query_embedding)
             
             # Search
-            scores, indices = self.index.search(query_embedding, min(k * 3, len(self.chunk_ids)))  # Get more results for filtering
+            scores, indices = self.index.search(query_embedding, min(k * 3, len(self.item_types)))  # Get more results for filtering
             
             # Process results
             results = []
@@ -199,25 +238,54 @@ class VectorStore:
                     continue
                 
                 try:
-                    chunk_id = self.chunk_ids[idx]
-                    chunk = DocumentChunk.objects.select_related('document', 'document__subject').get(id=chunk_id)
+                    item_type = self.item_types[idx]
                     
-                    # Filter by document_id if provided
-                    if document_id and chunk.document_id != document_id:
+                    if item_type == 'chunk':
+                        chunk_id = self.chunk_ids[idx]
+                        chunk = DocumentChunk.objects.select_related('document', 'document__subject').get(id=chunk_id)
+                        
+                        # Filter by document_id if provided
+                        if document_id and chunk.document_id != document_id:
+                            continue
+                        
+                        result = {
+                            'type': 'chunk',
+                            'chunk_id': str(chunk.id),
+                            'content': chunk.content,
+                            'score': float(score),
+                            'document_id': str(chunk.document.id),
+                            'document_title': chunk.document.title,
+                            'document_type': chunk.document.document_type,
+                            'subject_id': str(chunk.document.subject.id) if chunk.document.subject else None,
+                            'subject_name': chunk.document.subject.name if chunk.document.subject else None,
+                            'page_number': chunk.page_number,
+                            'chunk_index': chunk.chunk_index
+                        }
+                    
+                    elif item_type == 'image':
+                        image_id = self.image_ids[idx]
+                        image = DocumentImage.objects.select_related('document', 'document__subject').get(id=image_id)
+                        
+                        # Filter by document_id if provided
+                        if document_id and image.document_id != document_id:
+                            continue
+                        
+                        result = {
+                            'type': 'image',
+                            'image_id': str(image.id),
+                            'content': f"[IMAGE - Page {image.page_number}]\nOCR Text: {image.ocr_text}",
+                            'ocr_text': image.ocr_text,
+                            'score': float(score),
+                            'document_id': str(image.document.id),
+                            'document_title': image.document.title,
+                            'document_type': image.document.document_type,
+                            'subject_id': str(image.document.subject.id) if image.document.subject else None,
+                            'subject_name': image.document.subject.name if image.document.subject else None,
+                            'page_number': image.page_number,
+                            'image_index': image.image_index
+                        }
+                    else:
                         continue
-                    
-                    result = {
-                        'chunk_id': str(chunk.id),
-                        'content': chunk.content,
-                        'score': float(score),
-                        'document_id': str(chunk.document.id),
-                        'document_title': chunk.document.title,
-                        'document_type': chunk.document.document_type,
-                        'subject_id': str(chunk.document.subject.id) if chunk.document.subject else None,
-                        'subject_name': chunk.document.subject.name if chunk.document.subject else None,
-                        'page_number': chunk.page_number,
-                        'chunk_index': chunk.chunk_index
-                    }
                     
                     results.append(result)
                     
@@ -226,7 +294,10 @@ class VectorStore:
                         break
                     
                 except DocumentChunk.DoesNotExist:
-                    logger.warning(f"Chunk {chunk_id} not found in database")
+                    logger.warning(f"Chunk not found in database")
+                    continue
+                except DocumentImage.DoesNotExist:
+                    logger.warning(f"Image not found in database")
                     continue
                 except Exception as e:
                     logger.error(f"Error processing search result {idx}: {e}")
@@ -305,6 +376,7 @@ class VectorStore:
                 keyword_score = sum(content_lower.count(word) for word in query_words) / len(query_words)
                 
                 result = {
+                    'type': 'chunk',  # Always chunk for keyword search (images don't have text search)
                     'chunk_id': str(chunk.id),
                     'content': chunk.content,
                     'score': keyword_score,
@@ -332,28 +404,31 @@ class VectorStore:
         """
         Combine and rerank semantic and keyword search results
         """
-        # Create a map of chunk_id to results
+        # Create a map of item_id to results (works for both chunks and images)
         combined = {}
         
         # Add semantic results
         for result in semantic_results:
-            chunk_id = result['chunk_id']
-            combined[chunk_id] = result.copy()
-            combined[chunk_id]['semantic_score'] = result['score']
-            combined[chunk_id]['keyword_score'] = 0.0
+            # Get the appropriate ID based on type
+            item_id = result.get('chunk_id') or result.get('image_id')
+            if item_id:
+                combined[item_id] = result.copy()
+                combined[item_id]['semantic_score'] = result['score']
+                combined[item_id]['keyword_score'] = 0.0
         
-        # Add keyword results
+        # Add keyword results (only chunks have keyword search)
         for result in keyword_results:
-            chunk_id = result['chunk_id']
-            if chunk_id in combined:
-                combined[chunk_id]['keyword_score'] = result['score']
-            else:
-                combined[chunk_id] = result.copy()
-                combined[chunk_id]['semantic_score'] = 0.0
-                combined[chunk_id]['keyword_score'] = result['score']
+            item_id = result.get('chunk_id')
+            if item_id:
+                if item_id in combined:
+                    combined[item_id]['keyword_score'] = result['score']
+                else:
+                    combined[item_id] = result.copy()
+                    combined[item_id]['semantic_score'] = 0.0
+                    combined[item_id]['keyword_score'] = result['score']
         
         # Calculate combined scores
-        for chunk_id, result in combined.items():
+        for item_id, result in combined.items():
             semantic_score = result.get('semantic_score', 0.0)
             keyword_score = result.get('keyword_score', 0.0)
             

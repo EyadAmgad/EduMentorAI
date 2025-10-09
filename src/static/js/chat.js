@@ -23,6 +23,15 @@ document.addEventListener('DOMContentLoaded', function() {
     // Track current session ID
     let currentSessionId = config.sessionId;
 
+    // Function to trigger MathJax rendering
+    function renderMath(element) {
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            window.MathJax.typesetPromise([element]).catch(function (err) {
+                console.warn('MathJax rendering failed:', err);
+            });
+        }
+    }
+
     // Auto-resize textarea
     chatInput.addEventListener('input', function() {
         this.style.height = 'auto';
@@ -153,6 +162,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                     } catch (e) {
                                         messageContent.innerHTML = accumulatedContent.replace(/\n/g, '<br>');
                                     }
+                                    // Trigger MathJax rendering for the updated content
+                                    renderMath(messageContent);
                                     scrollToBottom();
                                     
                                 } else if (data.type === 'complete') {
@@ -283,6 +294,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.warn('Markdown parsing failed, using plain text:', error);
                 messageContent.innerHTML = content.replace(/\n/g, '<br>');
             }
+            // Trigger MathJax rendering for AI messages
+            renderMath(messageContent);
         }
 
         const timeDiv = document.createElement('div');
@@ -338,6 +351,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Update the message content with rendered markdown and restore timestamp
                 messageContent.innerHTML = renderedContent + timeHTML;
+                
+                // Trigger MathJax rendering for the updated content
+                renderMath(messageContent);
             } catch (error) {
                 console.warn('Failed to process markdown for existing message:', error);
                 // Fall back to original content if markdown processing fails

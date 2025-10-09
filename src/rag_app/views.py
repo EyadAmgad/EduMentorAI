@@ -39,6 +39,77 @@ from .pipeline.model import get_rag_model
 logger = logging.getLogger(__name__)
 
 
+def clean_ai_response(response):
+    """
+    Clean AI response by removing think tags and fixing common formatting issues
+    """
+    if not response:
+        return response
+    
+    # Remove <think> and </think> tags and their content
+    response = re.sub(r'<think>.*?</think>', '', response, flags=re.DOTALL | re.IGNORECASE)
+    
+    # Clean up any extra whitespace that might be left
+    response = re.sub(r'\n\s*\n\s*\n', '\n\n', response)  # Replace multiple newlines with double newlines
+    response = response.strip()
+    
+    return response
+
+
+class ThinkTagFilter:
+    """
+    A stateful filter to remove <think></think> tags from streaming content
+    """
+    def __init__(self):
+        self.buffer = ""
+        self.inside_think = False
+        self.think_buffer = ""
+    
+    def filter_chunk(self, chunk):
+        """
+        Filter a chunk of text, returning the clean content.
+        Returns empty string if the chunk is part of think tags.
+        """
+        if not chunk:
+            return chunk
+            
+        self.buffer += chunk
+        output = ""
+        
+        while self.buffer:
+            if not self.inside_think:
+                # Look for opening think tag
+                think_start = self.buffer.lower().find('<think>')
+                if think_start == -1:
+                    # No think tag found, output everything
+                    output += self.buffer
+                    self.buffer = ""
+                    break
+                else:
+                    # Output everything before the think tag
+                    output += self.buffer[:think_start]
+                    self.buffer = self.buffer[think_start:]
+                    self.inside_think = True
+                    self.think_buffer = ""
+            
+            if self.inside_think:
+                # Look for closing think tag
+                think_end = self.buffer.lower().find('</think>')
+                if think_end == -1:
+                    # No closing tag yet, store in think buffer and wait for more
+                    self.think_buffer += self.buffer
+                    self.buffer = ""
+                    break
+                else:
+                    # Found closing tag, skip everything including the tag
+                    tag_end = think_end + len('</think>')
+                    self.buffer = self.buffer[tag_end:]
+                    self.inside_think = False
+                    self.think_buffer = ""
+        
+        return output
+
+
 class HomeView(TemplateView):
     """Landing page view"""
     template_name = 'rag_app/home.html'
@@ -243,11 +314,28 @@ class DocumentUploadView(LoginRequiredMixin, CreateView):
         # Process document in background (in production, use Celery)
         try:
             processor = DocumentProcessor()
+            processing_mode = form.instance.processing_mode
+            
+            if processing_mode == 'ocr':
+                messages.info(self.request, 
+                    'Document uploaded! Advanced processing with OCR is starting. This may take a few minutes...')
+            else:
+                messages.info(self.request, 
+                    'Document uploaded! Fast processing is starting...')
+            
             processor.process_document(self.object)
-            messages.success(self.request, 'Document uploaded and processed successfully!')
+            
+            if processing_mode == 'ocr':
+                messages.success(self.request, 
+                    'Document processed successfully with OCR! Images have been analyzed for text content.')
+            else:
+                messages.success(self.request, 
+                    'Document processed successfully with fast mode!')
+                
         except Exception as e:
             logger.error(f"Error processing document {self.object.id}: {str(e)}")
-            messages.warning(self.request, 'Document uploaded but processing failed. Please try again.')
+            messages.warning(self.request, 
+                'Document uploaded but processing failed. Please try again or contact support.')
         
         return response
 
@@ -278,6 +366,40 @@ def process_document(request, pk):
     except Exception as e:
         logger.error(f"Error processing document {pk}: {str(e)}")
         messages.error(request, 'Error processing document. Please try again.')
+    
+    return redirect('rag_app:document_detail', pk=pk)
+
+
+@login_required
+def reprocess_document(request, pk):
+    """Reprocess document with different processing mode"""
+    document = get_object_or_404(Document, pk=pk, uploaded_by=request.user)
+    
+    if request.method == 'POST':
+        new_processing_mode = request.POST.get('processing_mode')
+        
+        if new_processing_mode in ['fast', 'ocr']:
+            # Update the processing mode
+            old_mode = document.processing_mode
+            document.processing_mode = new_processing_mode
+            document.processed = False  # Mark as unprocessed to trigger reprocessing
+            document.save()
+            
+            try:
+                processor = DocumentProcessor()
+                processor.process_document(document)
+                
+                mode_name = 'Advanced OCR' if new_processing_mode == 'ocr' else 'Fast'
+                messages.success(request, f'Document reprocessed successfully with {mode_name} mode!')
+                
+            except Exception as e:
+                # Revert the processing mode if processing fails
+                document.processing_mode = old_mode
+                document.save()
+                logger.error(f"Error reprocessing document {pk}: {str(e)}")
+                messages.error(request, 'Error reprocessing document. Please try again.')
+        else:
+            messages.error(request, 'Invalid processing mode selected.')
     
     return redirect('rag_app:document_detail', pk=pk)
 
@@ -678,6 +800,9 @@ What would you like to do first?"""
                     else:
                         ai_response = rag_result.get('answer', 'I apologize, but I encountered an error while processing your question.')
                         logger.warning(f"RAG query failed: {rag_result.get('error')}")
+                
+                # Clean the AI response to remove thinking tags
+                ai_response = clean_ai_response(ai_response)
                     
             except Exception as e:
                 logger.error(f"Error using RAG model: {e}")
@@ -758,6 +883,7 @@ class AnonymousDocumentChatView(LoginRequiredMixin, View):
         try:
             file = request.FILES.get('file')
             initial_question = request.POST.get('initial_question', '').strip()
+            processing_mode = request.POST.get('processing_mode', 'fast')
             
             if not file:
                 messages.error(request, 'Please select a file to upload.')
@@ -768,11 +894,16 @@ class AnonymousDocumentChatView(LoginRequiredMixin, View):
                 messages.error(request, 'File size must be less than 50MB.')
                 return render(request, self.template_name)
             
+            # Validate processing mode
+            if processing_mode not in ['fast', 'ocr']:
+                processing_mode = 'fast'
+            
             # Create temporary document
             from django.utils import timezone
             temp_doc = TempDocument.objects.create(
                 title=file.name.rsplit('.', 1)[0],  # Remove extension
                 file=file,
+                processing_mode=processing_mode,
                 uploaded_by=request.user,
                 expires_at=timezone.now() + timezone.timedelta(hours=24)
             )
@@ -782,10 +913,32 @@ class AnonymousDocumentChatView(LoginRequiredMixin, View):
                 from .pipeline.data_processor import DocumentProcessor
                 processor = DocumentProcessor()
                 
+                # Show appropriate processing message
+                if processing_mode == 'ocr':
+                    messages.info(request, 'Processing document with advanced OCR. This may take a few minutes...')
+                else:
+                    messages.info(request, 'Processing document with fast mode...')
+                
                 # Process the temporary document (adapt processor for temp docs)
-                processor.process_temp_document(temp_doc)
-                temp_doc.processed = True
-                temp_doc.save()
+                result = processor.process_temp_document(temp_doc)
+                
+                if result.get('success'):
+                    temp_doc.processed = True
+                    temp_doc.save()
+                    
+                    # Show success message with processing details
+                    mode_name = 'Advanced OCR' if processing_mode == 'ocr' else 'Fast'
+                    processing_time = result.get('processing_time', 0)
+                    
+                    if processing_mode == 'ocr' and result.get('ocr_images_processed', 0) > 0:
+                        messages.success(request, 
+                            f'Document processed successfully with {mode_name} mode! '
+                            f'Analyzed {result["ocr_images_processed"]} images with OCR in {processing_time:.1f}s.')
+                    else:
+                        messages.success(request, 
+                            f'Document processed successfully with {mode_name} mode in {processing_time:.1f}s!')
+                else:
+                    raise Exception(result.get('error', 'Unknown processing error'))
                 
             except Exception as e:
                 logger.error(f"Error processing temp document {temp_doc.id}: {str(e)}")
@@ -1040,6 +1193,7 @@ What would you like to do first?"""
                 
                 if api_response.status_code == 200:
                     client = sseclient.SSEClient(api_response)
+                    think_filter = ThinkTagFilter()  # Initialize the filter
                     
                     for event in client.events():
                         if event.data == "[DONE]":
@@ -1053,8 +1207,11 @@ What would you like to do first?"""
                                     if "content" in delta:
                                         chunk = delta["content"]
                                         full_response += chunk
-                                        # Stream this chunk to frontend
-                                        yield "data: " + json.dumps({"type": "chunk", "content": chunk}) + "\n\n"
+                                        
+                                        # Filter out think tags from the chunk before streaming
+                                        filtered_chunk = think_filter.filter_chunk(chunk)
+                                        if filtered_chunk:  # Only stream if there's content after filtering
+                                            yield "data: " + json.dumps({"type": "chunk", "content": filtered_chunk}) + "\n\n"
                                         
                             except (json.JSONDecodeError, KeyError, IndexError) as e:
                                 continue
@@ -1064,10 +1221,13 @@ What would you like to do first?"""
                     result = {'success': False, 'error': f'API error: {api_response.status_code}'}
                 
                 if result['success'] and full_response:
+                    # Clean the response to remove thinking tags
+                    cleaned_response = clean_ai_response(full_response)
+                    
                     # Save AI message
                     ai_message = ChatMessage.objects.create(
                         session=session,
-                        message=full_response,
+                        message=cleaned_response,
                         is_user=False,
                         response_time=result.get('response_time', 0)
                     )
@@ -1805,7 +1965,8 @@ class SlideGeneratorView(LoginRequiredMixin, View):
                 language=language,
                 instructions=instructions,
                 user=request.user,
-                background_image=background_image
+                background_image=background_image,
+                documents=documents if 'documents' in locals() else None  # Pass Document objects for image support
             )
             
             if result['success']:
@@ -1867,4 +2028,3 @@ class SlidesListView(LoginRequiredMixin, View):
                 'slides': [],
                 'error': 'Could not list slides.'
             })
-

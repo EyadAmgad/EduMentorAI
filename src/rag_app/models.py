@@ -18,6 +18,12 @@ class DocumentType(models.TextChoices):
     PPTX = 'pptx', 'PowerPoint'
 
 
+class ProcessingMode(models.TextChoices):
+    """Document processing mode choices"""
+    FAST = 'fast', 'Fast Processing (Text Only)'
+    OCR = 'ocr', 'Advanced Processing (Text + OCR for Images)'
+
+
 class Subject(models.Model):
     """Subject/Course model"""
     name = models.CharField(max_length=200)
@@ -39,6 +45,7 @@ class Document(models.Model):
     title = models.CharField(max_length=255)
     file = models.FileField(upload_to=upload_to_user_folder)
     document_type = models.CharField(max_length=10, choices=DocumentType.choices)
+    processing_mode = models.CharField(max_length=10, choices=ProcessingMode.choices, default=ProcessingMode.FAST)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='documents')
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
@@ -46,6 +53,9 @@ class Document(models.Model):
     processed_at = models.DateTimeField(null=True, blank=True)
     file_size = models.PositiveIntegerField()  # in bytes
     page_count = models.PositiveIntegerField(null=True, blank=True)
+    
+    # Processed text: Combined extracted text + OCR text from images
+    processed_text = models.TextField(blank=True, help_text="Clean text-only version (document text + OCR text)")
     
     def __str__(self):
         return self.title
@@ -81,6 +91,28 @@ class DocumentChunk(models.Model):
         unique_together = ['document', 'chunk_index']
 
 
+class DocumentImage(models.Model):
+    """Extracted images from documents with OCR text"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='images')
+    image_file = models.ImageField(upload_to='document_images/')
+    page_number = models.PositiveIntegerField()
+    image_index = models.PositiveIntegerField()  # Index of image on the page
+    ocr_text = models.TextField(blank=True)  # Extracted text from OCR
+    ocr_processed = models.BooleanField(default=False)
+    embedding_vector = models.BinaryField(null=True, blank=True)  # Store OCR text embeddings
+    width = models.PositiveIntegerField(null=True, blank=True)
+    height = models.PositiveIntegerField(null=True, blank=True)
+    extracted_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.document.title} - Page {self.page_number} - Image {self.image_index}"
+    
+    class Meta:
+        ordering = ['page_number', 'image_index']
+        unique_together = ['document', 'page_number', 'image_index']
+
+
 class ChatSession(models.Model):
     """Chat session model"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -111,6 +143,7 @@ class TempDocument(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255)
     file = models.FileField(upload_to='temp_documents/')
+    processing_mode = models.CharField(max_length=10, choices=ProcessingMode.choices, default=ProcessingMode.FAST)
     uploaded_by = models.ForeignKey(User, on_delete=models.CASCADE)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     processed = models.BooleanField(default=False)
@@ -232,4 +265,3 @@ class UserProfile(models.Model):
     
     def __str__(self):
         return f"{self.user.username}'s Profile"
-

@@ -24,6 +24,7 @@ urlpatterns = [
     path('documents/<uuid:pk>/', views.DocumentDetailView.as_view(), name='document_detail'),
     path('documents/<uuid:pk>/delete/', views.DocumentDeleteView.as_view(), name='document_delete'),
     path('documents/<uuid:pk>/process/', views.process_document, name='document_process'),
+    path('documents/<uuid:pk>/reprocess/', views.reprocess_document, name='document_reprocess'),
     
     # Chat interface
     path('chat/', views.ChatModeView.as_view(), name='chat'),

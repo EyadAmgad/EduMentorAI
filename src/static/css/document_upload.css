@@ -177,3 +177,56 @@
 .breadcrumb-item + .breadcrumb-item::before {
     color: var(--text-secondary);
 }
+
+/* Processing Mode Selection Styles */
+.processing-mode-container {
+    transition: all 0.3s ease;
+}
+
+.processing-option {
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.processing-option:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.processing-option .form-check-input {
+    width: 20px;
+    height: 20px;
+    margin-top: 0;
+    border: 2px solid var(--border-color);
+}
+
+.processing-option .form-check-input:checked {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.processing-option .form-check-input:checked[value="fast"] {
+    background-color: #28a745;
+    border-color: #28a745;
+}
+
+.processing-option .form-check-input:checked[value="ocr"] {
+    background-color: #6f42c1;
+    border-color: #6f42c1;
+}
+
+.processing-option .badge {
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+}
+
+@media (max-width: 768px) {
+    .processing-mode-container .row {
+        gap: 1rem;
+    }
+    
+    .processing-option {
+        margin-bottom: 1rem;
+    }
+}

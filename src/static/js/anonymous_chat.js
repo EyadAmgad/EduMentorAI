@@ -169,3 +169,60 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 30000);
     });
 });
+
+// Processing mode selection functionality for anonymous chat
+function selectAnonymousProcessingMode(mode) {
+    // Remove active class from all options
+    document.querySelectorAll('.processing-option').forEach(option => {
+        option.style.border = '2px solid var(--border-color)';
+        option.style.transform = 'none';
+        option.style.boxShadow = 'none';
+    });
+    
+    // Select the radio button
+    const radioButton = document.getElementById(mode + '_mode_anon');
+    if (radioButton) {
+        radioButton.checked = true;
+        
+        // Add active styling to selected option
+        const selectedOption = radioButton.closest('.processing-option');
+        if (mode === 'fast') {
+            selectedOption.style.border = '2px solid #28a745';
+            selectedOption.style.boxShadow = '0 4px 15px rgba(40, 167, 69, 0.2)';
+        } else {
+            selectedOption.style.border = '2px solid #6f42c1';
+            selectedOption.style.boxShadow = '0 4px 15px rgba(111, 66, 193, 0.2)';
+        }
+        selectedOption.style.transform = 'translateY(-2px)';
+        
+        // Update submit button text
+        updateAnonymousSubmitButtonText(mode);
+    }
+}
+
+function updateAnonymousSubmitButtonText(mode) {
+    const startChatBtn = document.getElementById('start-chat-btn');
+    if (startChatBtn) {
+        if (mode === 'fast') {
+            startChatBtn.innerHTML = '<i class="fas fa-bolt me-2"></i>Start Chatting (Fast)';
+        } else {
+            startChatBtn.innerHTML = '<i class="fas fa-eye me-2"></i>Start Chatting (Advanced OCR)';
+        }
+    }
+}
+
+// Initialize processing mode styling on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Set initial styling for fast mode (default)
+    selectAnonymousProcessingMode('fast');
+    
+    // Add click handlers for processing options
+    document.querySelectorAll('.processing-option').forEach(option => {
+        option.addEventListener('click', function() {
+            const radioButton = this.querySelector('input[type="radio"]');
+            if (radioButton) {
+                selectAnonymousProcessingMode(radioButton.value);
+            }
+        });
+    });
+});

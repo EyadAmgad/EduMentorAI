@@ -101,6 +101,15 @@
                             {% if document.subject %}
                                 <span class="badge" style="background: var(--primary-color); color: white; margin-right: 0.5rem;">{{ document.subject.name }}</span>
                             {% endif %}
+                            {% if document.processing_mode == 'ocr' %}
+                                <span class="badge" style="background: linear-gradient(135deg, #6f42c1, #e83e8c); color: white; margin-right: 0.5rem;" title="Advanced Processing with OCR">
+                                    <i class="fas fa-eye me-1"></i>OCR
+                                </span>
+                            {% else %}
+                                <span class="badge" style="background: linear-gradient(135deg, #28a745, #20c997); color: white; margin-right: 0.5rem;" title="Fast Processing">
+                                    <i class="fas fa-bolt me-1"></i>Fast
+                                </span>
+                            {% endif %}
                             <span>{{ document.document_type|upper }}</span> • {{ document.uploaded_at|timesince }} ago
                         </div>
 
