@@ -1,4 +1,4 @@
-// Minimalist Chat JavaScript with Enhanced Text Rendering
+// Enhanced Chat JavaScript with Think Tag Filtering and Old Chat Support
 
 document.addEventListener('DOMContentLoaded', function() {
     // Configure marked for optimal rendering
@@ -9,10 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
             sanitize: false,
             silent: false,
             headerIds: false,
-            mangle: false,
-            // Better text rendering options
-            smartypants: false,
-            xhtml: false
+            mangle: false
         });
     }
     
@@ -31,605 +28,80 @@ document.addEventListener('DOMContentLoaded', function() {
     let isStreaming = false;
     let autoResizeDebounce = null;
     
-    // Enhanced auto-resize with better performance
-    chatInput.addEventListener('input', function() {
-        clearTimeout(autoResizeDebounce);
-        autoResizeDebounce = setTimeout(() => {
-            const currentHeight = this.scrollHeight;
-            const minHeight = 50;
-            const maxHeight = 150;
+    // **CRITICAL: Filter out <think></think> tags**
+    function filterThinkTags(text) {
+        if (!text) return '';
+        return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    }
+    
+    // **FIX: Process existing messages on page load for old chats**
+    function processExistingMessages() {
+        const existingMessages = document.querySelectorAll('.message .message-content');
+        existingMessages.forEach(messageDiv => {
+            // Skip if already processed (has HTML elements)
+            if (messageDiv.querySelector('p, div, span, code, pre')) return;
             
-            // Only update if height actually changed
-            const newHeight = Math.min(Math.max(currentHeight, minHeight), maxHeight);
-            if (this.style.height !== newHeight + 'px') {
-                this.style.height = 'auto';
-                this.style.height = newHeight + 'px';
-            }
-        }, 5);
-    });
-
-    // Refined keyboard shortcuts
-    chatInput.addEventListener('keydown', function(event) {
-        if (event.key === 'Enter') {
-            if (event.shiftKey || event.ctrlKey || event.metaKey) {
-                // Allow new line with modifiers
-                return;
-            } else {
-                // Send message with Enter
-                event.preventDefault();
-                if (!isStreaming && this.value.trim()) {
-                    chatForm.dispatchEvent(new Event('submit', { bubbles: true }));
+            const rawText = messageDiv.textContent || messageDiv.innerText || '';
+            if (rawText.trim()) {
+                const filteredText = filterThinkTags(rawText);
+                const renderedContent = renderMarkdown(filteredText);
+                
+                // Create a container for the markdown content
+                const markdownContainer = document.createElement('div');
+                markdownContainer.className = 'markdown-content';
+                markdownContainer.innerHTML = renderedContent;
+                
+                // Replace the content
+                messageDiv.innerHTML = '';
+                messageDiv.appendChild(markdownContainer);
+                
+                // Add timestamp if it doesn't exist
+                if (!messageDiv.querySelector('.message-time')) {
+                    const timeDiv = document.createElement('div');
+                    timeDiv.className = 'message-time';
+                    timeDiv.textContent = 'Earlier';
+                    messageDiv.appendChild(timeDiv);
                 }
-            }
-        } else if (event.key === 'Escape') {
-            // Clear input with Escape
-            if (this.value) {
-                this.value = '';
-                this.style.height = 'auto';
-                event.preventDefault();
-            }
-        }
-    });
-
-    // Simplified mobile sidebar
-    if (mobileSidebarToggle) {
-        mobileSidebarToggle.addEventListener('click', function() {
-            const isOpen = chatSidebar.classList.contains('show');
-            if (isOpen) {
-                closeSidebar();
-            } else {
-                openSidebar();
+                
+                // Add actions for AI messages
+                if (messageDiv.closest('.message.ai')) {
+                    addMessageActions(messageDiv.closest('.message'), filteredText);
+                }
             }
         });
     }
-
-    if (chatOverlay) {
-        chatOverlay.addEventListener('click', closeSidebar);
-    }
-
-    function openSidebar() {
-        chatSidebar.classList.add('show');
-        chatOverlay.classList.add('show');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeSidebar() {
-        chatSidebar.classList.remove('show');
-        chatOverlay.classList.remove('show');
-        document.body.style.overflow = '';
-    }
-
-    // Enhanced form submission
-    chatForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const message = chatInput.value.trim();
-        if (!message || isStreaming) return;
-
-        // Set loading state
-        setLoadingState(true);
-        
-        // Add user message
-        addMessage('user', message, true);
-        
-        // Clear and reset input
-        chatInput.value = '';
-        chatInput.style.height = 'auto';
-        chatInput.focus();
-
-        // Send message
-        sendStreamingMessage(message);
-    });
-
-    // Optimized streaming with better text rendering
-    function sendStreamingMessage(message) {
-        isStreaming = true;
-        const thinkingIndicator = showThinkingIndicator();
-        
-        let aiMessageDiv = null;
-        let messageContent = null;
-        let accumulatedContent = '';
-        let renderTimeout = null;
-        
-        // Prepare streaming URL
-        let streamUrl = config.streamUrl || '/chat/stream/';
-        if (currentSessionId) {
-            streamUrl = `/chat/${currentSessionId}/stream/`;
-        }
-        
-        fetch(streamUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken(),
-            },
-            body: JSON.stringify({ message: message })
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            
-            return readStreamRecursive(reader, decoder);
-        })
-        .catch(error => {
-            console.error('Streaming error:', error);
-            handleStreamingError(error, thinkingIndicator);
-        })
-        .finally(() => {
-            isStreaming = false;
-            setLoadingState(false);
-        });
-        
-        function readStreamRecursive(reader, decoder) {
-            return reader.read().then(({ done, value }) => {
-                if (done) {
-                    // Final render and cleanup
-                    if (renderTimeout) {
-                        clearTimeout(renderTimeout);
-                        if (messageContent && accumulatedContent) {
-                            updateMessageContent(messageContent, accumulatedContent, true);
-                        }
-                    }
-                    return;
-                }
-                
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split('\n');
-                
-                lines.forEach(line => {
-                    if (line.startsWith('data: ') && line.length > 6) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-                            handleStreamData(data);
-                        } catch (e) {
-                            console.warn('Failed to parse streaming data:', line);
-                        }
-                    }
-                });
-                
-                return readStreamRecursive(reader, decoder);
-            });
-        }
-        
-        function handleStreamData(data) {
-            switch (data.type) {
-                case 'start':
-                    // Keep thinking indicator
-                    break;
-                    
-                case 'chunk':
-                    if (!aiMessageDiv) {
-                        hideThinkingIndicator();
-                        aiMessageDiv = addMessage('ai', '', false);
-                        messageContent = aiMessageDiv.querySelector('.message-content');
-                    }
-                    
-                    accumulatedContent += data.content;
-                    
-                    // Debounced rendering for better performance
-                    clearTimeout(renderTimeout);
-                    renderTimeout = setTimeout(() => {
-                        updateMessageContent(messageContent, accumulatedContent, false);
-                        scrollToBottomSmooth();
-                    }, 50); // Render every 50ms for smooth updates
-                    break;
-                    
-                case 'complete':
-                    if (data.session_id) {
-                        currentSessionId = data.session_id;
-                        updateURL(`/chat/${data.session_id}/`);
-                    }
-                    
-                    if (messageContent) {
-                        // Final render
-                        clearTimeout(renderTimeout);
-                        updateMessageContent(messageContent, accumulatedContent, true);
-                        addMessageTimestamp(messageContent);
-                        addMessageActions(aiMessageDiv, accumulatedContent);
-                    }
-                    break;
-                    
-                case 'error':
-                    handleStreamingError(new Error(data.error || 'Unknown error'), thinkingIndicator);
-                    break;
-            }
-        }
-    }
-
-    // Enhanced message content updating with better text rendering
-    function updateMessageContent(messageElement, content, isFinal = false) {
-        if (!messageElement || !content) return;
+    
+    // Enhanced markdown rendering
+    function renderMarkdown(text) {
+        if (!text) return '';
         
         try {
-            let renderedContent;
-            
             if (typeof marked !== 'undefined') {
-                renderedContent = marked.parse(content);
+                return marked.parse(text);
             } else {
-                renderedContent = escapeHtml(content).replace(/\n/g, '<br>');
+                // Fallback simple rendering
+                return text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/`(.*?)`/g, '<code>$1</code>')
+                    .replace(/\n\n/g, '</p><p>')
+                    .replace(/\n/g, '<br>')
+                    .replace(/^(.*)$/, '<p>$1</p>');
             }
-            
-            // Use DocumentFragment for better performance during streaming
-            if (!isFinal) {
-                const fragment = document.createDocumentFragment();
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = renderedContent;
-                
-                while (tempDiv.firstChild) {
-                    fragment.appendChild(tempDiv.firstChild);
-                }
-                
-                // Clear and append in one operation
-                messageElement.innerHTML = '';
-                messageElement.appendChild(fragment);
-            } else {
-                // Final render - can use innerHTML safely
-                messageElement.innerHTML = renderedContent;
-            }
-            
         } catch (error) {
-            console.warn('Content rendering failed:', error);
-            messageElement.textContent = content;
+            console.warn('Markdown rendering failed:', error);
+            return escapeHtml(text).replace(/\n/g, '<br>');
         }
     }
-
-    // Refined thinking indicator
-    function showThinkingIndicator() {
-        const thinkingDiv = document.createElement('div');
-        thinkingDiv.className = 'thinking-indicator';
-        thinkingDiv.id = 'thinking-indicator';
-        
-        const avatar = document.createElement('div');
-        avatar.className = 'message-avatar';
-        avatar.innerHTML = '<i class="fas fa-robot"></i>';
-        
-        const thinkingContent = document.createElement('div');
-        thinkingContent.className = 'thinking-content';
-        
-        const thinkingText = document.createElement('span');
-        thinkingText.textContent = 'Thinking';
-        
-        const thinkingDots = document.createElement('div');
-        thinkingDots.className = 'thinking-dots';
-        
-        for (let i = 0; i < 3; i++) {
-            const dot = document.createElement('div');
-            dot.className = 'thinking-dot';
-            thinkingDots.appendChild(dot);
-        }
-        
-        thinkingContent.appendChild(thinkingText);
-        thinkingContent.appendChild(thinkingDots);
-        thinkingDiv.appendChild(avatar);
-        thinkingDiv.appendChild(thinkingContent);
-        
-        chatMessages.appendChild(thinkingDiv);
-        scrollToBottomSmooth();
-        
-        return thinkingDiv;
-    }
-
-    function hideThinkingIndicator() {
-        const thinkingIndicator = document.getElementById('thinking-indicator');
-        if (thinkingIndicator) {
-            // Gentle fade out
-            thinkingIndicator.style.transition = 'opacity 0.2s ease';
-            thinkingIndicator.style.opacity = '0';
-            setTimeout(() => {
-                if (thinkingIndicator.parentNode) {
-                    thinkingIndicator.remove();
-                }
-            }, 200);
-        }
-    }
-
-    // Simplified message creation
-    function addMessage(role, content, animate = true) {
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${role}`;
-        
-        if (animate) {
-            messageDiv.style.opacity = '0';
-            messageDiv.style.transform = 'translateY(12px)';
-        }
-        
-        const avatar = document.createElement('div');
-        avatar.className = 'message-avatar';
-        
-        if (role === 'user') {
-            avatar.textContent = config.userInitial || 'U';
-        } else {
-            avatar.innerHTML = '<i class="fas fa-robot"></i>';
-        }
-
-        const messageContent = document.createElement('div');
-        messageContent.className = 'message-content';
-        
-        if (content) {
-            updateMessageContent(messageContent, content, true);
-        }
-
-        if (role === 'user') {
-            addMessageTimestamp(messageContent);
-            addMessageActions(messageDiv, content);
-        }
-
-        messageDiv.appendChild(avatar);
-        messageDiv.appendChild(messageContent);
-        chatMessages.appendChild(messageDiv);
-        
-        if (animate) {
-            // Simple fade in
-            requestAnimationFrame(() => {
-                messageDiv.style.transition = 'all 0.3s ease';
-                messageDiv.style.opacity = '1';
-                messageDiv.style.transform = 'translateY(0)';
-            });
-        }
-        
-        scrollToBottomSmooth();
-        return messageDiv;
-    }
-
-    function addMessageTimestamp(messageContent) {
-        const existingTime = messageContent.querySelector('.message-time');
-        if (existingTime) return;
-        
-        const timeDiv = document.createElement('div');
-        timeDiv.className = 'message-time';
-        timeDiv.textContent = formatTimestamp(new Date());
-        messageContent.appendChild(timeDiv);
-    }
-
-    // Simplified message actions
-    function addMessageActions(messageDiv, content) {
-        const existingActions = messageDiv.querySelector('.message-actions');
-        if (existingActions) return;
-        
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'message-actions';
-        
-        const copyBtn = document.createElement('button');
-        copyBtn.className = 'message-action-btn';
-        copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
-        copyBtn.title = 'Copy message';
-        copyBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            copyMessage(content);
-        });
-        
-        actionsDiv.appendChild(copyBtn);
-        messageDiv.appendChild(actionsDiv);
-    }
-
-    // Enhanced copy functionality
-    function copyMessage(text) {
-        const cleanText = text
-            .replace(/<[^>]*>/g, '') // Remove HTML tags
-            .replace(/&nbsp;/g, ' ') // Replace &nbsp; with spaces
-            .replace(/&lt;/g, '<') // Replace &lt; with <
-            .replace(/&gt;/g, '>') // Replace &gt; with >
-            .replace(/&amp;/g, '&') // Replace &amp; with &
-            .trim();
-        
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-            navigator.clipboard.writeText(cleanText)
-                .then(() => showCopyFeedback('Copied!'))
-                .catch(() => fallbackCopyText(cleanText));
-        } else {
-            fallbackCopyText(cleanText);
-        }
-    }
-
-    function fallbackCopyText(text) {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-9999px';
-        textArea.style.top = '-9999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        
-        try {
-            const successful = document.execCommand('copy');
-            showCopyFeedback(successful ? 'Copied!' : 'Copy failed');
-        } catch (err) {
-            showCopyFeedback('Copy failed');
-        }
-        
-        document.body.removeChild(textArea);
-    }
-
-    function showCopyFeedback(message) {
-        const feedback = document.createElement('div');
-        feedback.className = 'copy-feedback';
-        feedback.textContent = message;
-        
-        document.body.appendChild(feedback);
-        
-        setTimeout(() => {
-            feedback.style.transition = 'all 0.2s ease';
-            feedback.style.opacity = '0';
-            feedback.style.transform = 'translateX(100%)';
-            setTimeout(() => feedback.remove(), 200);
-        }, 2000);
-    }
-
-    // Optimized smooth scrolling
-    function scrollToBottomSmooth() {
-        if (chatMessages.dataset.userScrolled !== 'true') {
-            requestAnimationFrame(() => {
-                chatMessages.scrollTo({
-                    top: chatMessages.scrollHeight,
-                    behavior: 'smooth'
-                });
-            });
-        }
-    }
-
-    // Track user scrolling to prevent auto-scroll interference
-    let scrollTimeout;
-    chatMessages.addEventListener('scroll', () => {
-        clearTimeout(scrollTimeout);
-        
-        const isAtBottom = chatMessages.scrollTop + chatMessages.clientHeight >= chatMessages.scrollHeight - 100;
-        
-        if (isAtBottom) {
-            chatMessages.dataset.userScrolled = 'false';
-        } else {
-            chatMessages.dataset.userScrolled = 'true';
-        }
-        
-        scrollTimeout = setTimeout(() => {
-            chatMessages.dataset.userScrolled = 'false';
-        }, 3000);
-    });
-
-    // Simplified loading state
-    function setLoadingState(loading) {
-        sendBtn.disabled = loading;
-        chatInput.disabled = loading;
-        
-        if (loading) {
-            sendBtn.classList.add('loading');
-            sendBtn.innerHTML = '';
-        } else {
-            sendBtn.classList.remove('loading');
-            sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
-            setTimeout(() => chatInput.focus(), 100);
-        }
-    }
-
-    // Simplified error handling
-    function handleStreamingError(error, thinkingIndicator = null) {
-        console.error('Streaming error:', error);
-        
-        if (thinkingIndicator) {
-            hideThinkingIndicator();
-        }
-        
-        const errorMessage = error.message || 'Sorry, I encountered an error. Please try again.';
-        addMessage('ai', `⚠️ ${errorMessage}`, true);
-    }
-
-    // Utility functions
-    function getCSRFToken() {
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
-        return csrfToken ? csrfToken.value : '';
-    }
-
-    function updateURL(url) {
-        try {
-            window.history.replaceState({}, '', url);
-        } catch (e) {
-            console.warn('Could not update URL:', e);
-        }
-    }
-
-    function formatTimestamp(date) {
-        const now = new Date();
-        const diff = now - date;
-        const minutes = Math.floor(diff / 60000);
-        
-        if (minutes < 1) return 'Just now';
-        if (minutes < 60) return `${minutes}m ago`;
-        if (minutes < 1440) return `${Math.floor(minutes / 60)}h ago`;
-        
-        return date.toLocaleDateString(undefined, { 
-            month: 'short', 
-            day: 'numeric', 
-            hour: '2-digit', 
-            minute: '2-digit' 
-        });
-    }
-
+    
     function escapeHtml(text) {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
     }
-
-    // Initialize
-    setTimeout(() => {
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-        if (chatInput && !window.matchMedia('(max-width: 768px)').matches) {
-            chatInput.focus();
-        }
-    }, 300);
-
-    // Optimized resize handling
-    let resizeTimer;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-            if (window.innerWidth > 768) {
-                closeSidebar();
-            }
-        }, 100);
-    });
-});
-
-// Global functions for template compatibility
-window.setSuggestedPrompt = function(prompt) {
-    const chatInput = document.getElementById('chatInput');
+    
+    // Auto-resize textarea with better performance
     if (chatInput) {
-        chatInput.value = prompt;
-        chatInput.focus();
-        chatInput.dispatchEvent(new Event('input'));
-    }
-};
-
-window.loadChatSession = function(sessionId) {
-    // Simple loading transition
-    document.body.style.transition = 'opacity 0.2s ease';
-    document.body.style.opacity = '0.8';
-    
-    setTimeout(() => {
-        window.location.href = `/chat/${sessionId}/`;
-    }, 200);
-};
-
-window.showChatModeModal = function() {
-    const modal = document.getElementById('chatModeModal');
-    if (modal && typeof bootstrap !== 'undefined') {
-        const modalInstance = new bootstrap.Modal(modal);
-        modalInstance.show();
-    }
-};
-
-window.setChatMode = function(mode) {
-    const documentSection = document.getElementById('documentSection');
-    const subjectSection = document.getElementById('subjectSection');
-    
-    if (documentSection && subjectSection) {
-        if (mode === 'document') {
-            documentSection.style.display = 'block';
-            subjectSection.style.display = 'none';
-        } else if (mode === 'subject') {
-            documentSection.style.display = 'none';
-            subjectSection.style.display = 'block';
-        }
-    }
-};
-
-window.startNewChat = function() {
-    const chatUrl = window.chatConfig?.chatUrl || '/chat/';
-    document.body.style.opacity = '0.9';
-    setTimeout(() => window.location.href = chatUrl, 150);
-};
-
-// Enhanced new chat button handling
-document.addEventListener('DOMContentLoaded', function() {
-    const newChatBtn = document.querySelector('.new-chat-btn');
-    if (newChatBtn) {
-        newChatBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            window.startNewChat();
-        });
-    }
-});
+        chatInput.addEventListener('input', function() {
+            clearTimeout(autoResizeDebounce);
+            autoResizeDebounce = setTimeout(() => {\n                this.style.height = 'auto';\n                const newHeight = Math.min(Math.max(this.scrollHeight, 50), 150);\n                this.style.height = newHeight + 'px';\n            }, 10);\n        });\n    }\n\n    // Enhanced keyboard shortcuts\n    if (chatInput) {\n        chatInput.addEventListener('keydown', function(event) {\n            if (event.key === 'Enter') {\n                if (event.shiftKey || event.ctrlKey || event.metaKey) {\n                    // Allow new line with modifiers\n                    return;\n                } else {\n                    // Send message with Enter\n                    event.preventDefault();\n                    if (!isStreaming && this.value.trim()) {\n                        chatForm.dispatchEvent(new Event('submit', { bubbles: true }));\n                    }\n                }\n            } else if (event.key === 'Escape') {\n                if (this.value) {\n                    this.value = '';\n                    this.style.height = 'auto';\n                    event.preventDefault();\n                }\n            }\n        });\n    }\n\n    // Mobile sidebar functions\n    function openSidebar() {\n        if (chatSidebar) chatSidebar.classList.add('show');\n        if (chatOverlay) chatOverlay.classList.add('show');\n        document.body.style.overflow = 'hidden';\n    }\n\n    function closeSidebar() {\n        if (chatSidebar) chatSidebar.classList.remove('show');\n        if (chatOverlay) chatOverlay.classList.remove('show');\n        document.body.style.overflow = '';\n    }\n\n    if (mobileSidebarToggle) {\n        mobileSidebarToggle.addEventListener('click', function() {\n            const isOpen = chatSidebar.classList.contains('show');\n            if (isOpen) {\n                closeSidebar();\n            } else {\n                openSidebar();\n            }\n        });\n    }\n\n    if (chatOverlay) {\n        chatOverlay.addEventListener('click', closeSidebar);\n    }\n\n    // Enhanced form submission\n    if (chatForm) {\n        chatForm.addEventListener('submit', function(e) {\n            e.preventDefault();\n            \n            const message = chatInput.value.trim();\n            if (!message || isStreaming) return;\n\n            setLoadingState(true);\n            addMessage('user', message, true);\n            \n            chatInput.value = '';\n            chatInput.style.height = 'auto';\n            chatInput.focus();\n\n            sendStreamingMessage(message);\n        });\n    }\n\n    // Enhanced streaming with think tag filtering\n    function sendStreamingMessage(message) {\n        isStreaming = true;\n        const thinkingIndicator = showThinkingIndicator();\n        \n        let aiMessageDiv = null;\n        let messageContent = null;\n        let markdownContainer = null;\n        let accumulatedContent = '';\n        let renderTimeout = null;\n        \n        let streamUrl = config.streamUrl || '/chat/stream/';\n        if (currentSessionId) {\n            streamUrl = `/chat/${currentSessionId}/stream/`;\n        }\n        \n        fetch(streamUrl, {\n            method: 'POST',\n            headers: {\n                'Content-Type': 'application/json',\n                'X-CSRFToken': getCSRFToken(),\n            },\n            body: JSON.stringify({ message: message })\n        })\n        .then(response => {\n            if (!response.ok) {\n                throw new Error(`HTTP ${response.status}: ${response.statusText}`);\n            }\n            \n            const reader = response.body.getReader();\n            const decoder = new TextDecoder();\n            \n            return readStreamRecursive(reader, decoder);\n        })\n        .catch(error => {\n            console.error('Streaming error:', error);\n            handleStreamingError(error, thinkingIndicator);\n        })\n        .finally(() => {\n            isStreaming = false;\n            setLoadingState(false);\n        });\n        \n        function readStreamRecursive(reader, decoder) {\n            return reader.read().then(({ done, value }) => {\n                if (done) {\n                    if (renderTimeout) {\n                        clearTimeout(renderTimeout);\n                        if (markdownContainer && accumulatedContent) {\n                            const finalFiltered = filterThinkTags(accumulatedContent);\n                            updateMessageContent(markdownContainer, finalFiltered, true);\n                        }\n                    }\n                    return;\n                }\n                \n                const chunk = decoder.decode(value, { stream: true });\n                const lines = chunk.split('\\n');\n                \n                lines.forEach(line => {\n                    if (line.startsWith('data: ') && line.length > 6) {\n                        try {\n                            const data = JSON.parse(line.slice(6));\n                            handleStreamData(data);\n                        } catch (e) {\n                            console.warn('Failed to parse streaming data:', line);\n                        }\n                    }\n                });\n                \n                return readStreamRecursive(reader, decoder);\n            });\n        }\n        \n        function handleStreamData(data) {\n            switch (data.type) {\n                case 'start':\n                    break;\n                    \n                case 'chunk':\n                    if (!aiMessageDiv) {\n                        hideThinkingIndicator();\n                        aiMessageDiv = addMessage('ai', '', false);\n                        messageContent = aiMessageDiv.querySelector('.message-content');\n                        markdownContainer = document.createElement('div');\n                        markdownContainer.className = 'markdown-content';\n                        messageContent.appendChild(markdownContainer);\n                    }\n                    \n                    accumulatedContent += data.content;\n                    \n                    // **FILTER THINK TAGS DURING STREAMING**\n                    const filteredContent = filterThinkTags(accumulatedContent);\n                    \n                    // Debounced rendering for smooth performance\n                    clearTimeout(renderTimeout);\n                    renderTimeout = setTimeout(() => {\n                        updateMessageContent(markdownContainer, filteredContent, false);\n                        scrollToBottomSmooth();\n                    }, 30);\n                    break;\n                    \n                case 'complete':\n                    if (data.session_id) {\n                        currentSessionId = data.session_id;\n                        updateURL(`/chat/${data.session_id}/`);\n                    }\n                    \n                    if (markdownContainer) {\n                        clearTimeout(renderTimeout);\n                        const finalFiltered = filterThinkTags(accumulatedContent);\n                        updateMessageContent(markdownContainer, finalFiltered, true);\n                        addMessageTimestamp(messageContent);\n                        addMessageActions(aiMessageDiv, finalFiltered);\n                    }\n                    break;\n                    \n                case 'error':\n                    handleStreamingError(new Error(data.error || 'Unknown error'), thinkingIndicator);\n                    break;\n            }\n        }\n    }\n\n    // Optimized message content updating\n    function updateMessageContent(container, content, isFinal = false) {\n        if (!container || !content) return;\n        \n        try {\n            const renderedContent = renderMarkdown(content);\n            \n            // Use efficient update method\n            if (isFinal) {\n                container.innerHTML = renderedContent;\n            } else {\n                // For streaming, use textContent first, then upgrade to HTML\n                if (content.includes('*') || content.includes('`') || content.includes('#')) {\n                    container.innerHTML = renderedContent;\n                } else {\n                    container.textContent = content;\n                }\n            }\n        } catch (error) {\n            console.warn('Content rendering failed:', error);\n            container.textContent = content;\n        }\n    }\n\n    // Simplified thinking indicator\n    function showThinkingIndicator() {\n        const thinkingDiv = document.createElement('div');\n        thinkingDiv.className = 'thinking-indicator';\n        thinkingDiv.id = 'thinking-indicator';\n        \n        const avatar = document.createElement('div');\n        avatar.className = 'message-avatar';\n        avatar.innerHTML = '<i class=\"fas fa-robot\"></i>';\n        \n        const thinkingContent = document.createElement('div');\n        thinkingContent.className = 'thinking-content';\n        \n        const thinkingText = document.createElement('span');\n        thinkingText.textContent = 'Thinking';\n        \n        const thinkingDots = document.createElement('div');\n        thinkingDots.className = 'thinking-dots';\n        \n        for (let i = 0; i < 3; i++) {\n            const dot = document.createElement('div');\n            dot.className = 'thinking-dot';\n            thinkingDots.appendChild(dot);\n        }\n        \n        thinkingContent.appendChild(thinkingText);\n        thinkingContent.appendChild(thinkingDots);\n        thinkingDiv.appendChild(avatar);\n        thinkingDiv.appendChild(thinkingContent);\n        \n        chatMessages.appendChild(thinkingDiv);\n        scrollToBottomSmooth();\n        \n        return thinkingDiv;\n    }\n\n    function hideThinkingIndicator() {\n        const thinkingIndicator = document.getElementById('thinking-indicator');\n        if (thinkingIndicator) {\n            thinkingIndicator.style.transition = 'opacity 0.2s ease';\n            thinkingIndicator.style.opacity = '0';\n            setTimeout(() => {\n                if (thinkingIndicator.parentNode) {\n                    thinkingIndicator.remove();\n                }\n            }, 200);\n        }\n    }\n\n    // Simplified message creation\n    function addMessage(role, content, animate = true) {\n        const messageDiv = document.createElement('div');\n        messageDiv.className = `message ${role}`;\n        \n        if (animate) {\n            messageDiv.style.opacity = '0';\n            messageDiv.style.transform = 'translateY(12px)';\n        }\n        \n        const avatar = document.createElement('div');\n        avatar.className = 'message-avatar';\n        \n        if (role === 'user') {\n            avatar.textContent = config.userInitial || 'U';\n        } else {\n            avatar.innerHTML = '<i class=\"fas fa-robot\"></i>';\n        }\n\n        const messageContent = document.createElement('div');\n        messageContent.className = 'message-content';\n        \n        if (content) {\n            const markdownContainer = document.createElement('div');\n            markdownContainer.className = 'markdown-content';\n            const filteredContent = filterThinkTags(content);\n            updateMessageContent(markdownContainer, filteredContent, true);\n            messageContent.appendChild(markdownContainer);\n        }\n\n        if (role === 'user') {\n            addMessageTimestamp(messageContent);\n            addMessageActions(messageDiv, content);\n        }\n\n        messageDiv.appendChild(avatar);\n        messageDiv.appendChild(messageContent);\n        chatMessages.appendChild(messageDiv);\n        \n        if (animate) {\n            requestAnimationFrame(() => {\n                messageDiv.style.transition = 'all 0.3s ease';\n                messageDiv.style.opacity = '1';\n                messageDiv.style.transform = 'translateY(0)';\n            });\n        }\n        \n        scrollToBottomSmooth();\n        return messageDiv;\n    }\n\n    function addMessageTimestamp(messageContent) {\n        const existingTime = messageContent.querySelector('.message-time');\n        if (existingTime) return;\n        \n        const timeDiv = document.createElement('div');\n        timeDiv.className = 'message-time';\n        timeDiv.textContent = formatTimestamp(new Date());\n        messageContent.appendChild(timeDiv);\n    }\n\n    // **FIX: Simplified message actions without background covering**\n    function addMessageActions(messageDiv, content) {\n        const existingActions = messageDiv.querySelector('.message-actions');\n        if (existingActions) return;\n        \n        const actionsDiv = document.createElement('div');\n        actionsDiv.className = 'message-actions';\n        \n        const copyBtn = document.createElement('button');\n        copyBtn.className = 'message-action-btn';\n        copyBtn.innerHTML = '<i class=\"fas fa-copy\"></i>';\n        copyBtn.title = 'Copy message';\n        copyBtn.addEventListener('click', (e) => {\n            e.stopPropagation();\n            copyMessage(content);\n        });\n        \n        actionsDiv.appendChild(copyBtn);\n        messageDiv.appendChild(actionsDiv);\n    }\n\n    // Enhanced copy functionality\n    function copyMessage(text) {\n        const cleanText = filterThinkTags(text)\n            .replace(/<[^>]*>/g, '')\n            .replace(/&nbsp;/g, ' ')\n            .replace(/&lt;/g, '<')\n            .replace(/&gt;/g, '>')\n            .replace(/&amp;/g, '&')\n            .trim();\n        \n        if (navigator.clipboard && navigator.clipboard.writeText) {\n            navigator.clipboard.writeText(cleanText)\n                .then(() => showCopyFeedback('Copied!'))\n                .catch(() => fallbackCopyText(cleanText));\n        } else {\n            fallbackCopyText(cleanText);\n        }\n    }\n\n    function fallbackCopyText(text) {\n        const textArea = document.createElement('textarea');\n        textArea.value = text;\n        textArea.style.position = 'fixed';\n        textArea.style.left = '-9999px';\n        textArea.style.top = '-9999px';\n        document.body.appendChild(textArea);\n        textArea.focus();\n        textArea.select();\n        \n        try {\n            const successful = document.execCommand('copy');\n            showCopyFeedback(successful ? 'Copied!' : 'Copy failed');\n        } catch (err) {\n            showCopyFeedback('Copy failed');\n        }\n        \n        document.body.removeChild(textArea);\n    }\n\n    function showCopyFeedback(message) {\n        const feedback = document.createElement('div');\n        feedback.className = 'copy-feedback';\n        feedback.textContent = message;\n        \n        document.body.appendChild(feedback);\n        \n        setTimeout(() => {\n            feedback.style.transition = 'all 0.2s ease';\n            feedback.style.opacity = '0';\n            feedback.style.transform = 'translateX(100%)';\n            setTimeout(() => feedback.remove(), 200);\n        }, 1500);\n    }\n\n    // Optimized smooth scrolling\n    function scrollToBottomSmooth() {\n        requestAnimationFrame(() => {\n            chatMessages.scrollTo({\n                top: chatMessages.scrollHeight,\n                behavior: 'smooth'\n            });\n        });\n    }\n\n    function setLoadingState(loading) {\n        if (sendBtn) {\n            sendBtn.disabled = loading;\n            if (loading) {\n                sendBtn.classList.add('loading');\n                sendBtn.innerHTML = '';\n            } else {\n                sendBtn.classList.remove('loading');\n                sendBtn.innerHTML = '<i class=\"fas fa-paper-plane\"></i>';\n            }\n        }\n        \n        if (chatInput) {\n            chatInput.disabled = loading;\n            if (!loading) {\n                setTimeout(() => chatInput.focus(), 100);\n            }\n        }\n    }\n\n    function handleStreamingError(error, thinkingIndicator = null) {\n        console.error('Streaming error:', error);\n        \n        if (thinkingIndicator) {\n            hideThinkingIndicator();\n        }\n        \n        const errorMessage = error.message || 'Sorry, I encountered an error. Please try again.';\n        addMessage('ai', `⚠️ ${errorMessage}`, true);\n    }\n\n    // Utility functions\n    function getCSRFToken() {\n        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');\n        return csrfToken ? csrfToken.value : '';\n    }\n\n    function updateURL(url) {\n        try {\n            window.history.replaceState({}, '', url);\n        } catch (e) {\n            console.warn('Could not update URL:', e);\n        }\n    }\n\n    function formatTimestamp(date) {\n        const now = new Date();\n        const diff = now - date;\n        const minutes = Math.floor(diff / 60000);\n        \n        if (minutes < 1) return 'Just now';\n        if (minutes < 60) return `${minutes}m ago`;\n        if (minutes < 1440) return `${Math.floor(minutes / 60)}h ago`;\n        \n        return date.toLocaleDateString(undefined, { \n            month: 'short', \n            day: 'numeric', \n            hour: '2-digit', \n            minute: '2-digit' \n        });\n    }\n\n    // **INITIALIZE: Process existing messages for old chats**\n    setTimeout(() => {\n        processExistingMessages();\n        chatMessages.scrollTop = chatMessages.scrollHeight;\n        \n        if (chatInput && !window.matchMedia('(max-width: 768px)').matches) {\n            chatInput.focus();\n        }\n    }, 200);\n\n    // Optimized resize handling\n    let resizeTimer;\n    window.addEventListener('resize', () => {\n        clearTimeout(resizeTimer);\n        resizeTimer = setTimeout(() => {\n            if (window.innerWidth > 768) {\n                closeSidebar();\n            }\n        }, 100);\n    });\n});\n\n// Global functions for template compatibility\nwindow.setSuggestedPrompt = function(prompt) {\n    const chatInput = document.getElementById('chatInput');\n    if (chatInput) {\n        chatInput.value = prompt;\n        chatInput.focus();\n        chatInput.dispatchEvent(new Event('input'));\n    }\n};\n\nwindow.loadChatSession = function(sessionId) {\n    document.body.style.transition = 'opacity 0.2s ease';\n    document.body.style.opacity = '0.8';\n    \n    setTimeout(() => {\n        window.location.href = `/chat/${sessionId}/`;\n    }, 150);\n};\n\nwindow.showChatModeModal = function() {\n    const modal = document.getElementById('chatModeModal');\n    if (modal && typeof bootstrap !== 'undefined') {\n        const modalInstance = new bootstrap.Modal(modal);\n        modalInstance.show();\n    }\n};\n\nwindow.setChatMode = function(mode) {\n    const documentSection = document.getElementById('documentSection');\n    const subjectSection = document.getElementById('subjectSection');\n    \n    if (documentSection && subjectSection) {\n        if (mode === 'document') {\n            documentSection.style.display = 'block';\n            subjectSection.style.display = 'none';\n        } else if (mode === 'subject') {\n            documentSection.style.display = 'none';\n            subjectSection.style.display = 'block';\n        }\n    }\n};\n\nwindow.startNewChat = function() {\n    const chatUrl = window.chatConfig?.chatUrl || '/chat/';\n    document.body.style.opacity = '0.9';\n    setTimeout(() => window.location.href = chatUrl, 150);\n};\n\n// Enhanced new chat button handling\ndocument.addEventListener('DOMContentLoaded', function() {\n    const newChatBtn = document.querySelector('.new-chat-btn');\n    if (newChatBtn) {\n        newChatBtn.addEventListener('click', function(e) {\n            e.preventDefault();\n            window.startNewChat();\n        });\n    }\n});
