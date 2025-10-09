@@ -62,7 +62,7 @@ x
                             {% if current_session.chat_type == 'document' and current_session.document %}
                                 <i class="fas fa-file-alt me-1"></i>{{ current_session.document.title|truncatechars:25 }}
                             {% elif current_session.chat_type == 'subject' and current_session.subject %}
-                                <i class="fas fa-books me-1"></i>{{ current_session.subject.name }}
+                                <i class="fas fa-book me-1"></i>{{ current_session.subject.name }}
                                 <small class="d-block text-muted">{{ current_session.subject.documents.count }} doc{{ current_session.subject.documents.count|pluralize }}</small>
                             {% elif current_session.chat_type == 'anonymous' %}
                                 <i class="fas fa-upload me-1"></i>Temp Document
@@ -85,7 +85,7 @@ x
                                 {% if session.chat_type == 'document' and session.document %}
                                     <i class="fas fa-file-alt me-1"></i>{{ session.document.title|truncatechars:20 }}
                                 {% elif session.chat_type == 'subject' and session.subject %}
-                                    <i class="fas fa-books me-1"></i>{{ session.subject.name|truncatechars:20 }}
+                                    <i class="fas fa-book me-1"></i>{{ session.subject.name|truncatechars:20 }}
                                 {% elif session.chat_type == 'anonymous' %}
                                     <i class="fas fa-upload me-1"></i>Quick Chat
                                 {% endif %}
@@ -126,7 +126,7 @@ x
                         {% if current_session.chat_type == 'document' and current_session.document %}
                             <i class="fas fa-file-alt me-1"></i>Document: {{ current_session.document.title }}
                         {% elif current_session.chat_type == 'subject' and current_session.subject %}
-                            <i class="fas fa-books me-1"></i>Subject: {{ current_session.subject.name }} ({{ current_session.subject.documents.count }} document{{ current_session.subject.documents.count|pluralize }})
+                            <i class="fas fa-book me-1"></i>Subject: {{ current_session.subject.name }} ({{ current_session.subject.documents.count }} document{{ current_session.subject.documents.count|pluralize }})
                         {% elif current_session.chat_type == 'anonymous' %}
                             <i class="fas fa-upload me-1"></i>Temporary Document Chat
                         {% endif %}
@@ -146,7 +146,7 @@ x
                                 <i class="fas fa-robot"></i>
                             {% endif %}
                         </div>
-                        <div class="message-content">
+                        <div class="message-content" {% if not message.is_user %}data-markdown="true"{% endif %}>
                             {{ message.message|linebreaks }}
                             <div class="message-time">
                                 {{ message.timestamp|date:"M d, H:i" }}
@@ -177,7 +177,7 @@ x
                                 </button>
                             </div>
                         {% elif current_session.chat_type == 'subject' and current_session.subject %}
-                            <i class="fas fa-books"></i>
+                            <i class="fas fa-book"></i>
                             <h4>Chat within {{ current_session.subject.name }}</h4>
                             <p>Ask questions across all {{ current_session.subject.documents.count }} document{{ current_session.subject.documents.count|pluralize }} in this subject. I can find connections and provide comprehensive answers.</p>
                             
@@ -230,7 +230,7 @@ x
                             </div>
                             <div class="col-md-6">
                                 <div class="text-center p-3 border rounded">
-                                    <i class="fas fa-books fa-2x text-success mb-2"></i>
+                                    <i class="fas fa-book fa-2x text-success mb-2"></i>
                                     <h6>Chat within Subject</h6>
                                     <p class="small text-muted">Query across all documents in a subject</p>
                                     <button class="btn btn-sm btn-success" onclick="showChatModeModal()">
@@ -308,7 +308,7 @@ x
                                            value="subject" onchange="setChatMode('subject')" required>
                                     <label class="form-check-label" for="chat_mode_subject">
                                         <div class="p-3 border rounded">
-                                            <i class="fas fa-books fa-2x text-success mb-2"></i>
+                                            <i class="fas fa-book fa-2x text-success mb-2"></i>
                                             <h6>Chat within Subject</h6>
                                             <p class="small text-muted mb-0">Query across all documents in a subject. Find connections and comprehensive answers.</p>
                                         </div>
