@@ -1,7 +1,7 @@
-// Enhanced Chat JavaScript with Modern Features and Improved UX
+// Minimalist Chat JavaScript with Enhanced Text Rendering
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Configure marked for safe rendering with enhanced options
+    // Configure marked for optimal rendering
     if (typeof marked !== 'undefined') {
         marked.setOptions({
             breaks: true,
@@ -9,7 +9,10 @@ document.addEventListener('DOMContentLoaded', function() {
             sanitize: false,
             silent: false,
             headerIds: false,
-            mangle: false
+            mangle: false,
+            // Better text rendering options
+            smartypants: false,
+            xhtml: false
         });
     }
     
@@ -26,23 +29,30 @@ document.addEventListener('DOMContentLoaded', function() {
     const config = window.chatConfig || {};
     let currentSessionId = config.sessionId;
     let isStreaming = false;
+    let autoResizeDebounce = null;
     
-    // Enhanced auto-resize textarea with better performance
-    let resizeTimeout;
+    // Enhanced auto-resize with better performance
     chatInput.addEventListener('input', function() {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            this.style.height = 'auto';
-            const newHeight = Math.min(Math.max(this.scrollHeight, 56), 180);
-            this.style.height = newHeight + 'px';
-        }, 10);
+        clearTimeout(autoResizeDebounce);
+        autoResizeDebounce = setTimeout(() => {
+            const currentHeight = this.scrollHeight;
+            const minHeight = 50;
+            const maxHeight = 150;
+            
+            // Only update if height actually changed
+            const newHeight = Math.min(Math.max(currentHeight, minHeight), maxHeight);
+            if (this.style.height !== newHeight + 'px') {
+                this.style.height = 'auto';
+                this.style.height = newHeight + 'px';
+            }
+        }, 5);
     });
 
-    // Enhanced keyboard shortcuts
+    // Refined keyboard shortcuts
     chatInput.addEventListener('keydown', function(event) {
         if (event.key === 'Enter') {
-            if (event.shiftKey || event.ctrlKey) {
-                // Allow new line with Shift+Enter or Ctrl+Enter
+            if (event.shiftKey || event.ctrlKey || event.metaKey) {
+                // Allow new line with modifiers
                 return;
             } else {
                 // Send message with Enter
@@ -61,11 +71,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Enhanced mobile sidebar with better animations
+    // Simplified mobile sidebar
     if (mobileSidebarToggle) {
         mobileSidebarToggle.addEventListener('click', function() {
             const isOpen = chatSidebar.classList.contains('show');
-            
             if (isOpen) {
                 closeSidebar();
             } else {
@@ -78,7 +87,6 @@ document.addEventListener('DOMContentLoaded', function() {
         chatOverlay.addEventListener('click', closeSidebar);
     }
 
-    // Sidebar functions
     function openSidebar() {
         chatSidebar.classList.add('show');
         chatOverlay.classList.add('show');
@@ -91,7 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.style.overflow = '';
     }
 
-    // Enhanced form submission with better UX
+    // Enhanced form submission
     chatForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
@@ -101,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Set loading state
         setLoadingState(true);
         
-        // Add user message with animation
+        // Add user message
         addMessage('user', message, true);
         
         // Clear and reset input
@@ -109,11 +117,11 @@ document.addEventListener('DOMContentLoaded', function() {
         chatInput.style.height = 'auto';
         chatInput.focus();
 
-        // Send message with streaming
+        // Send message
         sendStreamingMessage(message);
     });
 
-    // Enhanced streaming message function
+    // Optimized streaming with better text rendering
     function sendStreamingMessage(message) {
         isStreaming = true;
         const thinkingIndicator = showThinkingIndicator();
@@ -121,6 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let aiMessageDiv = null;
         let messageContent = null;
         let accumulatedContent = '';
+        let renderTimeout = null;
         
         // Prepare streaming URL
         let streamUrl = config.streamUrl || '/chat/stream/';
@@ -128,7 +137,6 @@ document.addEventListener('DOMContentLoaded', function() {
             streamUrl = `/chat/${currentSessionId}/stream/`;
         }
         
-        // Enhanced fetch with better error handling
         fetch(streamUrl, {
             method: 'POST',
             headers: {
@@ -159,6 +167,13 @@ document.addEventListener('DOMContentLoaded', function() {
         function readStreamRecursive(reader, decoder) {
             return reader.read().then(({ done, value }) => {
                 if (done) {
+                    // Final render and cleanup
+                    if (renderTimeout) {
+                        clearTimeout(renderTimeout);
+                        if (messageContent && accumulatedContent) {
+                            updateMessageContent(messageContent, accumulatedContent, true);
+                        }
+                    }
                     return;
                 }
                 
@@ -194,8 +209,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     accumulatedContent += data.content;
-                    updateMessageContent(messageContent, accumulatedContent);
-                    scrollToBottomSmooth();
+                    
+                    // Debounced rendering for better performance
+                    clearTimeout(renderTimeout);
+                    renderTimeout = setTimeout(() => {
+                        updateMessageContent(messageContent, accumulatedContent, false);
+                        scrollToBottomSmooth();
+                    }, 50); // Render every 50ms for smooth updates
                     break;
                     
                 case 'complete':
@@ -205,6 +225,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     
                     if (messageContent) {
+                        // Final render
+                        clearTimeout(renderTimeout);
+                        updateMessageContent(messageContent, accumulatedContent, true);
                         addMessageTimestamp(messageContent);
                         addMessageActions(aiMessageDiv, accumulatedContent);
                     }
@@ -217,21 +240,44 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Enhanced message content updating
-    function updateMessageContent(messageElement, content) {
+    // Enhanced message content updating with better text rendering
+    function updateMessageContent(messageElement, content, isFinal = false) {
+        if (!messageElement || !content) return;
+        
         try {
+            let renderedContent;
+            
             if (typeof marked !== 'undefined') {
-                messageElement.innerHTML = marked.parse(content);
+                renderedContent = marked.parse(content);
             } else {
-                messageElement.innerHTML = content.replace(/\n/g, '<br>');
+                renderedContent = escapeHtml(content).replace(/\n/g, '<br>');
             }
+            
+            // Use DocumentFragment for better performance during streaming
+            if (!isFinal) {
+                const fragment = document.createDocumentFragment();
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = renderedContent;
+                
+                while (tempDiv.firstChild) {
+                    fragment.appendChild(tempDiv.firstChild);
+                }
+                
+                // Clear and append in one operation
+                messageElement.innerHTML = '';
+                messageElement.appendChild(fragment);
+            } else {
+                // Final render - can use innerHTML safely
+                messageElement.innerHTML = renderedContent;
+            }
+            
         } catch (error) {
-            console.warn('Markdown parsing failed:', error);
-            messageElement.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
+            console.warn('Content rendering failed:', error);
+            messageElement.textContent = content;
         }
     }
 
-    // Enhanced thinking indicator with better animations
+    // Refined thinking indicator
     function showThinkingIndicator() {
         const thinkingDiv = document.createElement('div');
         thinkingDiv.className = 'thinking-indicator';
@@ -270,20 +316,25 @@ document.addEventListener('DOMContentLoaded', function() {
     function hideThinkingIndicator() {
         const thinkingIndicator = document.getElementById('thinking-indicator');
         if (thinkingIndicator) {
+            // Gentle fade out
+            thinkingIndicator.style.transition = 'opacity 0.2s ease';
             thinkingIndicator.style.opacity = '0';
-            thinkingIndicator.style.transform = 'translateY(-10px)';
-            setTimeout(() => thinkingIndicator.remove(), 200);
+            setTimeout(() => {
+                if (thinkingIndicator.parentNode) {
+                    thinkingIndicator.remove();
+                }
+            }, 200);
         }
     }
 
-    // Enhanced message creation with better animations
+    // Simplified message creation
     function addMessage(role, content, animate = true) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${role}`;
         
         if (animate) {
             messageDiv.style.opacity = '0';
-            messageDiv.style.transform = 'translateY(20px) scale(0.95)';
+            messageDiv.style.transform = 'translateY(12px)';
         }
         
         const avatar = document.createElement('div');
@@ -299,7 +350,7 @@ document.addEventListener('DOMContentLoaded', function() {
         messageContent.className = 'message-content';
         
         if (content) {
-            updateMessageContent(messageContent, content);
+            updateMessageContent(messageContent, content, true);
         }
 
         if (role === 'user') {
@@ -312,19 +363,18 @@ document.addEventListener('DOMContentLoaded', function() {
         chatMessages.appendChild(messageDiv);
         
         if (animate) {
-            // Trigger animation
-            setTimeout(() => {
-                messageDiv.style.transition = 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            // Simple fade in
+            requestAnimationFrame(() => {
+                messageDiv.style.transition = 'all 0.3s ease';
                 messageDiv.style.opacity = '1';
-                messageDiv.style.transform = 'translateY(0) scale(1)';
-            }, 10);
+                messageDiv.style.transform = 'translateY(0)';
+            });
         }
         
         scrollToBottomSmooth();
         return messageDiv;
     }
 
-    // Add message timestamp
     function addMessageTimestamp(messageContent) {
         const existingTime = messageContent.querySelector('.message-time');
         if (existingTime) return;
@@ -335,7 +385,7 @@ document.addEventListener('DOMContentLoaded', function() {
         messageContent.appendChild(timeDiv);
     }
 
-    // Enhanced message actions
+    // Simplified message actions
     function addMessageActions(messageDiv, content) {
         const existingActions = messageDiv.querySelector('.message-actions');
         if (existingActions) return;
@@ -343,25 +393,32 @@ document.addEventListener('DOMContentLoaded', function() {
         const actionsDiv = document.createElement('div');
         actionsDiv.className = 'message-actions';
         
-        // Copy button
         const copyBtn = document.createElement('button');
         copyBtn.className = 'message-action-btn';
         copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
         copyBtn.title = 'Copy message';
-        copyBtn.addEventListener('click', () => copyMessage(content));
+        copyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            copyMessage(content);
+        });
         
         actionsDiv.appendChild(copyBtn);
         messageDiv.appendChild(actionsDiv);
     }
 
-    // Copy message functionality with toast feedback
+    // Enhanced copy functionality
     function copyMessage(text) {
-        // Clean text for copying
-        const cleanText = text.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+        const cleanText = text
+            .replace(/<[^>]*>/g, '') // Remove HTML tags
+            .replace(/&nbsp;/g, ' ') // Replace &nbsp; with spaces
+            .replace(/&lt;/g, '<') // Replace &lt; with <
+            .replace(/&gt;/g, '>') // Replace &gt; with >
+            .replace(/&amp;/g, '&') // Replace &amp; with &
+            .trim();
         
-        if (navigator.clipboard) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
             navigator.clipboard.writeText(cleanText)
-                .then(() => showCopyFeedback('Message copied!'))
+                .then(() => showCopyFeedback('Copied!'))
                 .catch(() => fallbackCopyText(cleanText));
         } else {
             fallbackCopyText(cleanText);
@@ -372,58 +429,75 @@ document.addEventListener('DOMContentLoaded', function() {
         const textArea = document.createElement('textarea');
         textArea.value = text;
         textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '-9999px';
         document.body.appendChild(textArea);
         textArea.focus();
         textArea.select();
         
         try {
-            document.execCommand('copy');
-            showCopyFeedback('Message copied!');
+            const successful = document.execCommand('copy');
+            showCopyFeedback(successful ? 'Copied!' : 'Copy failed');
         } catch (err) {
-            showCopyFeedback('Copy failed', 'error');
+            showCopyFeedback('Copy failed');
         }
         
         document.body.removeChild(textArea);
     }
 
-    function showCopyFeedback(message, type = 'success') {
+    function showCopyFeedback(message) {
         const feedback = document.createElement('div');
         feedback.className = 'copy-feedback';
         feedback.textContent = message;
         
-        if (type === 'error') {
-            feedback.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-        }
-        
         document.body.appendChild(feedback);
         
         setTimeout(() => {
+            feedback.style.transition = 'all 0.2s ease';
             feedback.style.opacity = '0';
             feedback.style.transform = 'translateX(100%)';
-            setTimeout(() => feedback.remove(), 300);
+            setTimeout(() => feedback.remove(), 200);
         }, 2000);
     }
 
-    // Enhanced smooth scrolling
+    // Optimized smooth scrolling
     function scrollToBottomSmooth() {
-        requestAnimationFrame(() => {
-            chatMessages.scrollTo({
-                top: chatMessages.scrollHeight,
-                behavior: 'smooth'
+        if (chatMessages.dataset.userScrolled !== 'true') {
+            requestAnimationFrame(() => {
+                chatMessages.scrollTo({
+                    top: chatMessages.scrollHeight,
+                    behavior: 'smooth'
+                });
             });
-        });
+        }
     }
 
-    // Loading state management
+    // Track user scrolling to prevent auto-scroll interference
+    let scrollTimeout;
+    chatMessages.addEventListener('scroll', () => {
+        clearTimeout(scrollTimeout);
+        
+        const isAtBottom = chatMessages.scrollTop + chatMessages.clientHeight >= chatMessages.scrollHeight - 100;
+        
+        if (isAtBottom) {
+            chatMessages.dataset.userScrolled = 'false';
+        } else {
+            chatMessages.dataset.userScrolled = 'true';
+        }
+        
+        scrollTimeout = setTimeout(() => {
+            chatMessages.dataset.userScrolled = 'false';
+        }, 3000);
+    });
+
+    // Simplified loading state
     function setLoadingState(loading) {
         sendBtn.disabled = loading;
         chatInput.disabled = loading;
         
         if (loading) {
             sendBtn.classList.add('loading');
-            sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            sendBtn.innerHTML = '';
         } else {
             sendBtn.classList.remove('loading');
             sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
@@ -431,7 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Enhanced error handling
+    // Simplified error handling
     function handleStreamingError(error, thinkingIndicator = null) {
         console.error('Streaming error:', error);
         
@@ -440,28 +514,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         const errorMessage = error.message || 'Sorry, I encountered an error. Please try again.';
-        const aiMessageDiv = addMessage('ai', `⚠️ ${errorMessage}`, true);
-        
-        // Add retry button for network errors
-        if (error.message.includes('HTTP') || error.message.includes('Network')) {
-            setTimeout(() => {
-                const messageContent = aiMessageDiv.querySelector('.message-content');
-                const retryBtn = document.createElement('button');
-                retryBtn.className = 'btn btn-sm btn-outline-primary mt-2';
-                retryBtn.innerHTML = '<i class="fas fa-redo me-1"></i>Retry';
-                retryBtn.addEventListener('click', () => {
-                    // Get the last user message to retry
-                    const messages = chatMessages.querySelectorAll('.message.user');
-                    if (messages.length > 0) {
-                        const lastMessage = messages[messages.length - 1];
-                        const lastText = lastMessage.querySelector('.message-content').textContent;
-                        aiMessageDiv.remove();
-                        sendStreamingMessage(lastText.replace(/\d{1,2}[/:.]\d{1,2}[/:.]\d{2,4}[, ]+\d{1,2}[:.:]\d{2}.*$/, '').trim());
-                    }
-                });
-                messageContent.appendChild(retryBtn);
-            }, 500);
-        }
+        addMessage('ai', `⚠️ ${errorMessage}`, true);
     }
 
     // Utility functions
@@ -501,35 +554,15 @@ document.addEventListener('DOMContentLoaded', function() {
         return div.innerHTML;
     }
 
-    // Enhanced scroll to bottom on page load
-    function initialScroll() {
-        setTimeout(() => {
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }, 100);
-    }
+    // Initialize
+    setTimeout(() => {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        if (chatInput && !window.matchMedia('(max-width: 768px)').matches) {
+            chatInput.focus();
+        }
+    }, 300);
 
-    // Intersection Observer for auto-scroll behavior
-    const observeLastMessage = () => {
-        const messages = chatMessages.querySelectorAll('.message');
-        if (messages.length === 0) return;
-        
-        const lastMessage = messages[messages.length - 1];
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    // User is at bottom, continue auto-scrolling
-                    chatMessages.dataset.autoScroll = 'true';
-                } else {
-                    // User scrolled up, pause auto-scrolling
-                    chatMessages.dataset.autoScroll = 'false';
-                }
-            });
-        }, { threshold: 0.1 });
-        
-        observer.observe(lastMessage);
-    };
-
-    // Enhanced resize handling
+    // Optimized resize handling
     let resizeTimer;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
@@ -537,20 +570,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (window.innerWidth > 768) {
                 closeSidebar();
             }
-            scrollToBottomSmooth();
         }, 100);
     });
-
-    // Initialize
-    initialScroll();
-    observeLastMessage();
-    
-    // Focus input on load
-    setTimeout(() => {
-        if (chatInput && !window.matchMedia('(max-width: 768px)').matches) {
-            chatInput.focus();
-        }
-    }, 500);
 });
 
 // Global functions for template compatibility
@@ -559,22 +580,18 @@ window.setSuggestedPrompt = function(prompt) {
     if (chatInput) {
         chatInput.value = prompt;
         chatInput.focus();
-        
-        // Trigger input event for auto-resize
         chatInput.dispatchEvent(new Event('input'));
     }
 };
 
 window.loadChatSession = function(sessionId) {
-    // Add loading state
-    const loader = document.createElement('div');
-    loader.className = 'position-fixed top-50 start-50 translate-middle text-center';
-    loader.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
-    document.body.appendChild(loader);
+    // Simple loading transition
+    document.body.style.transition = 'opacity 0.2s ease';
+    document.body.style.opacity = '0.8';
     
     setTimeout(() => {
         window.location.href = `/chat/${sessionId}/`;
-    }, 300);
+    }, 200);
 };
 
 window.showChatModeModal = function() {
@@ -600,20 +617,15 @@ window.setChatMode = function(mode) {
     }
 };
 
-// Enhanced new chat function
 window.startNewChat = function() {
     const chatUrl = window.chatConfig?.chatUrl || '/chat/';
-    
-    // Add smooth transition effect
-    document.body.style.opacity = '0.8';
-    setTimeout(() => {
-        window.location.href = chatUrl;
-    }, 200);
+    document.body.style.opacity = '0.9';
+    setTimeout(() => window.location.href = chatUrl, 150);
 };
 
-// Add click handler for new chat button if it exists
+// Enhanced new chat button handling
 document.addEventListener('DOMContentLoaded', function() {
-    const newChatBtn = document.querySelector('[href*="chat"][class*="new-chat"], .new-chat-btn');
+    const newChatBtn = document.querySelector('.new-chat-btn');
     if (newChatBtn) {
         newChatBtn.addEventListener('click', function(e) {
             e.preventDefault();
