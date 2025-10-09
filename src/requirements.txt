@@ -22,6 +22,10 @@ sentence-transformers
 faiss-cpu
 numpy
 
+# Multimodal support
+Pillow>=10.0.0
+pandas>=1.5.0
+
 # Supabase integration
 supabase
 
