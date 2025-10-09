@@ -9,6 +9,9 @@ document.addEventListener('DOMContentLoaded', function() {
         silent: false
     });
     
+    // Process existing messages with markdown rendering
+    processExistingMessages();
+    
     const chatInput = document.getElementById('chatInput');
     const chatForm = document.getElementById('chatForm');
     const sendBtn = document.getElementById('sendBtn');
@@ -301,6 +304,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial scroll to bottom
     scrollToBottom();
+    
+    // Process existing messages for markdown rendering
+    function processExistingMessages() {
+        const messageContents = document.querySelectorAll('.message-content[data-markdown="true"]');
+        
+        messageContents.forEach(function(messageContent) {
+            // Get the current content (raw markdown with linebreaks converted to <br>)
+            const rawContent = messageContent.innerHTML;
+            
+            // Extract the timestamp element to preserve it
+            const timeElement = messageContent.querySelector('.message-time');
+            const timeHTML = timeElement ? timeElement.outerHTML : '';
+            
+            // Remove the time element from the raw content to get just the message
+            let messageText = rawContent;
+            if (timeElement) {
+                messageText = rawContent.replace(timeElement.outerHTML, '');
+            }
+            
+            // Convert <br> tags back to newlines for proper markdown processing
+            messageText = messageText.replace(/<br\s*\/?>/gi, '\n');
+            
+            // Remove any extra HTML tags that might have been added by linebreaks filter
+            messageText = messageText.replace(/<p>/gi, '').replace(/<\/p>/gi, '\n');
+            
+            // Clean up extra whitespace
+            messageText = messageText.trim();
+            
+            try {
+                // Render the markdown
+                const renderedContent = marked.parse(messageText);
+                
+                // Update the message content with rendered markdown and restore timestamp
+                messageContent.innerHTML = renderedContent + timeHTML;
+            } catch (error) {
+                console.warn('Failed to process markdown for existing message:', error);
+                // Fall back to original content if markdown processing fails
+                messageContent.innerHTML = messageText.replace(/\n/g, '<br>') + timeHTML;
+            }
+        });
+        
+        // Scroll to bottom after processing messages
+        scrollToBottom();
+    }
 });
 
 // Set suggested prompt
@@ -336,5 +383,17 @@ function setChatMode(mode) {
     } else if (mode === 'subject') {
         documentSection.style.display = 'none';
         subjectSection.style.display = 'block';
+    }
+}
+
+// Set suggested prompt
+function setSuggestedPrompt(prompt) {
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.value = prompt;
+        chatInput.focus();
+        // Auto-resize the textarea
+        chatInput.style.height = 'auto';
+        chatInput.style.height = Math.min(chatInput.scrollHeight, 150) + 'px';
     }
 }
