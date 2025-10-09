@@ -9,9 +9,6 @@ document.addEventListener('DOMContentLoaded', function() {
         silent: false
     });
     
-    // Process existing messages with markdown rendering
-    processExistingMessages();
-    
     const chatInput = document.getElementById('chatInput');
     const chatForm = document.getElementById('chatForm');
     const sendBtn = document.getElementById('sendBtn');
@@ -305,6 +302,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initial scroll to bottom
     scrollToBottom();
     
+    // Process existing messages for markdown rendering after DOM is ready
+    processExistingMessages();
+    
     // Process existing messages for markdown rendering
     function processExistingMessages() {
         const messageContents = document.querySelectorAll('.message-content[data-markdown="true"]');
@@ -349,12 +349,6 @@ document.addEventListener('DOMContentLoaded', function() {
         scrollToBottom();
     }
 });
-
-// Set suggested prompt
-function setSuggestedPrompt(prompt) {
-    document.getElementById('chatInput').value = prompt;
-    document.getElementById('chatInput').focus();
-}
 
 // Load chat session
 function loadChatSession(sessionId) {

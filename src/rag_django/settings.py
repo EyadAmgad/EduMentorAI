@@ -98,6 +98,7 @@ USE_SQLITE = config('USE_SQLITE', default=True, cast=bool)
 if USE_SQLITE:
     # SQLite database for development
     DATABASES = {
+        print("I am using Sqlite")
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
