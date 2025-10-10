@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Email Verification Required - EduMentorAI{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/email_verification_required.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="verification-card">
+                <div class="verification-header">
+                    <div class="verification-icon">
+                        📧
+                    </div>
+                    <h2 class="verification-title">Check Your Email</h2>
+                    <p class="verification-subtitle">We've sent a verification link to your email address</p>
+                </div>
+                
+                <div class="verification-body">
+                    {% if user_email %}
+                        <div class="email-info">
+                            <p>We sent a verification email to:</p>
+                            <strong class="user-email">{{ user_email }}</strong>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="verification-steps">
+                        <h5>Next Steps:</h5>
+                        <ol>
+                            <li>Check your email inbox</li>
+                            <li>Look in your spam/junk folder if you don't see it</li>
+                            <li>Click the verification link in the email</li>
+                            <li>Return to EduMentorAI to start learning!</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="verification-actions">
+                        <a href="{% url 'rag_app:resend_verification' %}" class="btn btn-primary">
+                            🔄 Resend Verification Email
+                        </a>
+                        
+                        <a href="{% url 'rag_app:home' %}" class="btn btn-outline-secondary">
+                            🏠 Return to Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
