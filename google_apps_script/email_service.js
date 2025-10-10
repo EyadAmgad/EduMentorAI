@@ -7,11 +7,11 @@
 
 // Configuration - Update these values
 const CONFIG = {
-  SENDER_EMAIL: 'your-gmail@gmail.com', // Your Gmail address
+  SENDER_EMAIL: 'edumentorai25@gmail.com', // Your Gmail address
   SENDER_NAME: 'EduMentorAI Support',
-  DJANGO_BASE_URL: 'https://your-app.hf.space', // Your Hugging Face URL
-  PASSWORD: 'your-simple-password-here', // Simple password for authentication
-  SPREADSHEET_ID: 'your-spreadsheet-id-here' // Optional: for logging
+  DJANGO_BASE_URL: 'http://localhost:8000', // Your local development URL
+  PASSWORD: 'V@g@bond0603', // Simple password for authentication
+  SPREADSHEET_ID: '' // Optional: for logging
 };
 
 /**
@@ -77,7 +77,7 @@ function doPost(e) {
  */
 function sendVerificationEmail(data) {
   try {
-    const verificationUrl = `${CONFIG.DJANGO_BASE_URL}/verify-email/${data.verification_token}/`;
+    const verificationUrl = `${CONFIG.DJANGO_BASE_URL}/accounts/confirm-email/${data.verification_token}/`;
     
     const subject = 'Verify Your EduMentorAI Account';
     
@@ -287,7 +287,7 @@ Visit us at: ${CONFIG.DJANGO_BASE_URL}
  */
 function sendPasswordResetEmail(data) {
   try {
-    const resetUrl = `${CONFIG.DJANGO_BASE_URL}/reset-password/${data.reset_token}/`;
+    const resetUrl = `${CONFIG.DJANGO_BASE_URL}/accounts/password/reset/key/${data.reset_token}/`;
     
     const subject = 'Reset Your EduMentorAI Password';
     

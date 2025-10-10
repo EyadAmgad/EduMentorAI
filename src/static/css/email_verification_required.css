@@ -24,8 +24,12 @@
 .auth-body {
     padding: 2rem;
     text-align: center;
+    background: var(--background-dark);
 }
 
+[data-theme="dark"] .auth-body {
+    background: var(--background-dark);
+}
 .verification-icon {
     font-size: 4rem;
     color: #f59e0b;

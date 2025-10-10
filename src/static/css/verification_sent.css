@@ -24,8 +24,12 @@
 .auth-body {
     padding: 2rem;
     text-align: center;
+    background: var(--background-light);
 }
 
+[data-theme="dark"] .auth-body {
+    background: var(--background-dark);
+}
 .email-icon {
     font-size: 4rem;
     color: #f59e0b;
@@ -60,7 +64,7 @@
 }
 
 .steps {
-    background: #f8fafc;
+    background: var(-background-color);
     border-radius: 0.5rem;
     padding: 1.5rem;
     margin: 1.5rem 0;

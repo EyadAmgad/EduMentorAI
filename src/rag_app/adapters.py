@@ -10,8 +10,11 @@ from allauth.account.utils import user_email
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django import forms
+from .email_service import GoogleAppsScriptEmailService
+import logging
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 class CustomAccountAdapter(DefaultAccountAdapter):
@@ -80,3 +83,104 @@ class CustomAccountAdapter(DefaultAccountAdapter):
         """
         # Do nothing - we handle this in clean_email instead with a proper error message
         pass
+
+    def send_mail(self, template_prefix, email, context):
+        """
+        Override to use Google Apps Script for email sending
+        This replaces Django's default email backend
+        """
+        try:
+            email_service = GoogleAppsScriptEmailService()
+            user = context.get('user')
+            request = context.get('request')
+            
+            if not user:
+                logger.error("No user found in email context")
+                return
+            
+            # Build user name from available data
+            user_name = ''
+            if hasattr(user, 'first_name') and user.first_name:
+                user_name = user.first_name
+                if hasattr(user, 'last_name') and user.last_name:
+                    user_name += f" {user.last_name}"
+            elif hasattr(user, 'username') and user.username:
+                user_name = user.username
+            else:
+                user_name = email.split('@')[0]
+            
+            logger.info(f"Sending email with template: {template_prefix}")
+            logger.info(f"Context keys: {list(context.keys())}")
+            
+            # Handle email verification
+            if 'email_confirmation' in template_prefix:
+                # Try multiple ways to get the verification key
+                verification_token = None
+                
+                # Method 1: email_address object
+                email_address = context.get('email_address')
+                if email_address and hasattr(email_address, 'key'):
+                    verification_token = email_address.key
+                    logger.info(f"Found verification token from email_address: {verification_token}")
+                
+                # Method 2: direct key in context
+                if not verification_token:
+                    verification_token = context.get('key')
+                    if verification_token:
+                        logger.info(f"Found verification token from context key: {verification_token}")
+                
+                # Method 3: confirmation key
+                if not verification_token:
+                    verification_token = context.get('confirmation_key')
+                    if verification_token:
+                        logger.info(f"Found verification token from confirmation_key: {verification_token}")
+                
+                # Method 4: extract from activate_url
+                if not verification_token:
+                    activate_url = context.get('activate_url', '')
+                    if activate_url:
+                        import re
+                        match = re.search(r'/([a-zA-Z0-9\-_]+)/?$', activate_url)
+                        if match:
+                            verification_token = match.group(1)
+                            logger.info(f"Found verification token from URL: {verification_token}")
+                
+                if verification_token:
+                    result = email_service.send_verification_email(
+                        email, user_name, verification_token, request
+                    )
+                    if result.get('success'):
+                        logger.info(f"Verification email sent successfully to {email}")
+                    else:
+                        logger.error(f"Failed to send verification email: {result.get('error')}")
+                else:
+                    logger.error("No verification key found in email context")
+                    logger.error(f"Available context: {context}")
+            
+            # Handle password reset
+            elif 'password_reset' in template_prefix:
+                # Extract reset token from context
+                uid = context.get('uid')
+                token = context.get('token')
+                if uid and token:
+                    reset_token = f"{uid}-{token}"
+                    result = email_service.send_password_reset_email(
+                        email, user_name, reset_token, request
+                    )
+                    if result.get('success'):
+                        logger.info(f"Password reset email sent successfully to {email}")
+                    else:
+                        logger.error(f"Failed to send password reset email: {result.get('error')}")
+                else:
+                    logger.error("No reset token found in email context")
+                    logger.error(f"Available context: {context}")
+            
+            else:
+                logger.warning(f"Unknown email template: {template_prefix}")
+                
+        except Exception as e:
+            logger.error(f"Error in send_mail: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            # Don't raise the exception to prevent breaking the flow
+            pass

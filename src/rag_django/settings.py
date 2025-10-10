@@ -226,10 +226,16 @@ else:
 
 # --- Email Configuration ---
 
-# Email backend configuration - uses SMTP if credentials provided, console for development
+# Google Apps Script Email Service Configuration
+GOOGLE_APPS_SCRIPT_URL = config('GOOGLE_APPS_SCRIPT_URL', default='')
+GOOGLE_APPS_SCRIPT_PASSWORD = config('GOOGLE_APPS_SCRIPT_PASSWORD', default='')
+print(GOOGLE_APPS_SCRIPT_URL)
+print(GOOGLE_APPS_SCRIPT_PASSWORD)
+# Use Google Apps Script backend if configured, otherwise console backend
+EMAIL_BACKEND = 'rag_app.email_backend.GoogleAppsScriptBackend'
 
-# --- Email (Development defaults to console backend) ---
-EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
+
+# Legacy SMTP settings (kept for backward compatibility)
 EMAIL_HOST = config('EMAIL_HOST', default='localhost')
 EMAIL_PORT = config('EMAIL_PORT', default=1025, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=False, cast=bool)
@@ -313,6 +319,6 @@ LOGGING = {
 
 
 CSRF_TRUSTED_ORIGINS = [
-
     'https://edumentorai-edumentorai.hf.space'
 ]
+
