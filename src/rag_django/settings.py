@@ -64,8 +64,10 @@ MIDDLEWARE = [
     'rag_app.email_verification_middleware.EmailVerificationMiddleware',  # Email verification
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',  # AllAuth middleware'
-]# --- URL and Template Configuration ---
+    # 'allauth.account.middleware.AccountMiddleware',  # AllAuth middleware - requires allauth 0.50+
+]
+
+# --- URL and Template Configuration ---
 
 ROOT_URLCONF = 'rag_django.urls'
 
@@ -92,11 +94,11 @@ SITE_ID = 1
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 # Database configuration with SQLite fallback for development
-USE_SQLITE = config('USE_SQLITE', default=True, cast=bool)
+USE_SQLITE = False
 
 
 if USE_SQLITE:
-    # SQLite database for development
+    # SQLite database fo1r development
     print("I am using Sqlite")
     DATABASES = {
         'default': {

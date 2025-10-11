@@ -2,6 +2,8 @@ import logging
 import re
 import os
 from io import BytesIO
+from django.utils import timezone
+from ..prompt_loader import prompt_loader
 
 logger = logging.getLogger(__name__)
 
@@ -26,40 +28,39 @@ class SlideProcessor:
         Main method to generate PowerPoint slides from uploaded documents using existing RAG LLM
         
         Args:
-            files: List of file objects or Document model instances
-            documents: List of Document model instances (optional, for image support)
-            ...
+            files: Uploaded files
+            slide_count: Number of slides to generate
+            template: Template style
+            title: Presentation title
+            language: Language for the slides
+            instructions: Additional instructions
+            user: User object
+            background_image: Optional background image
+            documents: Optional list of Document model instances (for image support)
         """
         try:
             # Step 1: Validate and process uploaded files
-            processed_content = self._process_uploaded_files(files, documents)
+            processed_content = self._process_uploaded_files(files)
             if not processed_content:
                 return {'success': False, 'error': 'No valid content found in uploaded files'}
             
-            # Step 1b: Extract images from documents if available
-            document_images = []
-            if documents:
-                document_images = self._extract_document_images(documents)
-                logger.info(f"Found {len(document_images)} images across {len(documents)} documents")
+            # Step 2: Extract and structure content
+            structured_content = self._extract_content_structure(processed_content)
             
-            # Step 2: Extract and structure content (including image OCR text)
-            structured_content = self._extract_content_structure(processed_content, document_images)
-            
-            # Step 3: Generate slide content using existing RAG LLM (with image awareness)
+            # Step 3: Generate slide content using existing RAG LLM
             if self.llm_available and self.rag_model:
-                slide_content_text, image_placements = self._generate_ai_slide_content_with_rag(
-                    structured_content, slide_count, instructions, language, title, document_images
+                slide_content_text = self._generate_ai_slide_content_with_rag(
+                    structured_content, slide_count, instructions, language, title
                 )
             else:
                 # Fallback to basic generation
                 slide_content_text = self._generate_basic_slide_content(
                     structured_content, slide_count, instructions, language, title
                 )
-                image_placements = []
             
-            # Step 4: Create PowerPoint presentation with advanced styling and images
+            # Step 4: Create PowerPoint presentation with advanced styling
             presentation_path = self._create_advanced_powerpoint(
-                slide_content_text, template, title, user, background_image, image_placements, document_images
+                slide_content_text, template, title, user, background_image
             )
             
             # Step 5: Return success response with download URL
@@ -69,8 +70,7 @@ class SlideProcessor:
             return {
                 'success': True,
                 'download_url': download_url,
-                'file_name': presentation_path,  # Return the actual filename
-                'images_included': len(image_placements)
+                'file_name': presentation_path  # Return the actual filename
             }
             
         except Exception as e:
@@ -87,162 +87,85 @@ class SlideProcessor:
         except Exception:
             return ''
     
-    def _extract_document_images(self, documents):
-        """
-        Extract images with OCR text from Document model instances
-        
-        Args:
-            documents: List of Document model instances
-            
-        Returns:
-            List of image data dicts with OCR text and metadata
-        """
-        from ..models import DocumentImage
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        all_images = []
-        
-        for doc in documents:
-            try:
-                # Get images for this document
-                images = DocumentImage.objects.filter(
-                    document=doc,
-                    ocr_processed=True
-                ).order_by('page_number', 'image_index')
-                
-                for img in images:
-                    image_data = {
-                        'id': img.id,
-                        'document_title': doc.title,
-                        'document_id': doc.id,
-                        'page_number': img.page_number,
-                        'image_index': img.image_index,
-                        'ocr_text': img.ocr_text,
-                        'image_path': img.image_file.path if img.image_file else None,
-                        'width': img.width,
-                        'height': img.height
-                    }
-                    all_images.append(image_data)
-                    
-                logger.info(f"Extracted {len(images)} images from document '{doc.title}'")
-                    
-            except Exception as e:
-                logger.warning(f"Error extracting images from document {doc.id}: {e}")
-                continue
-        
-        return all_images
-    
-    def _generate_ai_slide_content_with_rag(self, structured_content, slide_count, instructions, language, title, document_images=[]):
-        """Generate slide content using the existing RAG model LLM with image awareness"""
-        import logging
-        logger = logging.getLogger(__name__)
-        
+    def _generate_ai_slide_content_with_rag(self, structured_content, slide_count, instructions, language, title):
+        """Generate slide content using the existing RAG model LLM"""
         try:
             # Prepare the content for AI processing
-            content_summary = structured_content['full_text'][:8000]  # Limit content length
+            content_summary = structured_content['full_text']  # Limit content length
             
             # Determine slide count
             if slide_count == 'auto':
                 slide_count = min(max(3, len(structured_content['sections'])), 10)
             
-            # Build image context for the LLM
-            image_context = ""
-            if document_images:
-                image_context = "\n\nAVAILABLE IMAGES IN DOCUMENTS:\n"
-                for idx, img in enumerate(document_images, 1):
-                    ocr_preview = img['ocr_text'][:200] if img['ocr_text'] else "No OCR text"
-                    image_context += f"Image {idx} (from page {img['page_number']}): {ocr_preview}\n"
-                image_context += f"\nYou have {len(document_images)} images available. When creating slides, if an image's content is relevant to a slide topic, include [IMAGE_{idx}] in that slide's bullet points to indicate where the image should be placed.\n"
-            
-            # Create the prompt for the LLM
-            prompt = f"""
-Create exactly {slide_count} slides based on the following document content. 
-
-Document Content:
-{content_summary}
-{image_context}
-
-Requirements:
-- Language: {language}
-- Presentation Title: {title or 'Document Analysis'}
-- Additional Instructions: {instructions}
-- Each slide should have a clear title and 4-6 bullet points
-- Make the content educational and well-structured
-- Focus on key concepts and important information
-- If relevant images are available, include [IMAGE_n] marker in bullet points where the image should appear
-
-Format each slide exactly like this:
-### Slide Title Here
-• First bullet point
-• Second bullet point
-• Third bullet point
-• [IMAGE_2] (only if relevant image exists)
-
-Please create engaging, informative slides that capture the essence of the document.
-Start with a title slide, then create content slides, and end with a summary if appropriate.
-"""
+            # Create the prompt for the LLM using YAML prompts
+            try:
+                prompt = prompt_loader.format_prompt(
+                    'slide_generation.main_prompt',
+                    slide_count=slide_count,
+                    content_summary=content_summary,
+                    language=language,
+                    title=title or 'Document Analysis',
+                    instructions=instructions
+                )
+            except Exception as e:
+                logger.warning(f"Error loading slide prompt from YAML: {e}")
+                # Fallback to hardcoded prompt
+                prompt = f"""
+                Create exactly {slide_count} slides based on the following document content. 
+                
+                Document Content:
+                {content_summary}
+                
+                Requirements:
+                - Language: {language}
+                - Presentation Title: {title or 'Document Analysis'}
+                - Additional Instructions: {instructions}
+                - Each slide should have a clear title and 4-6 bullet points
+                - Make the content educational and well-structured
+                - Focus on key concepts and important information
+                
+                Format each slide exactly like this:
+                ### Slide Title Here
+                • First bullet point
+                • Second bullet point
+                • Third bullet point
+                
+                Please create engaging, informative slides that capture the essence of the document.
+                Start with a title slide, then create content slides, and end with a summary if appropriate.
+                """
             
             # Use the existing RAG model's LLM method
-            system_message = "You are an expert educational content creator that creates well-structured, engaging presentation slides with visual elements."
+            try:
+                system_message = prompt_loader.get_prompt('slide_generation.system_message')
+            except Exception as e:
+                logger.warning(f"Error loading system message from YAML: {e}")
+                system_message = "You are an expert educational content creator that creates well-structured, engaging presentation slides."
             
             messages = [
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system", 
+                    "content": system_message
+                },
+                {
+                    "role": "user", 
+                    "content": prompt
+                }
             ]
             
             # Call the existing LLM method
             response = self.rag_model._generate_llm_response(messages)
             
             if response['success']:
-                slide_text = response['answer']
-                # Extract image placements from the generated content
-                image_placements = self._extract_image_placements(slide_text, document_images)
-                return slide_text, image_placements
+                return response['answer']
             else:
                 logger.error(f"LLM generation failed: {response.get('error', 'Unknown error')}")
                 # Fallback to basic generation
-                return self._generate_basic_slide_content(structured_content, slide_count, instructions, language, title), []
+                return self._generate_basic_slide_content(structured_content, slide_count, instructions, language, title)
             
         except Exception as e:
             logger.error(f"Error in RAG slide generation: {str(e)}")
             # Fallback to basic generation
-            return self._generate_basic_slide_content(structured_content, slide_count, instructions, language, title), []
-    
-    def _extract_image_placements(self, slide_text, document_images):
-        """
-        Extract image placement markers from slide text
-        
-        Returns:
-            List of dicts: [{'slide_index': 0, 'image_id': 123, 'image_path': '...'}]
-        """
-        import re
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        placements = []
-        slides = slide_text.split("###")
-        
-        for slide_idx, slide in enumerate(slides):
-            if not slide.strip():
-                continue
-            
-            # Find all [IMAGE_n] markers
-            image_markers = re.findall(r'\[IMAGE_(\d+)\]', slide)
-            
-            for marker in image_markers:
-                img_idx = int(marker) - 1  # Convert to 0-based index
-                if 0 <= img_idx < len(document_images):
-                    img_data = document_images[img_idx]
-                    placements.append({
-                        'slide_index': slide_idx,
-                        'image_id': img_data['id'],
-                        'image_path': img_data['image_path'],
-                        'marker': f'[IMAGE_{marker}]'
-                    })
-                    logger.info(f"Image placement: slide {slide_idx}, image {img_data['id']}")
-        
-        return placements
+            return self._generate_basic_slide_content(structured_content, slide_count, instructions, language, title)
     
     def _generate_basic_slide_content(self, structured_content, slide_count, instructions, language, title):
         """Fallback method for generating slide content without AI"""
@@ -297,20 +220,15 @@ Start with a title slide, then create content slides, and end with a summary if 
             logger.warning(f"Could not load image {path_or_url}: {str(e)}")
             return None
     
-    def _create_advanced_powerpoint(self, slide_content_text, template, title, user, background_image=None, image_placements=[], document_images=[]):
-        """Create PowerPoint presentation with advanced styling, background, logo, and images"""
+    def _create_advanced_powerpoint(self, slide_content_text, template, title, user, background_image=None):
+        """Create PowerPoint presentation with advanced styling, background, and logo"""
         try:
-            import logging
-            import re
-            import os
-            from io import BytesIO
             from pptx import Presentation
             from pptx.util import Inches, Pt
             from pptx.dml.color import RGBColor
+            from io import BytesIO
+            import os
             from django.conf import settings
-            from django.utils import timezone
-            
-            logger = logging.getLogger(__name__)
             
             # Create presentation
             prs = Presentation()
@@ -351,33 +269,55 @@ Start with a title slide, then create content slides, and end with a summary if 
                 lines = slide.strip().split("\n")
                 slide_title = self._sanitize_text(lines[0].strip())
                 
-                # Clean up slide title - remove "Slide" prefix and numbers
+                # Clean up slide title - remove "Slide", "Title" prefix and numbers
                 slide_title = slide_title.replace("Slide", "").strip()
+                slide_title = re.sub(r'\bTitle\b', '', slide_title, flags=re.IGNORECASE).strip()
                 # Remove leading numbers and dots/colons
                 slide_title = re.sub(r'^\d+[.:]\s*', '', slide_title).strip()
                 # Remove any remaining "Slide i" patterns
                 slide_title = re.sub(r'^Slide\s+\d+\s*[-:.]?\s*', '', slide_title, flags=re.IGNORECASE).strip()
+                # Clean up any extra spaces
+                slide_title = ' '.join(slide_title.split())
                 
-                # Separate bullet points and image markers
+                # Process body content - accept sentences and clean up formatting
                 body_lines = []
-                slide_images = []
-                
-                for line in lines[1:]:
-                    line = line.strip()
+                for l in lines[1:]:
+                    line = l.strip()
                     if not line:
                         continue
                     
-                    # Check for image marker
-                    image_match = re.search(r'\[IMAGE_(\d+)\]', line)
-                    if image_match:
-                        img_idx = int(image_match.group(1)) - 1
-                        if 0 <= img_idx < len(document_images):
-                            slide_images.append(document_images[img_idx])
-                        # Remove the marker from the line
-                        line = re.sub(r'\[IMAGE_\d+\]', '', line).strip()
+                    # Skip separator lines (like |------|, ===, ---, etc.)
+                    if re.match(r'^[\|\-=\+\*_]{3,}$', line):
+                        continue
                     
-                    if line.startswith('•'):
+                    # Remove markdown bold/italic formatting
+                    line = re.sub(r'\*\*([^*]+)\*\*', r'\1', line)  # Remove **bold**
+                    line = re.sub(r'\*([^*]+)\*', r'\1', line)      # Remove *italic*
+                    line = re.sub(r'__([^_]+)__', r'\1', line)      # Remove __bold__
+                    line = re.sub(r'_([^_]+)_', r'\1', line)        # Remove _italic_
+                    
+                    # Remove table separator patterns like |------|
+                    line = re.sub(r'\|[\-\s]+\|', '', line)
+                    line = re.sub(r'\|[\-=\+]+', '', line)
+                    
+                    # Clean up remaining pipes and convert to readable format if needed
+                    if '|' in line:
+                        # If it's table data, convert to readable format
+                        cells = [cell.strip() for cell in line.split('|') if cell.strip()]
+                        if cells and len(cells) > 1:
+                            line = ' - '.join(cells)
+                    
+                    # Accept lines starting with bullet points, dashes, or plain sentences
+                    if line.startswith('•') or line.startswith('-') or line.startswith('*'):
+                        # Keep the bullet/dash format
+                        if line.startswith('-'):
+                            line = '•' + line[1:]
+                        elif line.startswith('*'):
+                            line = '•' + line[1:]
                         body_lines.append(self._sanitize_text(line))
+                    elif line and not re.match(r'^[\|\-=\s]+$', line):
+                        # Plain sentence - add bullet point
+                        body_lines.append(self._sanitize_text('• ' + line))
                 
                 slide_obj = prs.slides.add_slide(slide_layout)
                 
@@ -392,18 +332,18 @@ Start with a title slide, then create content slides, and end with a summary if 
                     fill.solid()
                     fill.fore_color.rgb = template_colors['background']
                 
-                # Add title
+                # Add title - smaller font, positioned higher, and centered with spaces
                 title_box = slide_obj.shapes.add_textbox(
-                    Inches(0), Inches(0.1),
-                    slide_width, Inches(0.8)
+                    Inches(0), Inches(0.1),  # Start from left edge for perfect centering
+                    slide_width, Inches(0.8)  # Full width for true center alignment
                 )
                 title_tf = title_box.text_frame
                 title_tf.word_wrap = True
-                title_tf.margin_left = Inches(0.5)
+                title_tf.margin_left = Inches(0.5)  # Add margin for better appearance
                 title_tf.margin_right = Inches(0.5)
                 
-                # Center the title
-                max_chars_per_line = 80
+                # Calculate spaces needed to center the title
+                max_chars_per_line = 80  # Approximate characters that fit in the title box
                 title_length = len(slide_title)
                 if title_length < max_chars_per_line:
                     spaces_needed = (max_chars_per_line - title_length) // 2
@@ -413,87 +353,65 @@ Start with a title slide, then create content slides, and end with a summary if 
                 
                 p = title_tf.add_paragraph()
                 p.text = self._sanitize_text(centered_title)
+                # Use proper PowerPoint alignment enumeration
                 from pptx.enum.text import PP_ALIGN
-                p.alignment = PP_ALIGN.LEFT
+                p.alignment = PP_ALIGN.LEFT  # Left alignment since we're using spaces for centering
                 run = p.runs[0]
-                run.font.size = Pt(28)
+                run.font.size = Pt(28)  # Larger title font size (was 24)
                 run.font.bold = True
                 run.font.color.rgb = template_colors['title']
                 
-                # Determine layout based on whether images are present
-                has_images = len(slide_images) > 0
-                
-                if has_images:
-                    # Two-column layout: text on left, image on right
-                    content_box = slide_obj.shapes.add_textbox(
-                        Inches(0.8), Inches(1.4),
-                        slide_width / 2 - Inches(1.2), slide_height - Inches(2.0)
-                    )
-                    
-                    # Add image on the right side
-                    if slide_images[0]['image_path'] and os.path.exists(slide_images[0]['image_path']):
-                        try:
-                            img_left = slide_width / 2 + Inches(0.2)
-                            img_top = Inches(1.6)
-                            img_width = slide_width / 2 - Inches(1.0)
-                            img_height = slide_height - Inches(2.4)
-                            
-                            slide_obj.shapes.add_picture(
-                                slide_images[0]['image_path'],
-                                img_left, img_top,
-                                width=img_width,
-                                height=img_height
-                            )
-                            logger.info(f"Added image to slide {i}: {slide_images[0]['image_path']}")
-                        except Exception as e:
-                            logger.warning(f"Could not add image to slide: {e}")
-                else:
-                    # Full-width text layout
-                    content_box = slide_obj.shapes.add_textbox(
-                        Inches(0.8), Inches(1.4),
-                        slide_width - Inches(1.6), slide_height - Inches(2.0)
-                    )
-                
-                # Add bullet points
+                # Add content - adjusted position since title is now smaller and higher
                 if body_lines:
+                    content_box = slide_obj.shapes.add_textbox(
+                        Inches(0.8), Inches(1.4),  # Moved down slightly for better spacing
+                        slide_width - Inches(1.6), slide_height - Inches(2.0)  # More space for content
+                    )
                     content_tf = content_box.text_frame
                     content_tf.word_wrap = True
-                    content_tf.margin_left = Inches(0.2)
-                    content_tf.margin_right = Inches(0.2)
-                    content_tf.margin_top = Inches(0.1)
-                    content_tf.margin_bottom = Inches(0.1)
+                    content_tf.margin_left = Inches(0.2)  # Add left margin
+                    content_tf.margin_right = Inches(0.2)  # Add right margin
+                    content_tf.margin_top = Inches(0.1)   # Add top margin
+                    content_tf.margin_bottom = Inches(0.1) # Add bottom margin
                     
-                    for line in body_lines:
+                    for i, line in enumerate(body_lines):
                         p = content_tf.add_paragraph()
+                        
+                        # Remove bullet symbol if present for processing
                         clean_line = self._sanitize_text(line.replace('•', '').strip())
                         
                         p.level = 0
-                        p.space_after = Pt(8)
+                        p.space_after = Pt(8)  # Add space after each bullet point
                         
-                        # Handle colon definitions
+                        # Handle colon definitions specially
                         if ':' in clean_line:
+                            # Split at the first colon
                             parts = clean_line.split(':', 1)
                             definition_term = parts[0].strip()
                             definition_explanation = parts[1].strip() if len(parts) > 1 else ""
                             
+                            # Add bullet and definition term in bright red
                             p.text = "• " + definition_term + ":"
                             run = p.runs[0]
                             run.font.size = Pt(24)
-                            run.font.color.rgb = RGBColor(204, 0, 0)
-                            run.font.bold = False
+                            run.font.color.rgb = RGBColor(255, 0, 0)  # Bright red color for definition term
+                            run.font.bold = True  # Make definition term bold for emphasis
                             
+                            # Add explanation in normal color if it exists
                             if definition_explanation:
                                 explanation_run = p.add_run()
                                 explanation_run.text = " " + definition_explanation
                                 explanation_run.font.size = Pt(24)
-                                explanation_run.font.color.rgb = template_colors['content']
+                                explanation_run.font.color.rgb = template_colors['content']  # Normal color
                                 explanation_run.font.bold = False
                         else:
+                            # Regular content without colon
                             bullet_text = "• " + clean_line
                             p.text = bullet_text
+                            
                             run = p.runs[0]
-                            run.font.size = Pt(24)
-                            run.font.color.rgb = template_colors['content']
+                            run.font.size = Pt(24)  # Larger font size (was 20)
+                            run.font.color.rgb = template_colors['content']  # Normal content color
                             run.font.bold = False
             
             # Save presentation
@@ -509,13 +427,10 @@ Start with a title slide, then create content slides, and end with a summary if 
             if bg_stream:
                 bg_stream.close()
             
-            logger.info(f"PowerPoint created successfully with {len(image_placements)} images: {filename}")
             return filename
             
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error creating PowerPoint: {str(e)}")
+            logger.error(f"Error creating advanced PowerPoint: {str(e)}")
             raise
     
     def _get_template_colors(self, template):
@@ -561,59 +476,37 @@ Start with a title slide, then create content slides, and end with a summary if 
         
         return color_schemes.get(template, color_schemes['professional'])
     
-    def _process_uploaded_files(self, files, documents=None):
+    def _process_uploaded_files(self, files):
         """Process and extract text from uploaded files"""
         all_content = []
         logger.info(f"Starting to process {len(files)} files")
         
-        # Create a mapping from file names to documents if documents are provided
-        file_to_document = {}
-        if documents:
-            for doc in documents:
-                # Get the filename from the file path
-                import os
-                file_basename = os.path.basename(doc.file.name)
-                file_to_document[file_basename] = doc
-        
-        for i, file in enumerate(files):
+        for file in files:
             try:
                 logger.info(f"Processing file: {file.name}")
+                # Check file extension
+                file_extension = file.name.lower().split('.')[-1]
+                if f'.{file_extension}' not in self.supported_formats:
+                    logger.warning(f"Unsupported file format: {file.name}")
+                    continue
                 
-                # Check if we have a corresponding Document object with processed text
-                file_basename = os.path.basename(file.name)
-                corresponding_doc = file_to_document.get(file_basename)
-                
-                if corresponding_doc and hasattr(corresponding_doc, 'processed_text') and corresponding_doc.processed_text:
-                    logger.info(f"Using processed text from Document model for {file.name} (processing mode: {getattr(corresponding_doc, 'processing_mode', 'unknown')})")
-                    content = corresponding_doc.processed_text
+                # Extract text based on file type
+                if file_extension == 'pdf':
+                    content = self._extract_pdf_content(file)
+                elif file_extension in ['doc', 'docx']:
+                    content = self._extract_word_content(file)
+                elif file_extension == 'txt':
+                    content = self._extract_text_content(file)
+                elif file_extension in ['ppt', 'pptx']:
+                    content = self._extract_powerpoint_content(file)
                 else:
-                    # Fall back to direct file processing
-                    logger.info(f"No processed text found, extracting directly from file: {file.name}")
-                    
-                    # Check file extension
-                    file_extension = file.name.lower().split('.')[-1]
-                    if f'.{file_extension}' not in self.supported_formats:
-                        logger.warning(f"Unsupported file format: {file.name}")
-                        continue
-                    
-                    # Extract text based on file type
-                    if file_extension == 'pdf':
-                        content = self._extract_pdf_content(file)
-                    elif file_extension in ['doc', 'docx']:
-                        content = self._extract_word_content(file)
-                    elif file_extension == 'txt':
-                        content = self._extract_text_content(file)
-                    elif file_extension in ['ppt', 'pptx']:
-                        content = self._extract_powerpoint_content(file)
-                    else:
-                        continue
-
-                if content and content.strip():
+                    continue
+                
+                if content:
                     all_content.append({
                         'filename': file.name,
-                        'content': content.strip(),
-                        'type': corresponding_doc.document_type if corresponding_doc else file.name.lower().split('.')[-1],
-                        'processing_mode': getattr(corresponding_doc, 'processing_mode', 'unknown') if corresponding_doc else 'direct'
+                        'content': content,
+                        'type': file_extension
                     })
                     logger.info(f"Successfully processed file: {file.name}, content length: {len(content)}")
                 else:
@@ -687,8 +580,8 @@ Start with a title slide, then create content slides, and end with a summary if 
             logger.error(f"Error extracting PowerPoint content: {str(e)}")
             return ""
     
-    def _extract_content_structure(self, processed_content, document_images=[]):
-        """Analyze and structure the extracted content including image OCR text"""
+    def _extract_content_structure(self, processed_content):
+        """Analyze and structure the extracted content"""
         combined_text = ""
         sources = []
         
@@ -696,13 +589,6 @@ Start with a title slide, then create content slides, and end with a summary if 
             combined_text += f"\n--- From {content_item['filename']} ---\n"
             combined_text += content_item['content']
             sources.append(content_item['filename'])
-        
-        # Add image OCR text to content
-        if document_images:
-            combined_text += "\n\n--- Image OCR Text ---\n"
-            for img in document_images:
-                if img['ocr_text']:
-                    combined_text += f"\n[Image from page {img['page_number']}]: {img['ocr_text']}\n"
         
         # Basic content analysis
         sections = self._identify_sections(combined_text)
@@ -713,8 +599,7 @@ Start with a title slide, then create content slides, and end with a summary if 
             'sources': sources,
             'sections': sections,
             'key_topics': key_topics,
-            'word_count': len(combined_text.split()),
-            'image_count': len(document_images)
+            'word_count': len(combined_text.split())
         }
     
     def _identify_sections(self, text):
@@ -857,7 +742,6 @@ Start with a title slide, then create content slides, and end with a summary if 
             from pptx.dml.color import RGBColor
             import os
             from django.conf import settings
-            from django.utils import timezone
             
             # Create presentation
             prs = Presentation()

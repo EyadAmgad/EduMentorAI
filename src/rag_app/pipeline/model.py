@@ -53,7 +53,7 @@ class RAGModel:
         """
         # Get models from environment variables if not provided
         self.embedding_model = embedding_model or os.getenv("EMBEDDING_MODEL", 'all-MiniLM-L6-v2')
-        self.llm_model = os.getenv("LLM_MODEL", "meituan/longcat-flash-chat:free")
+        self.llm_model = llm_model or os.getenv("LLM_MODEL", "alibaba/tongyi-deepresearch-30b-a3b:free")
         
         # Initialize retriever with embedding model from env
         self.retriever = DocumentRetriever(self.embedding_model, max_context_length)

@@ -47,15 +47,26 @@ slide_generation:
     - Each slide should have a clear title and 4-6 bullet points
     - Make the content educational and well-structured
     - Focus on key concepts and important information
+    - IMPORTANT: Include ALL relevant information including data from tables, charts, and figures
+    - If the document contains tables, convert the table data into bullet points
+    - If there are important numbers, statistics, or data points, include them as bullet points
+    - Don't skip any important details or information
+    - Do NOT use markdown formatting like **bold** or *italic*
+    - Do NOT use separator symbols like |------| or ===
+    - Write in plain text only
+    - For definitions, use format "Term: explanation" so the term can be highlighted
     
     Format each slide exactly like this:
-    ### Slide Title Here
-    • First bullet point
-    • Second bullet point
-    • Third bullet point
+    ### Key Concepts
+    • First bullet point explaining a concept
+    • Second bullet point with details
+    • Machine Learning: A subset of AI that enables systems to learn from data
+    • Fourth bullet point
+    • Fifth bullet point
     
-    Please create engaging, informative slides that capture the essence of the document.
-    Start with a title slide, then create content slides, and end with a summary if appropriate.
+    Please create engaging, informative slides that capture ALL the essential content from the document.
+    Start with an overview slide, then create content slides, and end with a summary if appropriate.
+    REMEMBER: Use 4-6 bullet points per slide, include all data and statistics, use plain text without markdown formatting, and format definitions as "Term: explanation".
 
   # System message for slide generation
   system_message: |
