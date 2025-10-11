@@ -24,13 +24,14 @@ class SlideProcessor:
             self.rag_model = None
             self.llm_available = False
     
-    def generate_slides(self, files, slide_count, template, title, language, instructions, user, background_image=None, documents=None):
+    def generate_slides(self, files, slide_count, template, title, language, instructions, user, background_image=None, documents=None, include_images=True):
         """
         Main method to generate PowerPoint slides from uploaded documents using existing RAG LLM
         
         Args:
             files: List of file objects or Document model instances
             documents: List of Document model instances (optional, for image support)
+            include_images: Boolean to control whether to search and add internet images (default: True)
             ...
         """
         try:
@@ -79,7 +80,7 @@ class SlideProcessor:
             logger.info("=" * 60)
             if self.llm_available and self.rag_model:
                 slide_content_text = self._generate_ai_slide_content_without_images(
-                    structured_content, slide_count, instructions, language, title
+                    structured_content, slide_count, instructions, language, title, include_images
                 )
             else:
                 # Fallback to basic generation
@@ -102,12 +103,15 @@ class SlideProcessor:
             
             # Step 6: Calculate middle 3 slides dynamically based on total slides
             logger.info("=" * 60)
-            logger.info("🎯 STEP 6: Calculating which slides should have images...")
+            logger.info("🎯 STEP 6: Checking image preferences...")
             logger.info("=" * 60)
             internet_images = []
             total_slides = len(slide_titles)
             
-            if total_slides >= 5:
+            if not include_images:
+                logger.info("🚫 User disabled internet images - skipping image search")
+                target_slide_indices = []
+            elif total_slides >= 5:
                 # Calculate the middle index
                 middle_idx = total_slides // 2
                 # Get 3 consecutive middle slides
@@ -659,7 +663,7 @@ Your search query:"""
         
         return all_images
     
-    def _generate_ai_slide_content_without_images(self, structured_content, slide_count, instructions, language, title):
+    def _generate_ai_slide_content_without_images(self, structured_content, slide_count, instructions, language, title, include_images=True):
         """Generate slide content using the existing RAG model LLM WITHOUT image markers"""
         import logging
         logger = logging.getLogger(__name__)
@@ -678,7 +682,21 @@ Your search query:"""
                 except (ValueError, TypeError):
                     slide_count = 5  # Default fallback
             
-            # Create the prompt for the LLM (NO image instructions)
+            # Adjust content density based on whether images will be included
+            if include_images:
+                content_guidance = """
+- First slide: Title slide with "{title}"
+- Content slides: Use 4-6 bullet points per slide (good balance with images on the side)
+- Focus on key concepts that can be complemented with visual aids
+- Keep text clear and concise"""
+            else:
+                content_guidance = """
+- First slide: Title slide with "{title}"
+- Content slides: Use 4-6 bullet points per slide (comprehensive content)
+- Make each slide information-rich and self-contained
+- Include detailed explanations and examples"""
+            
+            # Create the prompt for the LLM
             prompt = f"""
 You MUST create EXACTLY {slide_count} slides. This is a strict requirement - no more, no less.
 
@@ -690,10 +708,11 @@ STRICT REQUIREMENTS:
 2. Language: {language}
 3. Presentation Title: {title or 'Document Analysis'}
 4. Additional Instructions: {instructions}
+5. Images will {"be included" if include_images else "NOT be included"} in the presentation
 
 Slide Structure:
-- First slide: Title slide with "{title or 'Document Analysis'}"
-- Slides 2 to {slide_count-1}: Content slides with 4-5 bullet points each
+{content_guidance.format(title=title or 'Document Analysis')}
+- Last slide: Summary or conclusion with 3-4 key takeaways
 - Last slide: Summary or conclusion
 
 Format EXACTLY like this (use DESCRIPTIVE titles, NOT numbers):

@@ -387,7 +387,7 @@ class SlideGenerationForm(forms.Form):
         required=False,
         initial=True,
         widget=forms.CheckboxInput(attrs={'class': 'form-check-input'}),
-        help_text="Include placeholder for images in slides"
+        help_text="Search and add relevant images from the internet to slides"
     )
     
     def __init__(self, *args, **kwargs):

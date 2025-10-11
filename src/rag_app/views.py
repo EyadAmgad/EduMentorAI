@@ -1866,6 +1866,9 @@ class SlideGeneratorView(LoginRequiredMixin, View):
             language = request.POST.get('language', 'en')
             instructions = request.POST.get('instructions', '')
             background_image = request.FILES.get('background_image')
+            # Checkbox: if present in POST data = checked, if absent = unchecked
+            include_images = request.POST.get('include_images') == 'true'
+            logger.info(f"📸 Include images setting: {include_images} (raw value: {request.POST.get('include_images')})")
             
             # Get content source - either uploaded files, existing documents, or subject documents
             content_source = request.POST.get('content_source', 'upload')
@@ -1966,7 +1969,8 @@ class SlideGeneratorView(LoginRequiredMixin, View):
                 instructions=instructions,
                 user=request.user,
                 background_image=background_image,
-                documents=documents if 'documents' in locals() else None  # Pass Document objects for image support
+                documents=documents if 'documents' in locals() else None,  # Pass Document objects for image support
+                include_images=include_images  # Pass image preference
             )
             
             if result['success']:
