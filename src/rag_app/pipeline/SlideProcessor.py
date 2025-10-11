@@ -1252,6 +1252,8 @@ Start with a title slide, then create content slides, and end with a summary if 
     
     def _process_uploaded_files(self, files, documents=None):
         """Process and extract text from uploaded files"""
+        import os  # Import at the top of the function
+        
         all_content = []
         logger.info(f"Starting to process {len(files)} files")
         
@@ -1260,7 +1262,6 @@ Start with a title slide, then create content slides, and end with a summary if 
         if documents:
             for doc in documents:
                 # Get the filename from the file path
-                import os
                 file_basename = os.path.basename(doc.file.name)
                 file_to_document[file_basename] = doc
         
@@ -1273,29 +1274,44 @@ Start with a title slide, then create content slides, and end with a summary if 
                 corresponding_doc = file_to_document.get(file_basename)
                 
                 if corresponding_doc and hasattr(corresponding_doc, 'processed_text') and corresponding_doc.processed_text:
-                    logger.info(f"Using processed text from Document model for {file.name} (processing mode: {getattr(corresponding_doc, 'processing_mode', 'unknown')})")
+                    logger.info(f"✅ Using processed text from Document model for {file.name} (processing mode: {getattr(corresponding_doc, 'processing_mode', 'unknown')})")
                     content = corresponding_doc.processed_text
+                    logger.info(f"   Content length: {len(content)} characters")
                 else:
                     # Fall back to direct file processing
-                    logger.info(f"No processed text found, extracting directly from file: {file.name}")
+                    logger.info(f"📄 No processed text found, extracting directly from file: {file.name}")
                     
                     # Check file extension
                     file_extension = file.name.lower().split('.')[-1]
+                    logger.info(f"   File extension: .{file_extension}")
+                    logger.info(f"   Supported formats: {self.supported_formats}")
+                    
                     if f'.{file_extension}' not in self.supported_formats:
-                        logger.warning(f"Unsupported file format: {file.name}")
+                        logger.error(f"❌ Unsupported file format: {file.name} (.{file_extension})")
+                        logger.error(f"   Supported formats are: {', '.join(self.supported_formats)}")
                         continue
                     
                     # Extract text based on file type
-                    if file_extension == 'pdf':
-                        content = self._extract_pdf_content(file)
-                    elif file_extension in ['doc', 'docx']:
-                        content = self._extract_word_content(file)
-                    elif file_extension == 'txt':
-                        content = self._extract_text_content(file)
-                    elif file_extension in ['ppt', 'pptx']:
-                        content = self._extract_powerpoint_content(file)
-                    else:
-                        continue
+                    logger.info(f"   Extracting content from .{file_extension} file...")
+                    try:
+                        if file_extension == 'pdf':
+                            content = self._extract_pdf_content(file)
+                        elif file_extension in ['doc', 'docx']:
+                            content = self._extract_word_content(file)
+                        elif file_extension == 'txt':
+                            content = self._extract_text_content(file)
+                        elif file_extension in ['ppt', 'pptx']:
+                            content = self._extract_powerpoint_content(file)
+                        else:
+                            logger.error(f"❌ No extraction method for .{file_extension}")
+                            continue
+                        
+                        logger.info(f"   Extracted {len(content) if content else 0} characters")
+                    except Exception as extract_error:
+                        logger.error(f"❌ Error extracting content: {str(extract_error)}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                        content = None
 
                 if content and content.strip():
                     all_content.append({
@@ -1304,15 +1320,32 @@ Start with a title slide, then create content slides, and end with a summary if 
                         'type': corresponding_doc.document_type if corresponding_doc else file.name.lower().split('.')[-1],
                         'processing_mode': getattr(corresponding_doc, 'processing_mode', 'unknown') if corresponding_doc else 'direct'
                     })
-                    logger.info(f"Successfully processed file: {file.name}, content length: {len(content)}")
+                    logger.info(f"✅ Successfully processed file: {file.name}, content length: {len(content)}")
                 else:
-                    logger.warning(f"No content extracted from file: {file.name}")
+                    logger.error(f"❌ No content extracted from file: {file.name}")
+                    logger.error(f"   Content is: {repr(content)[:100] if content else 'None or empty'}")
                     
             except Exception as e:
-                logger.warning(f"Error processing file {file.name}: {str(e)}")
+                logger.error(f"❌ Error processing file {file.name}: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
                 continue
         
-        logger.info(f"Finished processing files. Total content items: {len(all_content)}")
+        logger.info(f"=" * 60)
+        logger.info(f"📊 File Processing Summary:")
+        logger.info(f"   Files attempted: {len(files)}")
+        logger.info(f"   Successfully processed: {len(all_content)}")
+        logger.info(f"   Failed: {len(files) - len(all_content)}")
+        logger.info(f"=" * 60)
+        
+        if len(all_content) == 0:
+            logger.error("❌ CRITICAL: No valid content found in ANY uploaded files!")
+            logger.error("   Possible reasons:")
+            logger.error("   1. Files are empty or corrupted")
+            logger.error("   2. File format not supported")
+            logger.error("   3. Extraction libraries missing (PyPDF2, python-docx, etc.)")
+            logger.error("   4. Files don't have Document objects with processed_text")
+        
         return all_content
     
     def _extract_pdf_content(self, file):
