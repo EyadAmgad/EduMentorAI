@@ -64,7 +64,6 @@ MIDDLEWARE = [
     'rag_app.email_verification_middleware.EmailVerificationMiddleware',  # Email verification
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'allauth.account.middleware.AccountMiddleware',  # AllAuth middleware'
 ]# --- URL and Template Configuration ---
 
 ROOT_URLCONF = 'rag_django.urls'
@@ -198,8 +197,10 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # --- AI API Keys ---
 
 OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
+OPENAI_API_KEY = config('OPENAI_API_KEY', default='')
 OPENROUTER_API_KEY = config('OPENROUTER_API_KEY', default='')
 HUGGINGFACE_API_KEY = config('HUGGINGFACE_API_KEY', default='')
+SERPAPI_KEY = config('SERPAPI_KEY', default='')
 
 
 # --- Caching (Redis) ---

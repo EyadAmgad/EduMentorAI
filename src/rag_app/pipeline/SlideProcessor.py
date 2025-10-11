@@ -2,6 +2,9 @@ import logging
 import re
 import os
 from io import BytesIO
+import tempfile
+import requests
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -31,38 +34,161 @@ class SlideProcessor:
             ...
         """
         try:
+            logger.info("=" * 70)
+            logger.info("🚀 STARTING SLIDE GENERATION PROCESS")
+            logger.info("=" * 70)
+            logger.info(f"📋 Parameters:")
+            logger.info(f"   - Files: {len(files)}")
+            logger.info(f"   - Requested slides: {slide_count}")
+            logger.info(f"   - Template: {template}")
+            logger.info(f"   - Language: {language}")
+            logger.info(f"   - Title: {title}")
+            logger.info("=" * 70)
+            
             # Step 1: Validate and process uploaded files
+            logger.info("📂 STEP 1: Processing uploaded files...")
+            logger.info("=" * 70)
             processed_content = self._process_uploaded_files(files, documents)
             if not processed_content:
                 return {'success': False, 'error': 'No valid content found in uploaded files'}
+            logger.info(f"✅ Successfully processed {len(processed_content)} file(s)")
             
-            # Step 1b: Extract images from documents if available
+            # Step 2: Extract images from documents if available
+            logger.info("=" * 60)
+            logger.info("🖼️  STEP 2: Extracting images from documents...")
+            logger.info("=" * 60)
             document_images = []
             if documents:
                 document_images = self._extract_document_images(documents)
-                logger.info(f"Found {len(document_images)} images across {len(documents)} documents")
+                logger.info(f"✅ Found {len(document_images)} images across {len(documents)} documents")
+            else:
+                logger.info("⏭️  No document images to extract")
             
-            # Step 2: Extract and structure content (including image OCR text)
+            # Step 3: Extract and structure content
+            logger.info("=" * 60)
+            logger.info("📊 STEP 3: Structuring content for presentation...")
+            logger.info("=" * 60)
             structured_content = self._extract_content_structure(processed_content, document_images)
+            logger.info(f"✅ Content structured successfully")
+            logger.info(f"   - Sections: {len(structured_content.get('sections', []))}")
+            logger.info(f"   - Total text length: {len(structured_content.get('full_text', ''))} characters")
             
-            # Step 3: Generate slide content using existing RAG LLM (with image awareness)
+            # Step 4: Generate slide content FIRST (without internet images)
+            logger.info("=" * 60)
+            logger.info("📝 STEP 4: Generating slide content using LLM...")
+            logger.info("=" * 60)
             if self.llm_available and self.rag_model:
-                slide_content_text, image_placements = self._generate_ai_slide_content_with_rag(
-                    structured_content, slide_count, instructions, language, title, document_images
+                slide_content_text = self._generate_ai_slide_content_without_images(
+                    structured_content, slide_count, instructions, language, title
                 )
             else:
                 # Fallback to basic generation
                 slide_content_text = self._generate_basic_slide_content(
                     structured_content, slide_count, instructions, language, title
                 )
-                image_placements = []
             
-            # Step 4: Create PowerPoint presentation with advanced styling and images
+            # Log the generated content preview
+            logger.info("✅ Slide content generated successfully")
+            logger.info(f"Generated content preview (first 500 chars):\n{slide_content_text[:500]}...")
+            
+            # Step 5: Extract slide titles
+            logger.info("=" * 60)
+            logger.info("🔍 STEP 5: Extracting slide titles from generated content...")
+            logger.info("=" * 60)
+            slide_titles = self._extract_slide_titles(slide_content_text)
+            logger.info(f"✅ Found {len(slide_titles)} slide titles:")
+            for idx, title_text in enumerate(slide_titles):
+                logger.info(f"   {idx + 1}. {title_text}")
+            
+            # Step 6: Calculate middle 3 slides dynamically based on total slides
+            logger.info("=" * 60)
+            logger.info("🎯 STEP 6: Calculating which slides should have images...")
+            logger.info("=" * 60)
+            internet_images = []
+            total_slides = len(slide_titles)
+            
+            if total_slides >= 5:
+                # Calculate the middle index
+                middle_idx = total_slides // 2
+                # Get 3 consecutive middle slides
+                target_slide_indices = [middle_idx - 1, middle_idx, middle_idx + 1]
+                logger.info(f"📊 Total slides: {total_slides}")
+                logger.info(f"📍 Selected middle slides for images: {[i+1 for i in target_slide_indices]}")
+            elif total_slides == 4:
+                # For 4 slides: use slides 2, 3 (skip first and last)
+                target_slide_indices = [1, 2]
+                logger.info(f"📊 Total slides: {total_slides}")
+                logger.info(f"📍 Selected slides for images: {[i+1 for i in target_slide_indices]}")
+            elif total_slides == 3:
+                # For 3 slides: use only slide 2
+                target_slide_indices = [1]
+                logger.info(f"📊 Total slides: {total_slides}")
+                logger.info(f"📍 Selected slide for image: {[i+1 for i in target_slide_indices]}")
+            else:
+                # Too few slides for images
+                target_slide_indices = []
+                logger.info(f"📊 Total slides: {total_slides}")
+                logger.info(f"⚠️  Not enough slides for images (minimum 3 required)")
+            
+            if target_slide_indices:
+                try:
+                    logger.info("=" * 60)
+                    logger.info("🌐 STEP 7: Searching for images on the internet...")
+                    logger.info("=" * 60)
+                    
+                    # Search for ONE image per slide based on slide title
+                    for slide_idx in target_slide_indices:
+                        if slide_idx < len(slide_titles):
+                            slide_title = slide_titles[slide_idx]
+                            logger.info(f"\n🔍 Slide {slide_idx + 1}: Searching for '{slide_title}'...")
+                            
+                            # IMPORTANT: PowerPoint split creates empty first element, so actual slide is at index+1
+                            # Title index 0 → PowerPoint slide index 1, etc.
+                            ppt_slide_index = slide_idx + 1
+                            
+                            # Search for exactly 1 image using the slide title
+                            images = self._search_and_download_images(slide_title, num_images=1, slide_index=ppt_slide_index)
+                            if images:
+                                internet_images.append(images[0])
+                                logger.info(f"   ✅ Found and downloaded image for slide {slide_idx + 1}")
+                            else:
+                                logger.info(f"   ⚠️  No image found for slide {slide_idx + 1}")
+                    
+                    logger.info("=" * 60)
+                    logger.info(f"✅ Successfully downloaded {len(internet_images)} images from internet")
+                    logger.info("=" * 60)
+                except Exception as e:
+                    logger.error(f"❌ Internet image search failed: {str(e)}", exc_info=True)
+            else:
+                logger.info(f"⏭️  Skipping image search - presentation has only {len(slide_titles)} slides")
+            
+            # Step 8: Match images to appropriate slides
+            logger.info("=" * 60)
+            logger.info("🔗 STEP 8: Matching images to slides...")
+            logger.info("=" * 60)
+            all_images = document_images + internet_images
+            image_placements = self._match_images_to_slides(slide_content_text, all_images)
+            logger.info(f"✅ Matched {len(image_placements)} images to slides")
+            
+            # Step 9: Create PowerPoint presentation with advanced styling and images
+            logger.info("=" * 60)
+            logger.info("🎨 STEP 9: Creating PowerPoint presentation...")
+            logger.info("=" * 60)
             presentation_path = self._create_advanced_powerpoint(
-                slide_content_text, template, title, user, background_image, image_placements, document_images
+                slide_content_text, template, title, user, background_image, image_placements, all_images
             )
             
-            # Step 5: Return success response with download URL
+            logger.info("=" * 70)
+            logger.info("🎉 PRESENTATION GENERATED SUCCESSFULLY!")
+            logger.info("=" * 70)
+            logger.info(f"📁 File path: {presentation_path}")
+            logger.info(f"📊 Summary:")
+            logger.info(f"   - Total slides: {len(slide_titles)}")
+            logger.info(f"   - Images added: {len(image_placements)}")
+            logger.info(f"   - Template: {template}")
+            logger.info("=" * 70)
+            
+            # Step 10: Return success response with download URL
             from django.urls import reverse
             download_url = reverse('rag_app:slide_download', kwargs={'filename': presentation_path})
             
@@ -77,6 +203,77 @@ class SlideProcessor:
             logger.error(f"Error in slide generation: {str(e)}")
             return {'success': False, 'error': str(e)}
 
+    def _extract_image_search_query_from_slide(self, slide_content):
+        """
+        Use LLM to extract a specific image search query from slide content.
+        
+        Args:
+            slide_content: Full slide content including title and bullet points
+            
+        Returns:
+            A concise search query string
+        """
+        try:
+            if not self.llm_available or not self.rag_model:
+                # Fallback: extract title
+                lines = slide_content.strip().split("\n")
+                if lines:
+                    title = lines[0].strip()
+                    title = re.sub(r'[^\w\s-]', '', title).strip()
+                    return title if title else "image"
+                return "image"
+            
+            # Use LLM to generate a specific search query
+            prompt = f"""Based on this slide content, generate a SHORT and SPECIFIC image search query (2-4 words) that would find the most relevant image.
+
+Slide Content:
+{slide_content[:500]}
+
+Instructions:
+- Extract the main topic or concept from the slide
+- Make it specific and visual (something you can see in an image)
+- Keep it SHORT (2-4 words maximum)
+- Do NOT include words like "image", "picture", "diagram"
+- Return ONLY the search query, nothing else
+
+Example:
+If slide is about "Neural Networks Architecture", return: "neural network diagram"
+If slide is about "Python Data Types", return: "python data types"
+
+Your search query:"""
+            
+            messages = [
+                {"role": "system", "content": "You are an expert at creating concise image search queries. Return only the search query, nothing else."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = self.rag_model._generate_llm_response(messages)
+            
+            if response['success']:
+                query = response['answer'].strip()
+                # Clean up the query
+                query = query.replace('"', '').replace("'", "").strip()
+                query = re.sub(r'[^\w\s-]', '', query).strip()
+                return query[:100] if query else "image"
+            else:
+                # Fallback to title
+                lines = slide_content.strip().split("\n")
+                if lines:
+                    title = lines[0].strip()
+                    title = re.sub(r'[^\w\s-]', '', title).strip()
+                    return title if title else "image"
+                return "image"
+                
+        except Exception as e:
+            logger.warning(f"Error extracting search query from slide: {str(e)}")
+            # Fallback to title extraction
+            lines = slide_content.strip().split("\n")
+            if lines:
+                title = lines[0].strip()
+                title = re.sub(r'[^\w\s-]', '', title).strip()
+                return title if title else "image"
+            return "image"
+
     def _sanitize_text(self, text):
         try:
             if not isinstance(text, str):
@@ -86,6 +283,335 @@ class SlideProcessor:
             return text
         except Exception:
             return ''
+    
+    def _remove_think_tags(self, text):
+        """
+        Remove <think>...</think> tags and their content from the text.
+        
+        Args:
+            text: Input text that may contain <think> tags
+            
+        Returns:
+            Text with <think> tags and their content removed
+        """
+        try:
+            if not isinstance(text, str):
+                text = str(text)
+            # Remove <think>...</think> blocks (case-insensitive, multiline)
+            text = re.sub(r'<think>.*?</think>', '', text, flags=re.IGNORECASE | re.DOTALL)
+            # Also remove any orphaned opening or closing tags
+            text = re.sub(r'</?think>', '', text, flags=re.IGNORECASE)
+            # Clean up any extra whitespace left behind
+            text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)
+            return text.strip()
+        except Exception as e:
+            logger.warning(f"Error removing think tags: {str(e)}")
+            return text
+    
+    def _extract_slide_titles(self, slide_content_text):
+        """
+        Extract slide titles from generated slide content.
+        
+        Args:
+            slide_content_text: The full slide content text with ### markers
+            
+        Returns:
+            List of slide titles
+        """
+        try:
+            titles = []
+            slides = slide_content_text.split("###")
+            
+            for idx, slide in enumerate(slides):
+                if not slide.strip():
+                    continue
+                    
+                lines = slide.strip().split("\n")
+                if lines:
+                    title = lines[0].strip()
+                    original_title = title  # Keep original for fallback
+                    
+                    # Clean up title - remove "Slide", "Title" prefixes
+                    title = title.replace("Slide", "").strip()
+                    title = title.replace("Title", "").strip()
+                    title = title.replace("title", "").strip()
+                    title = re.sub(r'^Slide\s+\d+\s*[-:.]?\s*', '', title, flags=re.IGNORECASE).strip()
+                    title = re.sub(r'^Title\s*[-:.]?\s*', '', title, flags=re.IGNORECASE).strip()
+                    
+                    # Remove leading numbers ONLY if there's text after them
+                    # "1. Introduction" -> "Introduction"  (good)
+                    # "1." -> keep as "Slide 1"  (fallback for bad LLM output)
+                    match = re.match(r'^(\d+)[.:]\s*(.+)', title)
+                    if match:
+                        # Has number AND text after it - use the text
+                        title = match.group(2).strip()
+                    elif re.match(r'^\d+[.:]\s*$', title):
+                        # ONLY a number - use fallback
+                        title = f"Slide {len(titles) + 1}"
+                        logger.warning(f"⚠️  Slide {idx} has no descriptive title ('{original_title}'), using fallback: '{title}'")
+                    
+                    # Remove leading/trailing colons or dashes
+                    title = title.strip(':- ')
+                    
+                    if title:
+                        titles.append(title)
+                    else:
+                        # Completely empty after cleaning - use fallback
+                        fallback_title = f"Slide {len(titles) + 1}"
+                        titles.append(fallback_title)
+                        logger.warning(f"⚠️  Slide {idx} became empty after cleaning (was: '{original_title}'), using: '{fallback_title}'")
+            
+            return titles
+        except Exception as e:
+            logger.warning(f"Error extracting slide titles: {str(e)}")
+            return []
+    
+    def _generate_search_queries_from_slides(self, slide_titles, max_queries=3):
+        """
+        Generate search queries from slide titles, skipping the first 3 slides.
+        Returns queries for exactly max_queries slides starting from slide 4.
+        
+        Args:
+            slide_titles: List of all slide titles
+            max_queries: Number of slides to search images for (default: 3)
+            
+        Returns:
+            List of tuples: [(search_query, slide_index), ...]
+            slide_index corresponds to position in the slides array
+        """
+        try:
+            queries_with_index = []
+            
+            # Skip the first 3 slides (indices 0, 1, 2)
+            # Start from slide 4 (index 3) and get the next 3 slides
+            start_index = 3  # Start from the 4th slide
+            end_index = min(len(slide_titles), start_index + max_queries)
+            
+            logger.info(f"Skipping first 3 slides, searching images for slides {start_index} to {end_index-1}")
+            
+            for i in range(start_index, end_index):
+                title = slide_titles[i]
+                
+                # Clean up title for search
+                query = re.sub(r'[^\w\s-]', '', title).strip()
+                
+                if query:
+                    queries_with_index.append((query, i))
+                    logger.info(f"  Will search for slide {i}: '{query}'")
+            
+            return queries_with_index
+        except Exception as e:
+            logger.warning(f"Error generating search queries: {str(e)}")
+            return []
+    
+    def _match_images_to_slides(self, slide_content_text, all_images):
+        """
+        Match downloaded images to appropriate slides based on search query.
+        Each image is matched to the slide it was searched for.
+        
+        Args:
+            slide_content_text: The full slide content text
+            all_images: List of all available images (document + internet)
+            
+        Returns:
+            List of image placement dicts: [{'slide_index': slide_idx, 'image': img_dict}]
+        """
+        try:
+            placements = []
+            used_slide_indices = set()  # Track which slides already have images
+            
+            # Get only internet images (they have the slide index info)
+            internet_images = [img for img in all_images if img.get('source') == 'internet']
+            
+            if not internet_images:
+                logger.info("No internet images available for matching")
+                return placements
+            
+            # Each internet image has metadata about which slide it belongs to
+            for img in internet_images:
+                slide_idx = img.get('slide_index', 1)
+                
+                # Ensure no duplicate images on the same slide
+                if slide_idx in used_slide_indices:
+                    logger.warning(f"⚠️ Slide {slide_idx} already has an image, skipping duplicate")
+                    continue
+                
+                placements.append({
+                    'slide_index': slide_idx,
+                    'image': img
+                })
+                used_slide_indices.add(slide_idx)
+                logger.info(f"✅ Matched image '{img.get('ocr_text')}' to slide {slide_idx + 1}")
+            
+            logger.info(f"📊 Total unique image placements: {len(placements)}")
+            return placements
+        except Exception as e:
+            logger.error(f"Error matching images to slides: {str(e)}")
+            return []
+    
+    def _generate_image_search_query(self, title, structured_content):
+        """
+        Generate a concise search query for finding relevant images based on presentation content.
+        
+        Args:
+            title: Presentation title
+            structured_content: Structured content dict with extracted information
+            
+        Returns:
+            Search query string or None
+        """
+        try:
+            # Use the title as the primary search query
+            if title and len(title.strip()) > 0:
+                # Clean up the title for search
+                query = re.sub(r'[^\w\s-]', '', title).strip()
+                return query
+            
+            # Fallback: use first heading or keywords from content
+            if structured_content.get('headings'):
+                first_heading = structured_content['headings'][0]
+                query = re.sub(r'[^\w\s-]', '', first_heading).strip()
+                return query
+            
+            return None
+        except Exception as e:
+            logger.warning(f"Error generating image search query: {str(e)}")
+            return None
+    
+    def _search_and_download_images(self, query, num_images=3, slide_index=None):
+        """
+        Search for images using SerpApi and download them locally.
+        
+        Args:
+            query: Search query string
+            num_images: Maximum number of images to download (default: 3)
+            slide_index: The slide index this image belongs to (optional)
+            
+        Returns:
+            List of dicts with image info including slide_index
+        """
+        from django.conf import settings
+        
+        # Check if SerpApi key is configured
+        serpapi_key = getattr(settings, 'SERPAPI_KEY', None)
+        if not serpapi_key:
+            logger.warning("⚠️ SERPAPI_KEY not configured. Skipping internet image search.")
+            return []
+        
+        if slide_index is not None:
+            logger.info(f"🔍 Starting image search for Slide {slide_index}: '{query}'")
+        else:
+            logger.info(f"🔍 Starting image search for query: '{query}'")
+        
+        try:
+            from serpapi import GoogleSearch
+        except ImportError:
+            logger.error("❌ google-search-results package not installed. Run: pip install google-search-results")
+            return []
+        
+        # Create temporary directory for downloaded images
+        temp_dir = tempfile.mkdtemp(prefix='slide_images_')
+        logger.info(f"📁 Created temp directory: {temp_dir}")
+        image_data = []
+        downloaded_urls = set()  # Track downloaded URLs to avoid duplicates
+        
+        try:
+            params = {
+                "engine": "google_images",
+                "q": query,
+                "api_key": serpapi_key,
+                "num": num_images,
+            }
+            
+            logger.info(f"🌐 Calling SerpApi with query: '{query}'")
+            search = GoogleSearch(params)
+            results = search.get_dict()
+            
+            if 'error' in results:
+                logger.error(f"❌ SerpApi error: {results['error']}")
+                return []
+            
+            images_results = results.get("images_results", [])
+            logger.info(f"📊 SerpApi returned {len(images_results)} image results")
+            
+            for i, res in enumerate(images_results[:num_images]):
+                img_url = res.get("original") or res.get("thumbnail")
+                if not img_url:
+                    logger.warning(f"⚠️ No URL found for image {i+1}")
+                    continue
+                
+                # Skip if we already downloaded this URL
+                if img_url in downloaded_urls:
+                    logger.warning(f"⚠️ Skipping duplicate image URL: {img_url[:100]}")
+                    continue
+                    
+                try:
+                    logger.info(f"⬇️ Downloading image {i+1}/{num_images} from: {img_url[:100]}...")
+                    # Download image with timeout and proper headers to avoid 403 errors
+                    headers = {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.9',
+                        'Referer': 'https://www.google.com/'
+                    }
+                    response = requests.get(img_url, timeout=10, headers=headers)
+                    response.raise_for_status()
+                    
+                    # Open and validate image
+                    img = Image.open(BytesIO(response.content))
+                    logger.info(f"✓ Image {i+1} downloaded: {img.size[0]}x{img.size[1]} pixels, mode: {img.mode}")
+                    
+                    # Save image
+                    safe_query = re.sub(r'[^\w\s-]', '', query).strip().replace(' ', '_')[:50]
+                    filename = f"{safe_query}_{i+1}.jpg"
+                    img_path = os.path.join(temp_dir, filename)
+                    
+                    # Convert to RGB if necessary (for PNG with transparency)
+                    if img.mode in ('RGBA', 'LA', 'P'):
+                        rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                        if img.mode == 'P':
+                            img = img.convert('RGBA')
+                        rgb_img.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                        img = rgb_img
+                    
+                    img.save(img_path, 'JPEG', quality=85)
+                    
+                    # Mark this URL as downloaded
+                    downloaded_urls.add(img_url)
+                    
+                    image_data.append({
+                        'id': f"internet_{len(image_data)}",  # Unique ID for internet images
+                        'document_title': 'Internet Search',
+                        'document_id': None,
+                        'page_number': None,
+                        'image_index': len(image_data),
+                        'ocr_text': query,  # Use search query as description
+                        'image_path': img_path,
+                        'width': img.width,
+                        'height': img.height,
+                        'source': 'internet',  # Mark as internet source
+                        'url': img_url,
+                        'slide_index': slide_index  # Store which slide this image belongs to
+                    })
+                    
+                    if slide_index is not None:
+                        logger.info(f"✅ Successfully saved image for Slide {slide_index}: {img_path}")
+                    else:
+                        logger.info(f"✅ Successfully saved image {i+1}/{num_images}: {img_path}")
+                    
+                except Exception as e:
+                    logger.warning(f"❌ Failed to download image from {img_url[:100]}: {str(e)}")
+                    continue
+            
+            if slide_index is not None:
+                logger.info(f"🎉 Downloaded {len(image_data)} image(s) for Slide {slide_index}: '{query}'")
+            else:
+                logger.info(f"🎉 Successfully downloaded {len(image_data)} images for query: '{query}'")
+            return image_data
+            
+        except Exception as e:
+            logger.error(f"❌ Error in image search: {str(e)}", exc_info=True)
+            return []
     
     def _extract_document_images(self, documents):
         """
@@ -133,6 +659,119 @@ class SlideProcessor:
         
         return all_images
     
+    def _generate_ai_slide_content_without_images(self, structured_content, slide_count, instructions, language, title):
+        """Generate slide content using the existing RAG model LLM WITHOUT image markers"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Prepare the content for AI processing
+            content_summary = structured_content['full_text'][:8000]  # Limit content length
+            
+            # Determine slide count
+            if slide_count == 'auto':
+                slide_count = min(max(3, len(structured_content['sections'])), 10)
+            else:
+                # Convert to int if it's a string
+                try:
+                    slide_count = int(slide_count)
+                except (ValueError, TypeError):
+                    slide_count = 5  # Default fallback
+            
+            # Create the prompt for the LLM (NO image instructions)
+            prompt = f"""
+You MUST create EXACTLY {slide_count} slides. This is a strict requirement - no more, no less.
+
+Document Content:
+{content_summary}
+
+STRICT REQUIREMENTS:
+1. Create EXACTLY {slide_count} slides - count them before responding
+2. Language: {language}
+3. Presentation Title: {title or 'Document Analysis'}
+4. Additional Instructions: {instructions}
+
+Slide Structure:
+- First slide: Title slide with "{title or 'Document Analysis'}"
+- Slides 2 to {slide_count-1}: Content slides with 4-5 bullet points each
+- Last slide: Summary or conclusion
+
+Format EXACTLY like this (use DESCRIPTIVE titles, NOT numbers):
+### Introduction to the Topic
+• First bullet point
+• Second bullet point
+• Third bullet point
+
+### Key Concepts Explained
+• First bullet point
+• Second bullet point
+
+CRITICAL RULES:
+1. You MUST create {slide_count} slides total
+2. Each slide title must be DESCRIPTIVE (e.g., "Neural Networks Explained", "Applications of AI")
+3. DO NOT use just numbers as titles (BAD: "1.", "2." - GOOD: "Introduction", "Main Concepts")
+4. DO NOT include the word "Slide" or "Title" in slide titles
+5. Use bullet points (•) for content
+6. Keep content educational and well-structured
+
+EXAMPLE OF GOOD SLIDE TITLES:
+### Understanding Machine Learning
+### Types of Neural Networks  
+### Real-World Applications
+### Future Trends and Challenges
+
+EXAMPLE OF BAD SLIDE TITLES (DON'T DO THIS):
+### 1.
+### 2.
+### Slide 1
+### Title
+
+COUNT YOUR SLIDES BEFORE RESPONDING - THERE MUST BE EXACTLY {slide_count} SLIDES WITH DESCRIPTIVE TITLES!
+
+Now create the {slide_count} slides:
+"""
+            
+            # Use the existing RAG model's LLM method
+            system_message = "You are an expert educational content creator that creates well-structured, engaging presentation slides. Follow instructions precisely."
+            
+            messages = [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": prompt}
+            ]
+            
+            # Call the existing LLM method
+            logger.info(f"📤 Sending request to LLM to generate {slide_count} slides...")
+            response = self.rag_model._generate_llm_response(messages)
+            
+            if response['success']:
+                slide_text = response['answer']
+                logger.info(f"📥 Received LLM response ({len(slide_text)} characters)")
+                
+                # Count how many slides the LLM actually generated
+                generated_count = slide_text.count('###')
+                logger.info(f"📊 LLM generated {generated_count} slides (requested: {slide_count})")
+                
+                if generated_count != slide_count:
+                    logger.warning(f"⚠️  WARNING: LLM generated {generated_count} slides but {slide_count} were requested!")
+                
+                # Remove <think> tags and their content
+                slide_text = self._remove_think_tags(slide_text)
+                
+                # Log a preview of what was generated
+                preview_lines = slide_text.split('\n')[:20]
+                logger.info(f"📄 Generated content preview:\n" + '\n'.join(preview_lines))
+                
+                return slide_text
+            else:
+                logger.error(f"LLM generation failed: {response.get('error', 'Unknown error')}")
+                # Fallback to basic generation
+                return self._generate_basic_slide_content(structured_content, slide_count, instructions, language, title)
+            
+        except Exception as e:
+            logger.error(f"Error in RAG slide generation: {str(e)}")
+            # Fallback to basic generation
+            return self._generate_basic_slide_content(structured_content, slide_count, instructions, language, title)
+    
     def _generate_ai_slide_content_with_rag(self, structured_content, slide_count, instructions, language, title, document_images=[]):
         """Generate slide content using the existing RAG model LLM with image awareness"""
         import logging
@@ -149,11 +788,19 @@ class SlideProcessor:
             # Build image context for the LLM
             image_context = ""
             if document_images:
-                image_context = "\n\nAVAILABLE IMAGES IN DOCUMENTS:\n"
+                image_context = "\n\n🖼️ AVAILABLE IMAGES:\n"
                 for idx, img in enumerate(document_images, 1):
-                    ocr_preview = img['ocr_text'][:200] if img['ocr_text'] else "No OCR text"
-                    image_context += f"Image {idx} (from page {img['page_number']}): {ocr_preview}\n"
-                image_context += f"\nYou have {len(document_images)} images available. When creating slides, if an image's content is relevant to a slide topic, include [IMAGE_{idx}] in that slide's bullet points to indicate where the image should be placed.\n"
+                    source = img.get('source', 'document')
+                    if source == 'internet':
+                        image_context += f"  [{idx}] Internet image about: {img['ocr_text']}\n"
+                    else:
+                        ocr_preview = img['ocr_text'][:200] if img['ocr_text'] else "No OCR text"
+                        image_context += f"  [{idx}] Document image from page {img['page_number']}: {ocr_preview}\n"
+                
+                image_context += f"\n⚠️ IMPORTANT: You have {len(document_images)} images available. "
+                image_context += "You MUST use these images by placing [IMAGE_n] markers in relevant slides. "
+                image_context += "Distribute them across different slides (don't put all in one slide). "
+                image_context += "Images will be displayed on the right side of slides without covering text.\n"
             
             # Create the prompt for the LLM
             prompt = f"""
@@ -170,14 +817,24 @@ Requirements:
 - Each slide should have a clear title and 4-6 bullet points
 - Make the content educational and well-structured
 - Focus on key concepts and important information
-- If relevant images are available, include [IMAGE_n] marker in bullet points where the image should appear
+- **CRITICAL**: If images are available above, you MUST include [IMAGE_n] markers in relevant slides where n is the image number
+- Distribute images across different slides - maximum 1 image per slide
+- Place [IMAGE_n] marker as a separate bullet point or within a bullet point
 
 Format each slide exactly like this:
 ### Slide Title Here
 • First bullet point
-• Second bullet point
+• Second bullet point [IMAGE_1]
 • Third bullet point
-• [IMAGE_2] (only if relevant image exists)
+• Fourth bullet point
+
+OR
+
+### Slide Title Here
+• First bullet point
+• Second bullet point
+• [IMAGE_2]
+• Third bullet point
 
 Please create engaging, informative slides that capture the essence of the document.
 Start with a title slide, then create content slides, and end with a summary if appropriate.
@@ -196,6 +853,8 @@ Start with a title slide, then create content slides, and end with a summary if 
             
             if response['success']:
                 slide_text = response['answer']
+                # Remove <think> tags and their content
+                slide_text = self._remove_think_tags(slide_text)
                 # Extract image placements from the generated content
                 image_placements = self._extract_image_placements(slide_text, document_images)
                 return slide_text, image_placements
@@ -343,41 +1002,64 @@ Start with a title slide, then create content slides, and end with a summary if 
             
             # Split content into slides
             slides = slide_content_text.split("###")
+            logger.info(f"📊 PowerPoint creation: Split content into {len(slides)} sections")
+            logger.info(f"📊 After filtering empty sections, will create slides...")
             
+            slide_number = 0
             for i, slide in enumerate(slides):
                 if not slide.strip():
+                    logger.info(f"   Section {i}: EMPTY - skipping")
                     continue
+                
+                slide_number += 1
+                logger.info(f"   Section {i}: Creating PowerPoint slide #{slide_number}")
                     
                 lines = slide.strip().split("\n")
                 slide_title = self._sanitize_text(lines[0].strip())
                 
-                # Clean up slide title - remove "Slide" prefix and numbers
+                # Clean up slide title - remove "Slide", "Title", prefixes and numbers
                 slide_title = slide_title.replace("Slide", "").strip()
+                slide_title = slide_title.replace("Title", "").strip()
+                slide_title = slide_title.replace("title", "").strip()
                 # Remove leading numbers and dots/colons
                 slide_title = re.sub(r'^\d+[.:]\s*', '', slide_title).strip()
-                # Remove any remaining "Slide i" patterns
+                # Remove any remaining "Slide i" or "Title:" patterns
                 slide_title = re.sub(r'^Slide\s+\d+\s*[-:.]?\s*', '', slide_title, flags=re.IGNORECASE).strip()
+                slide_title = re.sub(r'^Title\s*[-:.]?\s*', '', slide_title, flags=re.IGNORECASE).strip()
+                # Remove leading/trailing colons or dashes
+                slide_title = slide_title.strip(':- ')
                 
                 # Separate bullet points and image markers
                 body_lines = []
                 slide_images = []
+                
+                # Check if this slide has a matched image from image_placements
+                logger.info(f"🔍 Checking slide {i} for images...")
+                for placement in image_placements:
+                    logger.info(f"   Placement: slide_index={placement['slide_index']}, current i={i}")
+                    if placement['slide_index'] == i:
+                        slide_images.append(placement['image'])
+                        logger.info(f"   ✅ MATCHED! Adding image to slide {i}")
+                
+                if slide_images:
+                    logger.info(f"📸 Slide {i} will have {len(slide_images)} image(s)")
+                else:
+                    logger.info(f"⚪ Slide {i} will have no images")
                 
                 for line in lines[1:]:
                     line = line.strip()
                     if not line:
                         continue
                     
-                    # Check for image marker
-                    image_match = re.search(r'\[IMAGE_(\d+)\]', line)
-                    if image_match:
-                        img_idx = int(image_match.group(1)) - 1
-                        if 0 <= img_idx < len(document_images):
-                            slide_images.append(document_images[img_idx])
-                        # Remove the marker from the line
-                        line = re.sub(r'\[IMAGE_\d+\]', '', line).strip()
+                    # Remove any old [IMAGE_n] markers if present
+                    line = re.sub(r'\[IMAGE_\d+\]', '', line).strip()
                     
                     if line.startswith('•'):
                         body_lines.append(self._sanitize_text(line))
+                
+                # If this slide has images, limit bullet points to 3-4 for better layout
+                if slide_images and len(body_lines) > 4:
+                    body_lines = body_lines[:4]
                 
                 slide_obj = prs.slides.add_slide(slide_layout)
                 
@@ -424,6 +1106,7 @@ Start with a title slide, then create content slides, and end with a summary if 
                 has_images = len(slide_images) > 0
                 
                 if has_images:
+                    logger.info(f"🖼️  Adding image to slide {i}...")
                     # Two-column layout: text on left, image on right
                     content_box = slide_obj.shapes.add_textbox(
                         Inches(0.8), Inches(1.4),
@@ -431,7 +1114,11 @@ Start with a title slide, then create content slides, and end with a summary if 
                     )
                     
                     # Add image on the right side
-                    if slide_images[0]['image_path'] and os.path.exists(slide_images[0]['image_path']):
+                    image_path = slide_images[0].get('image_path')
+                    logger.info(f"   Image path: {image_path}")
+                    logger.info(f"   Path exists: {os.path.exists(image_path) if image_path else False}")
+                    
+                    if image_path and os.path.exists(image_path):
                         try:
                             img_left = slide_width / 2 + Inches(0.2)
                             img_top = Inches(1.6)
@@ -439,14 +1126,16 @@ Start with a title slide, then create content slides, and end with a summary if 
                             img_height = slide_height - Inches(2.4)
                             
                             slide_obj.shapes.add_picture(
-                                slide_images[0]['image_path'],
+                                image_path,
                                 img_left, img_top,
                                 width=img_width,
                                 height=img_height
                             )
-                            logger.info(f"Added image to slide {i}: {slide_images[0]['image_path']}")
+                            logger.info(f"   ✅ Successfully added image to slide {i}: {image_path}")
                         except Exception as e:
-                            logger.warning(f"Could not add image to slide: {e}")
+                            logger.error(f"   ❌ Could not add image to slide {i}: {e}")
+                    else:
+                        logger.warning(f"   ⚠️  Image path invalid or doesn't exist: {image_path}")
                 else:
                     # Full-width text layout
                     content_box = slide_obj.shapes.add_textbox(
