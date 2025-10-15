@@ -399,6 +399,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with ❤️ by [TEAM_NAME_PLACEHOLDER]**
-
 *Transforming education through artificial intelligence*
